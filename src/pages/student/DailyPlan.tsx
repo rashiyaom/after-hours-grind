@@ -1,23 +1,102 @@
-import { motion } from "framer-motion";
-import { Check, Flame, Dumbbell, Utensils, Footprints, Droplets, MessageSquare, Upload, ChevronRight } from "lucide-react";
-import SectionHeader from "@/components/SectionHeader";
-import { currentStudent, todayTask } from "@/data/mockData";
 import { useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import {
+  Check, Flame, Dumbbell, Utensils, Footprints, Droplets,
+  MessageSquare, Upload, ChevronRight, ChevronLeft, ChevronRight as ChevRight,
+  Play, Info, ListChecks, Clock, LayoutGrid, X
+} from "lucide-react";
+import SectionHeader from "@/components/SectionHeader";
+import { currentStudent } from "@/data/mockData";
+import { useStore } from "@/hooks/useStore";
+import { todayTask } from "@/data/mockData";
+import { Link } from "react-router-dom";
+import { toast } from "sonner";
+
+const dayTypes = [
+  "Push Day — Chest & Triceps",
+  "Pull Day — Back & Biceps",
+  "Legs Day — Quads & Hamstrings",
+  "Rest & Recovery",
+  "Push Day — Shoulders",
+  "Pull Day — Back",
+  "Cardio & Core",
+];
 
 export default function DailyPlanPage() {
-  const s = currentStudent;
+  const { student: s, completeTask } = useStore();
+  const [selectedDay, setSelectedDay] = useState(s.currentDay);
   const [workouts, setWorkouts] = useState(todayTask.workout);
   const [meals, setMeals] = useState(todayTask.diet);
+  const [selectedExercise, setSelectedExercise] = useState<typeof todayTask.workout[0] | null>(null);
 
-  const toggleWorkout = (id: string) => setWorkouts(w => w.map(x => x.id === id ? { ...x, completed: !x.completed } : x));
-  const toggleMeal = (id: string) => setMeals(m => m.map(x => x.id === id ? { ...x, completed: !x.completed } : x));
+  const toggleWorkout = (id: string) => {
+    setWorkouts((w) => w.map((x) => (x.id === id ? { ...x, completed: !x.completed } : x)));
+    if(!workouts.find(w => w.id === id)?.completed) {
+      toast.success("Exercise completed! Keep it up.");
+    }
+  };
 
-  const totalTasks = workouts.length + meals.length + 2; // +steps, +hydration
-  const completedTasks = workouts.filter(w => w.completed).length + meals.filter(m => m.completed).length;
+  const toggleMeal = (id: string) => {
+    setMeals((m) => m.map((x) => (x.id === id ? { ...x, completed: !x.completed } : x)));
+    if(!meals.find(m => m.id === id)?.completed) {
+      toast.success("Meal logged. Stay consistent.");
+    }
+  };
+
+  const totalTasks = workouts.length + meals.length + 2;
+  const completedTasks =
+    workouts.filter((w) => w.completed).length + meals.filter((m) => m.completed).length;
   const pct = Math.round((completedTasks / totalTasks) * 100);
 
+  const dayType = dayTypes[(selectedDay - 1) % 7];
+  const isToday = selectedDay === s.currentDay;
+  const isPast = selectedDay < s.currentDay;
+
   return (
-    <div className="p-4 sm:p-6 lg:p-8 max-w-3xl mx-auto space-y-8">
+    <div className="p-4 sm:p-6 lg:p-8 max-w-3xl mx-auto space-y-6">
+      {/* Exercise Detail Overlay */}
+      <AnimatePresence>
+        {selectedExercise && (
+          <>
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setSelectedExercise(null)} className="fixed inset-0 bg-background/80 backdrop-blur-md z-[100]" />
+            <motion.div initial={{ opacity: 0, scale: 0.95, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: 20 }} className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-md bg-card border border-border shadow-2xl z-[101] rounded-3xl overflow-hidden">
+               <div className="aspect-video bg-muted relative flex items-center justify-center group">
+                 <div className="absolute inset-0 bg-gradient-to-br from-zinc-800 to-zinc-900" />
+                 <Play className="h-10 w-10 text-foreground/40 group-hover:scale-110 transition-all z-10" />
+                 <X onClick={() => setSelectedExercise(null)} className="absolute top-4 right-4 h-5 w-5 text-muted-foreground hover:text-foreground cursor-pointer z-20" />
+               </div>
+               <div className="p-6 space-y-4">
+                  <div>
+                    <h3 className="text-lg font-display font-bold text-foreground">{selectedExercise.name}</h3>
+                    <p className="text-xs text-muted-foreground mt-1">Focus on full range of motion</p>
+                  </div>
+                  <div className="grid grid-cols-3 gap-3">
+                    <div className="bg-accent/40 p-3 rounded-2xl text-center">
+                      <p className="text-xs text-muted-foreground font-medium uppercase tracking-widest mb-1">Sets</p>
+                      <p className="text-sm font-bold">{selectedExercise.sets}</p>
+                    </div>
+                    <div className="bg-accent/40 p-3 rounded-2xl text-center">
+                      <p className="text-xs text-muted-foreground font-medium uppercase tracking-widest mb-1">Reps</p>
+                      <p className="text-sm font-bold">{selectedExercise.reps}</p>
+                    </div>
+                    <div className="bg-accent/40 p-3 rounded-2xl text-center">
+                      <p className="text-xs text-muted-foreground font-medium uppercase tracking-widest mb-1">Rest</p>
+                      <p className="text-sm font-bold">{selectedExercise.rest}</p>
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest">Coach's Instruction</p>
+                    <p className="text-sm text-secondary-foreground leading-relaxed italic">"Keep your core tight throughout the movement. Don't rush the descent—3 seconds per rep for maximum hyperthrophy."</p>
+                  </div>
+                  <button onClick={() => { setSelectedExercise(null); toggleWorkout(selectedExercise.id); }} className="w-full bg-foreground text-background py-3.5 rounded-2xl font-bold text-sm hover:translate-y-[-2px] transition-all">
+                    Complete Set
+                  </button>
+               </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+
       {/* Header */}
       <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
         <div className="flex items-center gap-3 mb-2">
@@ -25,118 +104,150 @@ export default function DailyPlanPage() {
             <Flame className="h-3.5 w-3.5 text-streak" />
             <span className="text-xs font-medium text-streak">{s.streak} day streak</span>
           </div>
+          {isToday && (
+            <span className="text-xs px-2 py-0.5 rounded-full bg-foreground text-background font-medium">Today</span>
+          )}
         </div>
-        <h1 className="text-2xl font-display font-bold text-foreground">Day {s.currentDay} of {s.totalDays}</h1>
-        <p className="text-sm text-muted-foreground mt-1">Push Day — Chest & Triceps</p>
+        <h1 className="text-2xl font-display font-bold text-foreground">
+          Day {selectedDay} of {s.totalDays}
+        </h1>
+        <p className="text-sm text-muted-foreground mt-1">{dayType}</p>
+      </motion.div>
 
-        {/* Progress bar */}
-        <div className="mt-4">
-          <div className="flex items-center justify-between text-xs text-muted-foreground mb-2">
-            <span>{completedTasks}/{totalTasks} tasks completed</span>
-            <span>{pct}%</span>
+      {/* 28-Day Timeline */}
+      <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }} className="glass-card p-4">
+        <div className="flex items-center justify-between mb-3 px-1">
+          <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Workout Timeline</p>
+          <div className="flex gap-1">
+            <button onClick={() => setSelectedDay((d) => Math.max(1, d - 7))} disabled={selectedDay <= 7} className="p-2 rounded-xl hover:bg-accent transition-colors disabled:opacity-20"><ChevronLeft className="h-4 w-4" /></button>
+            <button onClick={() => setSelectedDay((d) => Math.min(s.totalDays, d + 7))} disabled={selectedDay > s.totalDays - 7} className="p-2 rounded-xl hover:bg-accent transition-colors disabled:opacity-20"><ChevRight className="h-4 w-4" /></button>
           </div>
-          <div className="h-2 bg-muted rounded-full overflow-hidden">
-            <motion.div initial={{ width: 0 }} animate={{ width: `${pct}%` }} transition={{ duration: 0.8 }} className="h-full bg-foreground rounded-full" />
-          </div>
+        </div>
+        <div className="grid grid-cols-7 gap-1.5">
+          {Array.from({ length: s.totalDays }, (_, i) => {
+            const day = i + 1;
+            const isSelected = day === selectedDay;
+            const isDone = day < s.currentDay;
+            const isTodayDay = day === s.currentDay;
+            return (
+              <button
+                key={day}
+                onClick={() => setSelectedDay(day)}
+                className={`aspect-square rounded-xl flex items-center justify-center text-xs font-bold transition-all ${
+                  isSelected ? "bg-foreground text-background scale-110 shadow-lg" :
+                  isTodayDay ? "border-2 border-streak/50 text-streak bg-streak/5" :
+                  isDone ? "bg-accent/40 text-muted-foreground" : "bg-muted/20 text-muted-foreground/30"
+                }`}
+              >
+                {isDone && !isSelected ? <Check className="h-3 w-3" /> : day}
+              </button>
+            );
+          })}
         </div>
       </motion.div>
 
-      {/* Workout Section */}
-      <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="glass-card p-6">
-        <div className="flex items-center gap-3 mb-5">
-          <div className="p-2 rounded-xl bg-accent">
-            <Dumbbell className="h-5 w-5 text-foreground" />
+      {/* Main Grid: Workout & Diet */}
+      <div className="grid lg:grid-cols-2 gap-6">
+        {/* Workout Section */}
+        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="glass-card p-6 space-y-6">
+          <div className="flex items-center justify-between">
+             <div className="flex items-center gap-3">
+               <div className="p-2.5 rounded-2xl bg-accent/60 outline outline-4 outline-accent/10"><Dumbbell className="h-5 w-5" /></div>
+               <div>
+                  <h2 className="font-display font-bold">Workout</h2>
+                  <p className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground">{workouts.filter(w=>w.completed).length}/{workouts.length} Done</p>
+               </div>
+             </div>
+             <Info className="h-4 w-4 text-muted-foreground opacity-40" />
           </div>
-          <div>
-            <h2 className="font-display font-semibold text-foreground">Workout Plan</h2>
-            <p className="text-xs text-muted-foreground">{workouts.filter(w => w.completed).length}/{workouts.length} exercises done</p>
-          </div>
-        </div>
-        <div className="space-y-3">
-          {workouts.map((w) => (
-            <button key={w.id} onClick={() => toggleWorkout(w.id)} className={`w-full flex items-center gap-4 p-4 rounded-xl transition-all ${w.completed ? "bg-muted/20" : "bg-muted/40 hover:bg-muted/60"}`}>
-              <div className={`w-5 h-5 rounded-lg border-2 flex items-center justify-center transition-all ${w.completed ? "bg-foreground border-foreground" : "border-border"}`}>
-                {w.completed && <Check className="h-3 w-3 text-background" />}
+          <div className="space-y-2">
+            {workouts.map((w) => (
+              <div key={w.id} className="flex items-center gap-3 group">
+                <button
+                  onClick={() => isToday && toggleWorkout(w.id)}
+                  className={`flex-1 flex items-center gap-4 p-4 rounded-2xl transition-all text-left ${
+                    w.completed ? "bg-accent/20 opacity-50" : "bg-accent/40 hover:bg-accent/60"
+                  }`}
+                >
+                  <div className={`w-5 h-5 rounded-lg border-2 flex items-center justify-center transition-all ${w.completed ? "bg-foreground border-foreground":"border-border"}`}>
+                    {w.completed && <Check className="h-3 w-3 text-background" />}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className={`text-sm font-bold ${w.completed ? "line-through text-muted-foreground":""}`}>{w.name}</p>
+                    <p className="text-[10px] text-muted-foreground">{w.sets} sets · {w.reps} reps</p>
+                  </div>
+                </button>
+                <button onClick={() => setSelectedExercise(w)} className="p-2.5 rounded-xl bg-accent opacity-0 group-hover:opacity-100 transition-opacity hover:text-foreground text-muted-foreground">
+                  <Play className="h-3.5 w-3.5" />
+                </button>
               </div>
-              <div className="flex-1 text-left">
-                <p className={`text-sm font-medium ${w.completed ? "text-muted-foreground line-through" : "text-foreground"}`}>{w.name}</p>
-                <p className="text-[11px] text-muted-foreground">{w.sets} sets × {w.reps} · {w.rest} rest</p>
-              </div>
-              <ChevronRight className="h-4 w-4 text-muted-foreground/30" />
-            </button>
-          ))}
-        </div>
-      </motion.div>
-
-      {/* Diet Section */}
-      <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="glass-card p-6">
-        <div className="flex items-center gap-3 mb-5">
-          <div className="p-2 rounded-xl bg-accent">
-            <Utensils className="h-5 w-5 text-foreground" />
-          </div>
-          <div>
-            <h2 className="font-display font-semibold text-foreground">Diet Plan</h2>
-            <p className="text-xs text-muted-foreground">{meals.filter(m => m.completed).length}/{meals.length} meals logged</p>
-          </div>
-        </div>
-        <div className="space-y-3">
-          {meals.map((m) => (
-            <button key={m.id} onClick={() => toggleMeal(m.id)} className={`w-full flex items-center gap-4 p-4 rounded-xl transition-all ${m.completed ? "bg-muted/20" : "bg-muted/40 hover:bg-muted/60"}`}>
-              <div className={`w-5 h-5 rounded-lg border-2 flex items-center justify-center transition-all ${m.completed ? "bg-foreground border-foreground" : "border-border"}`}>
-                {m.completed && <Check className="h-3 w-3 text-background" />}
-              </div>
-              <div className="flex-1 text-left">
-                <p className={`text-sm font-medium ${m.completed ? "text-muted-foreground line-through" : "text-foreground"}`}>{m.meal}</p>
-                <p className="text-[11px] text-muted-foreground">{m.description} · {m.calories} kcal · {m.time}</p>
-              </div>
-            </button>
-          ))}
-        </div>
-      </motion.div>
-
-      {/* Activity & Steps */}
-      <div className="grid sm:grid-cols-2 gap-4">
-        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }} className="glass-card p-6">
-          <div className="flex items-center gap-3 mb-3">
-            <Footprints className="h-5 w-5 text-foreground" />
-            <h3 className="font-display font-semibold text-foreground">Step Goal</h3>
-          </div>
-          <p className="text-3xl font-display font-bold text-foreground">8,432</p>
-          <p className="text-xs text-muted-foreground">/ {todayTask.stepTarget.toLocaleString()} steps</p>
-          <div className="mt-3 h-2 bg-muted rounded-full overflow-hidden">
-            <div className="h-full bg-foreground rounded-full" style={{ width: "84%" }} />
+            ))}
           </div>
         </motion.div>
-        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.35 }} className="glass-card p-6">
-          <div className="flex items-center gap-3 mb-3">
-            <Droplets className="h-5 w-5 text-foreground" />
-            <h3 className="font-display font-semibold text-foreground">Hydration</h3>
+
+        {/* Diet Section */}
+        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }} className="glass-card p-6 space-y-6">
+          <div className="flex items-center gap-3">
+              <div className="p-2.5 rounded-2xl bg-accent/60 outline outline-4 outline-accent/10"><Utensils className="h-5 w-5" /></div>
+              <div>
+                <h2 className="font-display font-bold">Today's Meals</h2>
+                <p className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground">Calories tracked</p>
+              </div>
           </div>
-          <p className="text-3xl font-display font-bold text-foreground">2.5L</p>
-          <p className="text-xs text-muted-foreground">/ {todayTask.hydrationGoal}</p>
-          <div className="mt-3 h-2 bg-muted rounded-full overflow-hidden">
-            <div className="h-full bg-foreground rounded-full" style={{ width: "71%" }} />
+          <div className="space-y-2">
+            {meals.map((m) => (
+              <button
+                key={m.id}
+                onClick={() => isToday && toggleMeal(m.id)}
+                className={`w-full flex items-center gap-4 p-4 rounded-2xl transition-all text-left ${
+                  m.completed ? "bg-accent/20 opacity-50" : "bg-accent/40 hover:bg-accent/60"
+                }`}
+              >
+                <div className={`w-5 h-5 rounded-lg border-2 flex items-center justify-center transition-all ${m.completed ? "bg-foreground border-foreground":"border-border"}`}>
+                  {m.completed && <Check className="h-3 w-3 text-background" />}
+                </div>
+                <div className="flex-1">
+                  <p className={`text-sm font-bold ${m.completed ? "line-through text-muted-foreground":""}`}>{m.meal}</p>
+                  <p className="text-[10px] text-muted-foreground">{m.time} · {m.calories} kcal</p>
+                </div>
+              </button>
+            ))}
           </div>
         </motion.div>
       </div>
 
-      {/* Trainer Notes */}
-      <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }} className="glass-card p-6">
-        <div className="flex items-center gap-3 mb-3">
-          <MessageSquare className="h-5 w-5 text-foreground" />
-          <h3 className="font-display font-semibold text-foreground">Notes from Coach</h3>
-        </div>
-        <p className="text-sm text-muted-foreground leading-relaxed italic">"{todayTask.trainerNotes}"</p>
-      </motion.div>
+      {/* Activity Stats */}
+      <div className="grid grid-cols-2 gap-4">
+        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="glass-card p-6 relative overflow-hidden">
+           <Footprints className="h-10 w-10 text-foreground/5 absolute -bottom-2 -right-2 rotate-12" />
+           <p className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground mb-4">Daily Steps</p>
+           <p className="text-3xl font-display font-bold">{s.todaySteps.toLocaleString()}</p>
+           <p className="text-xs text-muted-foreground mt-1">Target: {todayTask.stepTarget.toLocaleString()}</p>
+           <div className="h-1.5 bg-muted rounded-full mt-4 overflow-hidden">
+              <div className="h-full bg-foreground w-3/4 rounded-full" />
+           </div>
+        </motion.div>
+        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }} className="glass-card p-6 relative overflow-hidden">
+           <Droplets className="h-10 w-10 text-foreground/5 absolute -bottom-2 -right-2 rotate-12" />
+           <p className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground mb-4">Hydration</p>
+           <p className="text-3xl font-display font-bold">2.4L</p>
+           <p className="text-xs text-muted-foreground mt-1">Goal: {todayTask.hydrationGoal}</p>
+           <div className="h-1.5 bg-muted rounded-full mt-4 overflow-hidden">
+              <div className="h-full bg-foreground w-[65%] rounded-full" />
+           </div>
+        </motion.div>
+      </div>
 
-      {/* Upload Proof */}
-      <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.45 }} className="glass-card p-6 text-center">
-        <Upload className="h-8 w-8 text-muted-foreground mx-auto mb-3" />
-        <h3 className="font-display font-semibold text-foreground mb-1">Upload Proof</h3>
-        <p className="text-xs text-muted-foreground mb-4">Take a photo or record a video of your workout</p>
-        <button className="bg-foreground text-background px-6 py-2.5 rounded-xl text-sm font-medium hover:bg-foreground/90 transition-colors">
-          Upload Now
-        </button>
+      {/* Upload Check-in Call to Action */}
+      <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }} className="glass-card p-8 text-center bg-gradient-to-t from-accent/20 to-transparent border-t-0">
+         <div className="w-16 h-16 rounded-3xl bg-accent flex items-center justify-center mx-auto mb-4 border border-border shadow-xl">
+           <Upload className="h-6 w-6 text-foreground" />
+         </div>
+         <h2 className="text-xl font-display font-bold">Ready to check-in?</h2>
+         <p className="text-sm text-muted-foreground mt-2 max-w-sm mx-auto">Upload your workout video or meal photo to maintain your streak and get feedback from Coach Vikram.</p>
+         <Link to="/student/upload" className="mt-6 inline-flex items-center gap-2 bg-foreground text-background px-8 py-3.5 rounded-2xl font-bold tracking-tight hover:scale-105 active:scale-95 transition-all">
+            Upload Progress
+         </Link>
       </motion.div>
     </div>
   );

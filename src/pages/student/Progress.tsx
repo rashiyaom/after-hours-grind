@@ -1,10 +1,11 @@
 import { motion } from "framer-motion";
-import { Flame, Target, TrendingUp, Upload, Footprints, Dumbbell, Award } from "lucide-react";
+import { Flame, Target, TrendingUp, Upload, Footprints, Award } from "lucide-react";
 import StatCard from "@/components/StatCard";
 import ProgressRing from "@/components/ProgressRing";
 import WeeklyChart from "@/components/WeeklyChart";
 import SectionHeader from "@/components/SectionHeader";
 import { currentStudent, weeklyData } from "@/data/mockData";
+import { Link } from "react-router-dom";
 
 const monthlyData = [
   { label: "Week 1", value: 92 },
@@ -105,6 +106,12 @@ export default function ProgressPage() {
                 </div>
               ))}
             </div>
+            <Link
+              to="/student/achievements"
+              className="mt-4 flex items-center justify-center text-xs text-muted-foreground hover:text-foreground transition-colors"
+            >
+              View all achievements →
+            </Link>
           </div>
         </div>
       </div>
