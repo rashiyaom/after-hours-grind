@@ -3,8 +3,28 @@ import { BrowserRouter, Route, Routes } from "react-router-dom";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import Index from "./pages/Index.tsx";
-import NotFound from "./pages/NotFound.tsx";
+
+import PublicLayout from "@/layouts/PublicLayout";
+import AppLayout from "@/layouts/AppLayout";
+
+import LandingPage from "@/pages/LandingPage";
+import LoginPage from "@/pages/LoginPage";
+import SignupPage from "@/pages/SignupPage";
+import NotFound from "@/pages/NotFound";
+
+import StudentDashboard from "@/pages/student/Dashboard";
+import DailyPlan from "@/pages/student/DailyPlan";
+import Progress from "@/pages/student/Progress";
+import Feed from "@/pages/student/Feed";
+import UploadPage from "@/pages/student/UploadPage";
+import Leaderboard from "@/pages/student/Leaderboard";
+import Profile from "@/pages/student/Profile";
+import Community from "@/pages/student/Community";
+import Notifications from "@/pages/student/Notifications";
+import Settings from "@/pages/student/Settings";
+
+import TrainerDashboard from "@/pages/trainer/Dashboard";
+import PlanBuilder from "@/pages/trainer/PlanBuilder";
 
 const queryClient = new QueryClient();
 
@@ -15,8 +35,33 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <Routes>
-          <Route path="/" element={<Index />} />
-          {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+          {/* Public */}
+          <Route element={<PublicLayout />}>
+            <Route path="/" element={<LandingPage />} />
+          </Route>
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/signup" element={<SignupPage />} />
+
+          {/* Student */}
+          <Route element={<AppLayout />}>
+            <Route path="/student/dashboard" element={<StudentDashboard />} />
+            <Route path="/student/daily-plan" element={<DailyPlan />} />
+            <Route path="/student/progress" element={<Progress />} />
+            <Route path="/student/feed" element={<Feed />} />
+            <Route path="/student/upload" element={<UploadPage />} />
+            <Route path="/student/leaderboard" element={<Leaderboard />} />
+            <Route path="/student/profile" element={<Profile />} />
+            <Route path="/student/community" element={<Community />} />
+            <Route path="/student/notifications" element={<Notifications />} />
+            <Route path="/student/settings" element={<Settings />} />
+          </Route>
+
+          {/* Trainer */}
+          <Route element={<AppLayout />}>
+            <Route path="/trainer/dashboard" element={<TrainerDashboard />} />
+            <Route path="/trainer/plan-builder" element={<PlanBuilder />} />
+          </Route>
+
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
