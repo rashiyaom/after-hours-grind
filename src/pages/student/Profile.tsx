@@ -49,7 +49,7 @@ export default function ProfilePage() {
       followers: 124,
       following: 89,
     } : me;
-  }, [userId, isMe, me]);
+  }, [userId, isMe, me, students]);
 
   const userPosts = posts.filter((p) => p.userId === s.id);
 

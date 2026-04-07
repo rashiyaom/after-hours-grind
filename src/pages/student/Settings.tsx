@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   User, Bell, Shield, Smartphone, Footprints, LogOut,
@@ -8,6 +8,31 @@ import {
 import { useStore } from "@/hooks/useStore";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
+
+const SETTINGS_STORAGE_KEY = "ah_settings_v1";
+
+type PersistedSettings = {
+  notifications: {
+    push: boolean;
+    email: boolean;
+    streakReminders: boolean;
+    planUpdates: boolean;
+  };
+  privacy: {
+    publicProfile: boolean;
+    showStreak: boolean;
+  };
+};
+
+function getPersistedSettings(): PersistedSettings | null {
+  try {
+    const raw = localStorage.getItem(SETTINGS_STORAGE_KEY);
+    if (!raw) return null;
+    return JSON.parse(raw) as PersistedSettings;
+  } catch {
+    return null;
+  }
+}
 
 function Toggle({ enabled, onToggle, accent = "bg-neon-orange" }: { enabled: boolean; onToggle: () => void; accent?: string }) {
   return (
@@ -26,6 +51,7 @@ export default function SettingsPage() {
   const navigate = useNavigate();
   const { student: s, updateProfile } = useStore();
   const [view, setView] = useState<"menu" | "edit-profile">("menu");
+  const persisted = getPersistedSettings();
 
   const [formData, setFormData] = useState({
     name: s.name,
@@ -35,16 +61,27 @@ export default function SettingsPage() {
   });
 
   const [notifications, setNotifications] = useState({
-    push: true,
-    email: false,
-    streakReminders: true,
-    planUpdates: true,
+    push: persisted?.notifications.push ?? true,
+    email: persisted?.notifications.email ?? false,
+    streakReminders: persisted?.notifications.streakReminders ?? true,
+    planUpdates: persisted?.notifications.planUpdates ?? true,
   });
 
   const [privacy, setPrivacy] = useState({
-    publicProfile: true,
-    showStreak: true,
+    publicProfile: persisted?.privacy.publicProfile ?? true,
+    showStreak: persisted?.privacy.showStreak ?? true,
   });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(
+        SETTINGS_STORAGE_KEY,
+        JSON.stringify({ notifications, privacy }),
+      );
+    } catch {
+      // No-op: keep in-memory values if persistence is unavailable.
+    }
+  }, [notifications, privacy]);
 
   const handleSaveProfile = () => {
     updateProfile({

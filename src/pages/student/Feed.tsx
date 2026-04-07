@@ -3,13 +3,18 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Search, Plus, Filter, X, Heart, MessageCircle, Share2, Send, Play, Image as ImageIcon } from "lucide-react";
 import FeedPostCard from "@/components/FeedPostCard";
 import { useStore } from "@/hooks/useStore";
+import { useCurrentUser, usePermissions } from "@/hooks/useStore";
 import { Post } from "@/types";
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
+import { filterPostsByTab } from "@/lib/feedFilters";
 
 export default function FeedPage() {
   const { posts, likePost, addComment, loading, setLoading } = useStore();
+  const currentUser = useCurrentUser();
+  const permissions = usePermissions();
+  const canPostFeed = Boolean(currentUser && permissions[currentUser.role].post_feed);
   const [activeTab, setActiveTab] = useState("All");
   const [selectedPost, setSelectedPost] = useState<Post | null>(null);
   const [commentText, setCommentText] = useState("");
@@ -29,11 +34,7 @@ export default function FeedPage() {
     setCommentText("");
   };
 
-  const filteredPosts = posts.filter((p) => {
-    if (activeTab === "Videos") return p.type === "reel";
-    if (activeTab === "Photos") return p.type === "image";
-    return true;
-  });
+  const filteredPosts = filterPostsByTab(posts, activeTab);
 
   if (loading) {
     return (
@@ -60,12 +61,14 @@ export default function FeedPage() {
            <h1 className="text-3xl font-display font-black text-foreground tracking-tight">The Grind Feed</h1>
            <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mt-1 px-1">Community Intelligence</p>
         </div>
-        <Link
-          to="/student/upload"
-          className="p-4 rounded-[1.25rem] bg-neon-orange text-background hover:scale-105 active:scale-95 transition-all shadow-[0_10px_20px_rgba(255,165,0,0.3)] ring-offset-background focus:ring-2 ring-neon-orange"
-        >
-          <Plus className="h-5 w-5" />
-        </Link>
+        {canPostFeed && (
+          <Link
+            to="/student/upload"
+            className="p-4 rounded-[1.25rem] bg-neon-orange text-background hover:scale-105 active:scale-95 transition-all shadow-[0_10px_20px_rgba(255,165,0,0.3)] ring-offset-background focus:ring-2 ring-neon-orange"
+          >
+            <Plus className="h-5 w-5" />
+          </Link>
+        )}
       </motion.div>
 
       {/* Tabs */}

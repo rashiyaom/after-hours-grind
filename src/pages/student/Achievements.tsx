@@ -2,6 +2,7 @@ import React from "react";
 import { motion } from "framer-motion";
 import { Award, Flame, Footprints, Trophy, Star, Sun, Leaf, Lock, ShieldCheck, Zap, Activity, ChevronRight, CheckCircle2 } from "lucide-react";
 import { useStore } from "@/hooks/useStore";
+import { Badge } from "@/types";
 
 const iconMap: Record<string, React.ElementType> = {
   flame: Flame,
@@ -15,11 +16,11 @@ const iconMap: Record<string, React.ElementType> = {
 export default function AchievementsPage() {
   const { student: s } = useStore();
   
-  const allBadges = [
+  const allBadges: Badge[] = [
     ...s.badges,
-    { id: "b7", name: "Upload_King", description: "COMMIT_50_INTELLIGENCE_LOGS", icon: "trophy", earned: false },
-    { id: "b8", name: "Community_Anchor", description: "LINK_20_ACTIVE_UNITS", icon: "star", earned: false },
-    { id: "b9", name: "Zero_Hour_Operative", description: "COMPLETE_DIRECTIVE_PRE_DAWN", icon: "flame", earned: false },
+    { id: "b7", name: "Upload_King", description: "COMMIT_50_INTELLIGENCE_LOGS", icon: "trophy", earned: false, date: "Locked" },
+    { id: "b8", name: "Community_Anchor", description: "LINK_20_ACTIVE_UNITS", icon: "star", earned: false, date: "Locked" },
+    { id: "b9", name: "Zero_Hour_Operative", description: "COMPLETE_DIRECTIVE_PRE_DAWN", icon: "flame", earned: false, date: "Locked" },
   ];
 
   const milestones = [

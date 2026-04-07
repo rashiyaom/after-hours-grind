@@ -12,7 +12,7 @@ const suggestedTags = ["#push", "#pull", "#legs", "#discipline", "#afterhours", 
 
 export default function UploadPage() {
   const navigate = useNavigate();
-  const { student, addSubmission, addPost } = useStore();
+  const { student, addSubmission, addPost, updateProfile } = useStore();
   const [caption, setCaption] = useState("");
   const [location, setLocation] = useState("");
   const [steps, setSteps] = useState("");
@@ -81,6 +81,8 @@ export default function UploadPage() {
     const taskName = uploadType === "workout" ? "Daily Workout Session" : "Nutrition Log";
     const mediaType = uploadType === "workout" ? "video" : "image";
     const mediaUrl = filePreview || "";
+    const parsedSteps = Number.parseInt(steps, 10);
+    const validSteps = Number.isFinite(parsedSteps) && parsedSteps > 0 ? parsedSteps : null;
     
     addSubmission({
       studentId: student.id,
@@ -97,9 +99,13 @@ export default function UploadPage() {
       userRole: "student",
       type: mediaType,
       mediaUrl,
-      caption: `${caption}\n\n${Array.from(activeTags).join(" ")}`,
+      caption: `${caption}${validSteps ? `\n\nSteps: ${validSteps.toLocaleString()}` : ""}\n\n${Array.from(activeTags).join(" ")}`,
       location: location || "College Gym",
     });
+
+    if (validSteps !== null) {
+      updateProfile({ todaySteps: validSteps });
+    }
 
     setSubmitting(false);
     setSubmitted(true);

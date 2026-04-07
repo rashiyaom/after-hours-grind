@@ -12,7 +12,9 @@ import LandingPage from "@/pages/LandingPage";
 import LoginPage from "@/pages/LoginPage";
 import SignupPage from "@/pages/SignupPage";
 import NotFound from "@/pages/NotFound";
+import UnauthorizedPage from "@/pages/UnauthorizedPage";
 
+// Student Pages
 import StudentDashboard from "@/pages/student/Dashboard";
 import DailyPlan from "@/pages/student/DailyPlan";
 import Progress from "@/pages/student/Progress";
@@ -25,65 +27,84 @@ import Notifications from "@/pages/student/Notifications";
 import Settings from "@/pages/student/Settings";
 import Achievements from "@/pages/student/Achievements";
 
+// Trainer Pages
 import TrainerDashboard from "@/pages/trainer/Dashboard";
 import PlanBuilder from "@/pages/trainer/PlanBuilder";
 
-import { StoreProvider } from "@/hooks/useStore";
-import { AuthProvider } from "@/hooks/useAuth";
+// Admin Pages
+import AdminDashboard from "@/pages/admin/Dashboard";
+import UserManagement from "@/pages/admin/UserManagement";
+import ContentModeration from "@/pages/admin/ContentModeration";
+import Permissions from "./pages/admin/Permissions";
 
 const queryClient = new QueryClient();
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
-      <AuthProvider>
-        <StoreProvider>
-          <Toaster />
-          <Sonner />
-          <BrowserRouter>
-            <Routes>
-              {/* Public */}
-              <Route element={<PublicLayout />}>
-                <Route path="/" element={<LandingPage />} />
+      <Toaster />
+      <Sonner />
+      <BrowserRouter>
+        <Routes>
+          {/* Public Routes */}
+          <Route element={<PublicLayout />}>
+            <Route path="/" element={<LandingPage />} />
+          </Route>
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/signup" element={<SignupPage />} />
+          <Route path="/unauthorized" element={<UnauthorizedPage />} />
+
+          {/* Student Routes */}
+          <Route element={<ProtectedRoute allowedRoles={["student"]} requiredPermission="view_dashboard" />}>
+            <Route path="/student" element={<AppLayout />}>
+              <Route index element={<Navigate to="dashboard" replace />} />
+              <Route path="dashboard" element={<StudentDashboard />} />
+              <Route path="daily-plan" element={<DailyPlan />} />
+              <Route path="progress" element={<Progress />} />
+              <Route path="feed" element={<Feed />} />
+              <Route element={<ProtectedRoute allowedRoles={["student"]} requiredPermission="post_feed" />}>
+                <Route path="upload" element={<UploadPage />} />
               </Route>
-              <Route path="/login" element={<LoginPage />} />
-              <Route path="/signup" element={<SignupPage />} />
+              <Route path="leaderboard" element={<Leaderboard />} />
+              <Route path="profile" element={<Profile />} />
+              <Route path="profile/:userId" element={<Profile />} />
+              <Route path="community" element={<Community />} />
+              <Route path="notifications" element={<Notifications />} />
+              <Route path="settings" element={<Settings />} />
+              <Route path="achievements" element={<Achievements />} />
+            </Route>
+          </Route>
 
-              {/* Student (protected) */}
-              <Route element={<ProtectedRoute allowedRole="student" />}>
-                <Route element={<AppLayout />}>
-                  <Route path="/student/dashboard" element={<StudentDashboard />} />
-                  <Route path="/student/daily-plan" element={<DailyPlan />} />
-                  <Route path="/student/progress" element={<Progress />} />
-                  <Route path="/student/feed" element={<Feed />} />
-                  <Route path="/student/upload" element={<UploadPage />} />
-                  <Route path="/student/leaderboard" element={<Leaderboard />} />
-                  <Route path="/student/profile" element={<Profile />} />
-                  <Route path="/student/profile/:userId" element={<Profile />} />
-                  <Route path="/student/community" element={<Community />} />
-                  <Route path="/student/notifications" element={<Notifications />} />
-                  <Route path="/student/settings" element={<Settings />} />
-                  <Route path="/student/achievements" element={<Achievements />} />
-                </Route>
+          {/* Trainer Routes */}
+          <Route element={<ProtectedRoute allowedRoles={["trainer"]} requiredPermission="view_dashboard" />}>
+            <Route path="/trainer" element={<AppLayout />}>
+              <Route index element={<Navigate to="dashboard" replace />} />
+              <Route path="dashboard" element={<TrainerDashboard />} />
+              <Route element={<ProtectedRoute allowedRoles={["trainer"]} requiredPermission="build_plans" />}>
+                <Route path="plan-builder" element={<PlanBuilder />} />
               </Route>
+            </Route>
+          </Route>
 
-              {/* Trainer (protected) */}
-              <Route element={<ProtectedRoute allowedRole="trainer" />}>
-                <Route element={<AppLayout />}>
-                  <Route path="/trainer/dashboard" element={<TrainerDashboard />} />
-                  <Route path="/trainer/plan-builder" element={<PlanBuilder />} />
-                </Route>
+          {/* Admin Routes */}
+          <Route element={<ProtectedRoute allowedRoles={["admin"]} requiredPermission="view_dashboard" />}>
+            <Route path="/admin" element={<AppLayout />}>
+              <Route index element={<Navigate to="dashboard" replace />} />
+              <Route path="dashboard" element={<AdminDashboard />} />
+              <Route element={<ProtectedRoute allowedRoles={["admin"]} requiredPermission="manage_users" />}>
+                <Route path="users" element={<UserManagement />} />
+                <Route path="permissions" element={<Permissions />} />
               </Route>
+              <Route element={<ProtectedRoute allowedRoles={["admin"]} requiredPermission="moderate_content" />}>
+                <Route path="content" element={<ContentModeration />} />
+              </Route>
+            </Route>
+          </Route>
 
-              {/* Index redirects */}
-              <Route path="/student" element={<Navigate to="/student/dashboard" replace />} />
-              <Route path="/trainer" element={<Navigate to="/trainer/dashboard" replace />} />
-
-              <Route path="*" element={<NotFound />} />
-            </Routes>
-          </BrowserRouter>
-        </StoreProvider>
-      </AuthProvider>
+          {/* Not Found */}
+          <Route path="*" element={<NotFound />} />
+        </Routes>
+      </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>
 );

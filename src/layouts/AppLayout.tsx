@@ -4,10 +4,9 @@ import { useState } from "react";
 import {
   LayoutDashboard, Calendar, BarChart3, Rss, Trophy, User, Users,
   Bell, Settings, Flame, Menu, X, ChevronLeft,
-  ClipboardList, Award, LogOut, Plus, Search, Zap, Activity
+  ClipboardList, Award, LogOut, Plus, Search, Zap, Activity, Shield
 } from "lucide-react";
-import { useStore } from "@/hooks/useStore";
-import { useAuth } from "@/hooks/useAuth";
+import { useAppStore } from "@/hooks/useStore";
 
 const studentNav = [
   { label: "Dashboard", path: "/student/dashboard", icon: LayoutDashboard },
@@ -41,16 +40,61 @@ const trainerNav = [
   { label: "Plan Builder", path: "/trainer/plan-builder", icon: ClipboardList },
 ];
 
+const adminNav = [
+  { label: "Dashboard", path: "/admin/dashboard", icon: LayoutDashboard },
+  { label: "Users", path: "/admin/users", icon: Users },
+  { label: "Content", path: "/admin/content", icon: Rss },
+  { label: "Permissions", path: "/admin/permissions", icon: Shield },
+];
+
 export default function AppLayout() {
   const location = useLocation();
   const navigate = useNavigate();
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const isAdmin = location.pathname.startsWith("/admin");
   const isTrainer = location.pathname.startsWith("/trainer");
-  const nav = isTrainer ? trainerNav : studentNav;
-  const mobileBottomNav = isTrainer ? mobileTrainerBottomNav : mobileStudentBottomNav;
-  const { notifications } = useStore();
-  const { logout } = useAuth();
+  const {
+    session: { currentUser },
+    system: { notifications, permissions },
+    logout,
+  } = useAppStore();
+
+  const rolePermissions = currentUser ? permissions[currentUser.role] : undefined;
+  const canManageUsers = Boolean(rolePermissions?.manage_users);
+  const canModerateContent = Boolean(rolePermissions?.moderate_content);
+  const canBuildPlans = Boolean(rolePermissions?.build_plans);
+  const canPostFeed = Boolean(rolePermissions?.post_feed);
+
+  const nav = isAdmin
+    ? adminNav.filter((item) => {
+        if (item.path.endsWith("/users") || item.path.endsWith("/permissions")) return canManageUsers;
+        if (item.path.endsWith("/content")) return canModerateContent;
+        return true;
+      })
+    : isTrainer
+      ? trainerNav.filter((item) => (item.path.endsWith("/plan-builder") ? canBuildPlans : true))
+      : studentNav;
+
+  const mobileBottomNav = isAdmin
+    ? []
+    : isTrainer
+      ? mobileTrainerBottomNav.filter((item) => (item.path.endsWith("/plan-builder") ? canBuildPlans : true))
+      : mobileStudentBottomNav.filter((item) => (item.path.endsWith("/upload") ? canPostFeed : true));
+
+  const topAction = isAdmin
+    ? canModerateContent
+      ? { to: "/admin/content", label: "Review Queue" }
+      : canManageUsers
+        ? { to: "/admin/users", label: "Manage Users" }
+        : null
+    : isTrainer
+      ? canBuildPlans
+        ? { to: "/trainer/plan-builder", label: "New Plan" }
+        : null
+      : canPostFeed
+        ? { to: "/student/upload", label: "Create Post" }
+        : null;
 
   const unreadCount = notifications.filter((n) => !n.read).length;
   const handleLogout = () => {
@@ -78,15 +122,17 @@ export default function AppLayout() {
           )}
         </div>
         
-        <div className={!collapsed ? "px-6 pt-8 pb-4" : "px-3 pt-8 pb-4"}>
-          <Link 
-            to={isTrainer ? "/trainer/plan-builder" : "/student/upload"} 
-            className={`flex items-center justify-center gap-2 w-full py-3.5 bg-primary text-black rounded-xl font-semibold text-sm transition-all hover:opacity-90 active:scale-95 group overflow-hidden relative`}
-          >
-            <Plus className="h-4 w-4 relative z-10 transition-transform group-hover:rotate-90" />
-            {!collapsed && <span className="relative z-10">{isTrainer ? "New Plan" : "Create Post"}</span>}
-          </Link>
-        </div>
+        {topAction && (
+          <div className={!collapsed ? "px-6 pt-8 pb-4" : "px-3 pt-8 pb-4"}>
+            <Link 
+              to={topAction.to} 
+              className={`flex items-center justify-center gap-2 w-full py-3.5 bg-primary text-black rounded-xl font-semibold text-sm transition-all hover:opacity-90 active:scale-95 group overflow-hidden relative`}
+            >
+              <Plus className="h-4 w-4 relative z-10 transition-transform group-hover:rotate-90" />
+              {!collapsed && <span className="relative z-10">{topAction.label}</span>}
+            </Link>
+          </div>
+        )}
 
         <nav className="flex-1 py-6 px-3 space-y-2 overflow-y-auto">
           {nav.map((item) => {
@@ -132,9 +178,9 @@ export default function AppLayout() {
         </Link>
         <div className="flex items-center gap-4">
           {!isTrainer && (
-            <Link to="/student/notifications" className="relative text-muted-foreground hover:text-primary transition-all active:scale-90">
+            <Link to={isTrainer ? "/trainer/dashboard" : "/student/notifications"} className="relative text-muted-foreground hover:text-primary transition-all active:scale-90">
               <Bell className="h-5 w-5" />
-              {unreadCount > 0 && (
+              {!isTrainer && unreadCount > 0 && (
                 <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-primary text-[9px] font-bold text-black flex items-center justify-center">
                   {unreadCount}
                 </span>
@@ -192,27 +238,29 @@ export default function AppLayout() {
       </AnimatePresence>
 
       {/* Mobile Bottom Navigation (Immersive Instagram Style) */}
-      <div className="lg:hidden fixed bottom-6 left-6 right-6 h-20 bg-card/80 backdrop-blur-3xl border border-white/10 rounded-[2.5rem] z-40 flex items-center justify-around px-2 shadow-[0_20px_50px_rgba(0,0,0,0.5)]">
-        {mobileBottomNav.map((item) => {
-          const active = location.pathname === item.path;
-          return (
-            <Link key={item.path} to={item.path} className="relative flex flex-col items-center justify-center w-full h-full group">
-              {item.isAction ? (
-                <div className="absolute -top-6 w-14 h-14 rounded-full bg-primary flex items-center justify-center shadow-lg border-4 border-card hover:scale-105 active:scale-95 transition-transform">
-                  <item.icon className="h-6 w-6 text-black" />
-                </div>
-              ) : (
-                <div className={`flex flex-col items-center gap-1.5 transition-all relative ${active ? "scale-110" : "scale-90 opacity-40 hover:opacity-100"}`}>
-                  <item.icon className={`h-6 w-6 ${active ? "text-primary" : "text-foreground"}`} />
-                  {active && (
-                     <motion.div layoutId="bottom-glow" className="w-1.2 w-1.2 h-1.2 rounded-full bg-primary shadow-[0_0_10px_rgba(255,255,255,0.5)] mt-1" />
-                  )}
-                </div>
-              )}
-            </Link>
-          );
-        })}
-      </div>
+      {!isAdmin && (
+        <div className="lg:hidden fixed bottom-6 left-6 right-6 h-20 bg-card/80 backdrop-blur-3xl border border-white/10 rounded-[2.5rem] z-40 flex items-center justify-around px-2 shadow-[0_20px_50px_rgba(0,0,0,0.5)]">
+          {mobileBottomNav.map((item) => {
+            const active = location.pathname === item.path;
+            return (
+              <Link key={item.path} to={item.path} className="relative flex flex-col items-center justify-center w-full h-full group">
+                {item.isAction ? (
+                  <div className="absolute -top-6 w-14 h-14 rounded-full bg-primary flex items-center justify-center shadow-lg border-4 border-card hover:scale-105 active:scale-95 transition-transform">
+                    <item.icon className="h-6 w-6 text-black" />
+                  </div>
+                ) : (
+                  <div className={`flex flex-col items-center gap-1.5 transition-all relative ${active ? "scale-110" : "scale-90 opacity-40 hover:opacity-100"}`}>
+                    <item.icon className={`h-6 w-6 ${active ? "text-primary" : "text-foreground"}`} />
+                    {active && (
+                       <motion.div layoutId="bottom-glow" className="w-1.2 w-1.2 h-1.2 rounded-full bg-primary shadow-[0_0_10px_rgba(255,255,255,0.5)] mt-1" />
+                    )}
+                  </div>
+                )}
+              </Link>
+            );
+          })}
+        </div>
+      )}
 
       {/* Main content */}
       <main className={`flex-1 transition-all duration-300 ${collapsed ? "lg:ml-[80px]" : "lg:ml-64"} pt-16 lg:pt-0 pb-24 lg:pb-0 relative`}>

@@ -9,17 +9,41 @@ export default function PlanBuilder() {
   const [days, setDays] = useState([1]);
   const [publishing, setPublishing] = useState(false);
   const [planTitle, setPlanTitle] = useState("");
-  const { students } = useStore();
+  const [cycleDuration, setCycleDuration] = useState(28);
+  const [primaryObjective, setPrimaryObjective] = useState("Power Output Maximization");
+  const [athleticTier, setAthleticTier] = useState<"beginner" | "intermediate" | "advanced">("beginner");
+  const [selectedStudentIds, setSelectedStudentIds] = useState<Set<string>>(new Set());
+  const { students, createPlan } = useStore();
+
+  const toggleStudent = (studentId: string, checked: boolean) => {
+    setSelectedStudentIds((prev) => {
+      const next = new Set(prev);
+      if (checked) next.add(studentId);
+      else next.delete(studentId);
+      return next;
+    });
+  };
 
   const handlePublish = () => {
     if (!planTitle.trim()) {
       toast.error("Protocol title required for deployment");
       return;
     }
+    if (selectedStudentIds.size === 0) {
+      toast.error("Select at least one athlete for deployment");
+      return;
+    }
     setPublishing(true);
     setTimeout(() => {
+      createPlan({
+        title: planTitle.trim(),
+        duration: Math.max(1, cycleDuration),
+        goalType: primaryObjective,
+        difficulty: athleticTier,
+        studentIds: Array.from(selectedStudentIds),
+      });
       setPublishing(false);
-      toast.success("Protocol assigned to selected athletes!");
+      toast.success(`Protocol assigned to ${selectedStudentIds.size} athlete${selectedStudentIds.size > 1 ? "s" : ""}!`);
     }, 2000);
   };
 
@@ -60,13 +84,23 @@ export default function PlanBuilder() {
               <div className="space-y-2">
                 <label className="text-[9px] font-black text-muted-foreground uppercase tracking-[0.2em] px-1">Cycle Duration (Days)</label>
                 <div className="relative group">
-                  <input type="number" defaultValue={28} className="w-full bg-zinc-950/50 border border-white/5 rounded-2xl px-5 py-4 text-sm font-bold text-foreground focus:outline-none focus:border-neon-blue/50 transition-all font-mono" />
+                  <input
+                    type="number"
+                    min={1}
+                    value={cycleDuration}
+                    onChange={(e) => setCycleDuration(Number(e.target.value) || 1)}
+                    className="w-full bg-zinc-950/50 border border-white/5 rounded-2xl px-5 py-4 text-sm font-bold text-foreground focus:outline-none focus:border-neon-blue/50 transition-all font-mono"
+                  />
                   <span className="absolute right-5 top-1/2 -translate-y-1/2 text-[10px] font-black text-neon-blue/40 group-hover:text-neon-blue transition-colors">DAYS</span>
                 </div>
               </div>
               <div className="space-y-2">
                 <label className="text-[9px] font-black text-muted-foreground uppercase tracking-[0.2em] px-1">Primary Objective</label>
-                <select className="w-full bg-zinc-950/50 border border-white/5 rounded-2xl px-5 py-4 text-sm font-bold text-foreground focus:outline-none focus:border-neon-blue/50 transition-all cursor-pointer">
+                <select
+                  value={primaryObjective}
+                  onChange={(e) => setPrimaryObjective(e.target.value)}
+                  className="w-full bg-zinc-950/50 border border-white/5 rounded-2xl px-5 py-4 text-sm font-bold text-foreground focus:outline-none focus:border-neon-blue/50 transition-all cursor-pointer"
+                >
                   <option>Power Output Maximization</option>
                   <option>Metabolic Optimization</option>
                   <option>Endurance Threshold</option>
@@ -75,10 +109,14 @@ export default function PlanBuilder() {
               </div>
               <div className="space-y-2">
                 <label className="text-[9px] font-black text-muted-foreground uppercase tracking-[0.2em] px-1">Athletic Tier</label>
-                <select className="w-full bg-zinc-950/50 border border-white/5 rounded-2xl px-5 py-4 text-sm font-bold text-foreground focus:outline-none focus:border-neon-blue/50 transition-all cursor-pointer">
-                  <option>Initial Recruit (Beginner)</option>
-                  <option>Field Operative (Intermediate)</option>
-                  <option>Elite Specialist (Advanced)</option>
+                <select
+                  value={athleticTier}
+                  onChange={(e) => setAthleticTier(e.target.value as "beginner" | "intermediate" | "advanced")}
+                  className="w-full bg-zinc-950/50 border border-white/5 rounded-2xl px-5 py-4 text-sm font-bold text-foreground focus:outline-none focus:border-neon-blue/50 transition-all cursor-pointer"
+                >
+                  <option value="beginner">Initial Recruit (Beginner)</option>
+                  <option value="intermediate">Field Operative (Intermediate)</option>
+                  <option value="advanced">Elite Specialist (Advanced)</option>
                 </select>
               </div>
             </div>
@@ -166,7 +204,12 @@ export default function PlanBuilder() {
                           <p className="text-[8px] font-black text-muted-foreground uppercase tracking-widest">ID: {student.userId.toUpperCase()}</p>
                        </div>
                     </div>
-                    <input type="checkbox" className="w-5 h-5 rounded-lg bg-zinc-900 border-white/10 text-neon-blue focus:ring-0 focus:ring-offset-0 transition-all cursor-pointer" />
+                    <input
+                      type="checkbox"
+                      checked={selectedStudentIds.has(student.userId)}
+                      onChange={(e) => toggleStudent(student.userId, e.target.checked)}
+                      className="w-5 h-5 rounded-lg bg-zinc-900 border-white/10 text-neon-blue focus:ring-0 focus:ring-offset-0 transition-all cursor-pointer"
+                    />
                   </label>
                 ))}
               </div>

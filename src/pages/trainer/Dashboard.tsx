@@ -8,6 +8,7 @@ import {
 import StatCard from "@/components/StatCard";
 import SectionHeader from "@/components/SectionHeader";
 import { useStore } from "@/hooks/useStore";
+import { useCurrentUser, usePermissions } from "@/hooks/useStore";
 import { Submission } from "@/types";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -15,6 +16,9 @@ import { Link } from "react-router-dom";
 
 export default function TrainerDashboard() {
   const { trainer, submissions: uploads, reviewSubmission, loading, setLoading, students } = useStore();
+  const currentUser = useCurrentUser();
+  const permissions = usePermissions();
+  const canBuildPlans = Boolean(currentUser && permissions[currentUser.role].build_plans);
   const [selectedUpload, setSelectedUpload] = useState<Submission | null>(null);
   const [feedbackNote, setFeedbackNote] = useState("");
   const [reviewing, setReviewing] = useState(false);
@@ -97,9 +101,11 @@ export default function TrainerDashboard() {
            <button className="flex items-center gap-2 px-6 py-3 rounded-xl bg-background text-sm font-semibold text-foreground hover:bg-white/5 transition-all">
              <Calendar className="h-4 w-4" /> Schedule
            </button>
-           <Link to="/trainer/plan-builder" className="flex items-center gap-2 px-6 py-3 rounded-xl bg-primary text-black text-sm font-semibold hover:opacity-90 active:scale-95 transition-all">
-             <Plus className="h-5 w-5" /> New Plan
-           </Link>
+           {canBuildPlans && (
+             <Link to="/trainer/plan-builder" className="flex items-center gap-2 px-6 py-3 rounded-xl bg-primary text-black text-sm font-semibold hover:opacity-90 active:scale-95 transition-all">
+               <Plus className="h-5 w-5" /> New Plan
+             </Link>
+           )}
         </div>
       </div>
 

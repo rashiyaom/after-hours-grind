@@ -1,9 +1,22 @@
+export type UserRole = "student" | "trainer" | "admin";
+
+export type PermissionKey =
+  | "view_dashboard"
+  | "manage_users"
+  | "moderate_content"
+  | "build_plans"
+  | "post_feed"
+  | "view_analytics";
+
+export type PermissionMatrix = Record<UserRole, Record<PermissionKey, boolean>>;
+
 export interface User {
   id: string;
   name: string;
   email: string;
+  password: string;
   avatar: string;
-  role: "student" | "trainer";
+  role: UserRole;
 }
 
 export interface Student extends User {
@@ -16,14 +29,16 @@ export interface Student extends User {
   totalPlansCompleted: number;
   followers: number;
   following: number;
-  trainerId: string;
-  currentPlanId: string;
+  trainerId: string | null;
+  currentPlanId: string | null;
   currentDay: number;
   totalDays: number;
   completionPercentage: number;
   todaySteps: number;
   rank: number;
   badges: Badge[];
+  isBanned: boolean;
+  warnings: number;
 }
 
 export interface Trainer extends User {
@@ -33,44 +48,39 @@ export interface Trainer extends User {
   certifications: string[];
   totalStudents: number;
   activePlans: number;
+  isVerified: boolean;
+}
+
+export interface Admin extends User {
+  role: "admin";
+  permissions: string[];
 }
 
 export interface DailyTask {
   id: string;
-  dayNumber: number;
-  workout: WorkoutItem[];
-  diet: DietItem[];
-  activityGoal: string;
-  stepTarget: number;
-  hydrationGoal: string;
-  trainerNotes: string;
+  description: string;
   completed: boolean;
 }
 
 export interface WorkoutItem {
   id: string;
-  name: string;
-  sets: number;
-  reps: string;
-  rest: string;
+  description: string;
   completed: boolean;
 }
 
 export interface DietItem {
   id: string;
-  meal: string;
   description: string;
-  calories: number;
-  time: string;
   completed: boolean;
 }
 
 export interface Plan {
   id: string;
-  title: string;
-  trainerId: string;
-  duration: number;
-  goalType: string;
+  name?: string;
+  title?: string;
+  trainerId?: string;
+  duration?: number;
+  goalType?: string;
   difficulty: "beginner" | "intermediate" | "advanced";
   dailyTasks: DailyTask[];
 }
@@ -80,7 +90,7 @@ export interface Post {
   userId: string;
   userName: string;
   userAvatar: string;
-  userRole: "student" | "trainer";
+  userRole: UserRole;
   type: "image" | "video" | "reel";
   mediaUrl: string;
   caption: string;
@@ -89,6 +99,7 @@ export interface Post {
   location: string;
   timestamp: string;
   liked: boolean;
+  status: "visible" | "hidden" | "under-review";
 }
 
 export interface LeaderboardEntry {
@@ -103,38 +114,64 @@ export interface LeaderboardEntry {
   completionPercentage: number;
 }
 
-export interface NotificationItem {
-  id: string;
-  type: "plan" | "rank" | "streak" | "social" | "trainer";
-  message: string;
-  timestamp: string;
-  read: boolean;
-  icon: string;
-}
-
 export interface Badge {
   id: string;
   name: string;
-  description: string;
   icon: string;
-  earned: boolean;
+  date: string;
+  description?: string;
+  earned?: boolean;
   earnedDate?: string;
 }
 
-export interface WeeklyData {
-  day: string;
-  completed: number;
-  total: number;
+export interface SystemNotification {
+  id: string;
+  title: string;
+  message: string;
+  type: "info" | "warning" | "critical";
+  timestamp: string;
+  read: boolean;
+}
+
+export interface ActivityLog {
+  id: string;
+  userId: string;
+  action: string;
+  timestamp: string;
+  details: Record<string, unknown>;
+}
+
+export interface AppVersion {
+  version: string;
+  releaseDate: string;
+  notes: string;
+}
+
+export interface NotificationItem {
+  id: string;
+  message: string;
+  icon: string;
+  type: "streak" | "rank" | "social" | "trainer" | "plan";
+  timestamp: string;
+  read: boolean;
+  userAvatar?: string;
+  userName?: string;
+  action?: string;
+  postImage?: string;
 }
 
 export interface Submission {
   id: string;
-  studentId: string;
   studentName: string;
-  taskName: string;
-  mediaUrl: string;
-  type: "video" | "image";
-  status: "pending" | "approved" | "rejected";
+  studentAvatar: string;
+  planName: string;
   timestamp: string;
+  status: "pending" | "approved" | "rejected";
+  mediaUrl: string;
   trainerNote?: string;
+}
+
+export interface WeeklyData {
+  name: string;
+  uv: number;
 }

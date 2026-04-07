@@ -609,8 +609,36 @@ const SidebarMenuSubButton = React.forwardRef<
 });
 SidebarMenuSubButton.displayName = "SidebarMenuSubButton";
 
+const SidebarComponent = Object.assign(Sidebar, {
+  Provider: SidebarProvider,
+  Trigger: SidebarTrigger,
+  Rail: SidebarRail,
+  Inset: SidebarInset,
+  Header: SidebarHeader,
+  Content: SidebarContent,
+  Footer: SidebarFooter,
+  Separator: SidebarSeparator,
+  Input: SidebarInput,
+  Group: Object.assign(SidebarGroup, {
+    Label: SidebarGroupLabel,
+    Content: SidebarGroupContent,
+    Action: SidebarGroupAction,
+  }),
+  Menu: Object.assign(SidebarMenu, {
+    Item: SidebarMenuItem,
+    Button: SidebarMenuButton,
+    Action: SidebarMenuAction,
+    Badge: SidebarMenuBadge,
+    Skeleton: SidebarMenuSkeleton,
+    Sub: Object.assign(SidebarMenuSub, {
+      Item: SidebarMenuSubItem,
+      Button: SidebarMenuSubButton,
+    }),
+  }),
+});
+
 export {
-  Sidebar,
+  SidebarComponent as Sidebar,
   SidebarContent,
   SidebarFooter,
   SidebarGroup,

@@ -107,9 +107,19 @@ const NavigationMenuIndicator = React.forwardRef<
 ));
 NavigationMenuIndicator.displayName = NavigationMenuPrimitive.Indicator.displayName;
 
+const NavigationMenuComponent = Object.assign(NavigationMenu, {
+  List: NavigationMenuList,
+  Item: NavigationMenuItem,
+  Content: NavigationMenuContent,
+  Trigger: NavigationMenuTrigger,
+  Link: NavigationMenuLink,
+  Indicator: NavigationMenuIndicator,
+  Viewport: NavigationMenuViewport,
+});
+
 export {
   navigationMenuTriggerStyle,
-  NavigationMenu,
+  NavigationMenuComponent as NavigationMenu,
   NavigationMenuList,
   NavigationMenuItem,
   NavigationMenuContent,

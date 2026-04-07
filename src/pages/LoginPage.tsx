@@ -1,41 +1,52 @@
 import { Link, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Flame, Eye, EyeOff, Loader2 } from "lucide-react";
+import { Flame, Eye, EyeOff, Loader2, ShieldCheck } from "lucide-react";
 import { useState } from "react";
-import { useAuth } from "@/hooks/useAuth";
+import { useAppStore } from "@/hooks/useStore";
 import { toast } from "sonner";
+import { UserRole } from "@/types";
 
 export default function LoginPage() {
   const navigate = useNavigate();
-  const { login, isAuthenticated } = useAuth();
+  const login = useAppStore((state) => state.login);
   const [showPassword, setShowPassword] = useState(false);
-  const [role, setRole] = useState<"student" | "trainer">("student");
+  const [role, setRole] = useState<UserRole>("student");
   const [loading, setLoading] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
-  // Note: redirect handled by ProtectedRoute, not here
-
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!email.trim() || !password.trim()) {
       toast.error("Please fill in all fields");
       return;
     }
-    if (password.length < 6) {
-      toast.error("Password must be at least 6 characters");
-      return;
-    }
     setLoading(true);
-    try {
-      await login(email, password, role);
-      toast.success("Welcome back!");
-      navigate(role === "student" ? "/student/dashboard" : "/trainer/dashboard");
-    } catch {
-      toast.error("Login failed. Please try again.");
-    } finally {
+
+    // Simulate API call
+    setTimeout(() => {
+      const success = login(email, password, role);
       setLoading(false);
-    }
+
+      if (success) {
+        toast.success("Welcome back!");
+        switch (role) {
+          case "student":
+            navigate("/student/dashboard");
+            break;
+          case "trainer":
+            navigate("/trainer/dashboard");
+            break;
+          case "admin":
+            navigate("/admin/dashboard");
+            break;
+          default:
+            navigate("/");
+        }
+      } else {
+        toast.error("Login failed. Please check your credentials and role.");
+      }
+    }, 1000);
   };
 
   return (
@@ -56,16 +67,17 @@ export default function LoginPage() {
 
           {/* Role toggle */}
           <div className="flex gap-2 p-1.5 bg-background rounded-xl">
-            {(["student", "trainer"] as const).map((r) => (
+            {(["student", "trainer", "admin"] as UserRole[]).map((r) => (
               <button
                 key={r}
                 type="button"
                 onClick={() => setRole(r)}
-                className={`flex-1 py-2 text-xs font-semibold uppercase tracking-wider rounded-lg transition-all ${
+                className={`flex-1 py-2 text-xs font-semibold uppercase tracking-wider rounded-lg transition-all flex items-center justify-center gap-2 ${
                   role === r ? "bg-card text-primary shadow-md border border-white/5" : "text-muted-foreground hover:text-foreground"
                 }`}
               >
-                {r === "student" ? "Student" : "Trainer"}
+                {r === "admin" && <ShieldCheck className="h-4 w-4" />}
+                {r}
               </button>
             ))}
           </div>
@@ -79,7 +91,7 @@ export default function LoginPage() {
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder={role === "student" ? "student@college.edu" : "trainer@college.edu"}
+                placeholder={`${role}@test.com`}
                 required
                 className="w-full bg-background border border-white/10 rounded-xl px-4 py-3 text-sm text-foreground focus:outline-none focus:border-primary transition-colors"
               />
@@ -96,7 +108,7 @@ export default function LoginPage() {
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
                   required
-                  minLength={6}
+                  minLength={1}
                   className="w-full bg-background border border-white/10 rounded-xl px-4 py-3 text-sm text-foreground focus:outline-none focus:border-primary transition-colors pr-12"
                 />
                 <button

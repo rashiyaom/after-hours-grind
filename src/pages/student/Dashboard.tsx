@@ -7,17 +7,20 @@ import ProgressRing from "@/components/ProgressRing";
 import WeeklyChart from "@/components/WeeklyChart";
 import SectionHeader from "@/components/SectionHeader";
 import { Link } from "react-router-dom";
-import { useStore } from "@/hooks/useStore";
+import { useCurrentUser, usePermissions, useStore } from "@/hooks/useStore";
 import { Skeleton } from "@/components/ui/skeleton";
 
 export default function StudentDashboard() {
   const { student: s, leaderboard, todayTask, weeklyData, loading, setLoading } = useStore();
+  const currentUser = useCurrentUser();
+  const permissions = usePermissions();
+  const canPostFeed = Boolean(currentUser && permissions[currentUser.role].post_feed);
 
   useEffect(() => {
     setLoading(true);
     const timer = setTimeout(() => setLoading(false), 800);
     return () => clearTimeout(timer);
-  }, []);
+  }, [setLoading]);
 
   if (loading) {
     return (
@@ -188,12 +191,14 @@ export default function StudentDashboard() {
 
           {/* Quick Actions */}
           <div className="grid grid-cols-2 gap-3">
-            <Link to="/student/upload" className="flex flex-col items-center justify-center gap-3 glass-card p-5 border border-white/5 hover:border-primary/30 transition-all group">
-              <div className="p-2.5 rounded-xl bg-primary/10 text-primary group-hover:scale-105 transition-transform">
-                <Upload className="h-5 w-5" />
-              </div>
-              <span className="text-xs font-semibold text-foreground">Check In</span>
-            </Link>
+            {canPostFeed && (
+              <Link to="/student/upload" className="flex flex-col items-center justify-center gap-3 glass-card p-5 border border-white/5 hover:border-primary/30 transition-all group">
+                <div className="p-2.5 rounded-xl bg-primary/10 text-primary group-hover:scale-105 transition-transform">
+                  <Upload className="h-5 w-5" />
+                </div>
+                <span className="text-xs font-semibold text-foreground">Check In</span>
+              </Link>
+            )}
             <Link to="/student/feed" className="flex flex-col items-center justify-center gap-3 glass-card p-5 border border-white/5 hover:border-primary/30 transition-all group">
               <div className="p-2.5 rounded-xl bg-primary/10 text-primary group-hover:scale-105 transition-transform">
                 <TrendingUp className="h-5 w-5" />

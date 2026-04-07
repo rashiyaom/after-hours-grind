@@ -2,14 +2,14 @@ import { Link, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { Flame, User, Dumbbell, ArrowLeft, ChevronRight, Loader2 } from "lucide-react";
 import { useState } from "react";
-import { useAuth } from "@/hooks/useAuth";
+import { useAppStore } from "@/hooks/useStore";
 import { toast } from "sonner";
 
 export default function SignupPage() {
   const [role, setRole] = useState<"student" | "trainer" | null>(null);
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
-  const { signup } = useAuth();
+  const { signup } = useAppStore();
 
   // Controlled form state
   const [form, setForm] = useState({

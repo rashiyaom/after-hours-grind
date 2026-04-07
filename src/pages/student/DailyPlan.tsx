@@ -6,7 +6,7 @@ import {
   Play, Info, ListChecks, Clock, LayoutGrid, X, Search, Activity, Zap
 } from "lucide-react";
 import SectionHeader from "@/components/SectionHeader";
-import { useStore } from "@/hooks/useStore";
+import { useCurrentUser, usePermissions, useStore } from "@/hooks/useStore";
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
 
@@ -22,6 +22,9 @@ const dayTypes = [
 
 export default function DailyPlanPage() {
   const { student: s, todayTask, completeTask } = useStore();
+  const currentUser = useCurrentUser();
+  const permissions = usePermissions();
+  const canPostFeed = Boolean(currentUser && permissions[currentUser.role].post_feed);
   const [selectedDay, setSelectedDay] = useState(s.currentDay);
   const [selectedExercise, setSelectedExercise] = useState<typeof todayTask.workout[0] | null>(null);
 
@@ -280,9 +283,11 @@ export default function DailyPlanPage() {
             </div>
             <h2 className="text-3xl font-display font-semibold tracking-tight">Daily Check-In</h2>
             <p className="text-sm font-medium mt-3 text-muted-foreground max-w-sm mx-auto">Submit your daily progress and photos for your trainer to review.</p>
+          {canPostFeed && (
             <Link to="/student/upload" className="mt-8 inline-flex items-center gap-2 bg-foreground text-background px-8 py-4 rounded-xl font-semibold text-sm transition-all hover:bg-primary hover:text-black">
-               <Upload className="h-4 w-4" /> Submit Check-in
+              <Upload className="h-4 w-4" /> Submit Check-in
             </Link>
+          )}
          </div>
       </motion.div>
     </div>
