@@ -1,8 +1,8 @@
-import { useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { useState, useRef } from "react";
+import { motion } from "framer-motion";
 import {
   Upload as UploadIcon, Camera, Video, MapPin, Footprints,
-  Hash, FileText, Check, Loader2, ShieldCheck, Activity
+  Hash, FileText, Check, Loader2, X, Image as ImageIcon
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useStore } from "@/hooks/useStore";
@@ -20,6 +20,9 @@ export default function UploadPage() {
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [uploadType, setUploadType] = useState<"workout" | "meal" | null>(null);
+  const [file, setFile] = useState<File | null>(null);
+  const [filePreview, setFilePreview] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const toggleTag = (tag: string) => {
     setActiveTags((prev) => {
@@ -30,9 +33,45 @@ export default function UploadPage() {
     });
   };
 
+  const handleFileSelect = (type: "workout" | "meal") => {
+    setUploadType(type);
+    if (fileInputRef.current) {
+      fileInputRef.current.accept = type === "workout" ? "video/*" : "image/*";
+      fileInputRef.current.click();
+    }
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selected = e.target.files?.[0];
+    if (!selected) return;
+    
+    // Validate file size (max 50MB for frontend mock)
+    if (selected.size > 50 * 1024 * 1024) {
+      toast.error("File too large. Max 50MB.");
+      return;
+    }
+
+    setFile(selected);
+    const url = URL.createObjectURL(selected);
+    setFilePreview(url);
+    toast.success(`${selected.name} selected`);
+  };
+
+  const clearFile = () => {
+    if (filePreview) URL.revokeObjectURL(filePreview);
+    setFile(null);
+    setFilePreview(null);
+    setUploadType(null);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
   const handleSubmit = async () => {
     if (!uploadType) {
-      toast.error("MISSION_FAILURE: SELECT UPLOAD TYPE");
+      toast.error("Please select an upload type");
+      return;
+    }
+    if (!file) {
+      toast.error("Please select a file to upload");
       return;
     }
     
@@ -41,12 +80,13 @@ export default function UploadPage() {
     
     const taskName = uploadType === "workout" ? "Daily Workout Session" : "Nutrition Log";
     const mediaType = uploadType === "workout" ? "video" : "image";
+    const mediaUrl = filePreview || "";
     
     addSubmission({
       studentId: student.id,
       studentName: student.name,
       taskName,
-      mediaUrl: "", // Mocked
+      mediaUrl,
       type: mediaType,
     });
 
@@ -56,14 +96,14 @@ export default function UploadPage() {
       userAvatar: student.avatar,
       userRole: "student",
       type: mediaType,
-      mediaUrl: "",
+      mediaUrl,
       caption: `${caption}\n\n${Array.from(activeTags).join(" ")}`,
-      location: location || "Command Center",
+      location: location || "College Gym",
     });
 
     setSubmitting(false);
     setSubmitted(true);
-    toast.success("Check-in Submitted successfully");
+    toast.success("Check-in submitted successfully");
     await new Promise((r) => setTimeout(r, 1500));
     navigate("/student/feed");
   };
@@ -86,7 +126,15 @@ export default function UploadPage() {
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 max-w-2xl mx-auto space-y-10 pb-28 relative">
-      <div className="absolute top-0 right-0 w-64 h-64 bg-neon-orange/5 blur-3xl pointer-events-none" />
+      <div className="absolute top-0 right-0 w-64 h-64 bg-primary/5 blur-3xl pointer-events-none" />
+      
+      {/* Hidden file input */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        className="hidden"
+        onChange={handleFileChange}
+      />
 
       <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }}>
         <h1 className="text-3xl font-display font-semibold text-foreground tracking-tight">Daily Check-in</h1>
@@ -95,48 +143,58 @@ export default function UploadPage() {
         </p>
       </motion.div>
 
-      {/* Upload Type Selector */}
+      {/* Upload Type Selector / File Preview */}
       <motion.div
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.1 }}
-        className="grid sm:grid-cols-2 gap-4"
       >
-        {[
-          { type: "workout" as const, icon: Video, label: "Workout Video", desc: "Upload your workout clip" },
-          { type: "meal" as const, icon: Camera, label: "Meal Photo", desc: "Upload your nutrition photo" },
-        ].map(({ type, icon: Icon, label, desc }) => (
-          <button
-            key={type}
-            onClick={() => setUploadType(uploadType === type ? null : type)}
-            className={`glass-card p-6 text-center cursor-pointer transition-all duration-300 relative overflow-hidden group ${
-              uploadType === type ? "border-primary/40 bg-zinc-900/80 shadow-lg scale-[1.02]" : "hover:bg-zinc-900/40 border border-white/5 hover:border-white/10"
-            }`}
-          >
-            <Icon className={`h-8 w-8 mx-auto mb-4 transition-colors ${uploadType === type ? "text-primary" : "text-muted-foreground group-hover:text-primary"}`} />
-            <p className={`text-base font-semibold mb-1 transition-colors ${uploadType === type ? "text-foreground" : "text-foreground"}`}>
-              {label}
-            </p>
-            <p className="text-xs text-muted-foreground">{desc}</p>
-            <div className={`mt-5 border-2 border-dashed rounded-2xl p-5 transition-all ${uploadType === type ? "border-primary/30 bg-primary/5" : "border-white/5"}`}>
-              {uploadType === type ? (
-                <div className="flex items-center justify-center gap-2 text-foreground">
-                  <div className="p-1 rounded-full bg-primary text-black">
-                    <Check className="h-3 w-3" />
-                  </div>
-                  <span className="text-sm font-medium">Selected</span>
+        {file && filePreview ? (
+          <div className="glass-card p-6 border border-white/5 relative">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-3">
+                {uploadType === "workout" ? <Video className="h-5 w-5 text-primary" /> : <Camera className="h-5 w-5 text-primary" />}
+                <div>
+                  <p className="text-sm font-semibold text-foreground">{file.name}</p>
+                  <p className="text-xs text-muted-foreground">{(file.size / (1024 * 1024)).toFixed(1)} MB</p>
                 </div>
+              </div>
+              <button onClick={clearFile} className="p-2 rounded-xl bg-white/5 hover:bg-red-500/10 hover:text-red-500 transition-all">
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="rounded-2xl overflow-hidden bg-background border border-white/5">
+              {uploadType === "workout" && file.type.startsWith("video/") ? (
+                <video src={filePreview} controls className="w-full max-h-64 object-contain" />
               ) : (
-                <>
+                <img src={filePreview} alt="Upload preview" className="w-full max-h-64 object-contain" />
+              )}
+            </div>
+          </div>
+        ) : (
+          <div className="grid sm:grid-cols-2 gap-4">
+            {[
+              { type: "workout" as const, icon: Video, label: "Workout Video", desc: "Upload your workout clip" },
+              { type: "meal" as const, icon: Camera, label: "Meal Photo", desc: "Upload your nutrition photo" },
+            ].map(({ type, icon: Icon, label, desc }) => (
+              <button
+                key={type}
+                onClick={() => handleFileSelect(type)}
+                className="glass-card p-6 text-center cursor-pointer transition-all duration-300 relative overflow-hidden group hover:bg-zinc-900/40 border border-white/5 hover:border-white/10"
+              >
+                <Icon className="h-8 w-8 mx-auto mb-4 transition-colors text-muted-foreground group-hover:text-primary" />
+                <p className="text-base font-semibold mb-1 text-foreground">{label}</p>
+                <p className="text-xs text-muted-foreground">{desc}</p>
+                <div className="mt-5 border-2 border-dashed rounded-2xl p-5 transition-all border-white/5">
                   <UploadIcon className="h-5 w-5 text-muted-foreground/30 mx-auto group-hover:scale-110 transition-transform group-hover:text-primary/50" />
                   <p className="text-xs text-muted-foreground/50 mt-3 flex items-center justify-center gap-2">
                     Tap to upload
                   </p>
-                </>
-              )}
-            </div>
-          </button>
-        ))}
+                </div>
+              </button>
+            ))}
+          </div>
+        )}
       </motion.div>
 
       {/* Caption */}
@@ -227,7 +285,7 @@ export default function UploadPage() {
       <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }} className="space-y-3 pt-2">
         <button
           onClick={handleSubmit}
-          disabled={submitting}
+          disabled={submitting || !file}
           className="w-full h-14 rounded-xl bg-primary text-black font-semibold text-sm transition-all hover:scale-[1.02] active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2"
         >
           {submitting ? (
