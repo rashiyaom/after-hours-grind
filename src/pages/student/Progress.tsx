@@ -112,11 +112,18 @@ export default function ProgressPage() {
           <div className="glass-card p-6 sm:p-8 bg-card border border-white/5">
             <SectionHeader title="Step Activity" />
             <div className="space-y-4 mt-6">
-              {["MON", "TUE", "WED", "THU", "FRI", "SAT"].map((d, i) => (
-                <div key={d} className="flex items-center justify-between group">
-                  <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider group-hover:text-primary transition-colors">{d}</span>
+              {[
+                { day: "MON", steps: 9240 },
+                { day: "TUE", steps: 11350 },
+                { day: "WED", steps: 8720 },
+                { day: "THU", steps: 10100 },
+                { day: "FRI", steps: 9800 },
+                { day: "SAT", steps: 7650 },
+              ].map((d) => (
+                <div key={d.day} className="flex items-center justify-between group">
+                  <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider group-hover:text-primary transition-colors">{d.day}</span>
                   <div className="flex-1 mx-4 h-px bg-white/5" />
-                  <span className="text-sm font-semibold text-foreground tabular-nums group-hover:text-primary transition-colors">{(8000 + (Math.random() * 4000)).toFixed(0)}</span>
+                  <span className="text-sm font-semibold text-foreground tabular-nums group-hover:text-primary transition-colors">{d.steps.toLocaleString()}</span>
                 </div>
               ))}
             </div>

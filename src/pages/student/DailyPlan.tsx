@@ -42,10 +42,10 @@ export default function DailyPlanPage() {
     }
   };
 
-  const totalTasks = workouts.length + meals.length + 2;
+  const totalTasks = workouts.length + meals.length;
   const completedTasks =
     workouts.filter((w) => w.completed).length + meals.filter((m) => m.completed).length;
-  const pct = Math.round((completedTasks / totalTasks) * 100);
+  const pct = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
 
   const dayType = dayTypes[(selectedDay - 1) % 7];
   const isToday = selectedDay === s.currentDay;

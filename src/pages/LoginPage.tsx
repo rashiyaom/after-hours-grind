@@ -1,22 +1,41 @@
 import { Link, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Flame, Eye, EyeOff, Loader2, Activity, ShieldCheck, LogIn } from "lucide-react";
+import { Flame, Eye, EyeOff, Loader2 } from "lucide-react";
 import { useState } from "react";
+import { useAuth } from "@/hooks/useAuth";
+import { toast } from "sonner";
 
 export default function LoginPage() {
   const navigate = useNavigate();
+  const { login, isAuthenticated } = useAuth();
   const [showPassword, setShowPassword] = useState(false);
   const [role, setRole] = useState<"student" | "trainer">("student");
   const [loading, setLoading] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
+  // Note: redirect handled by ProtectedRoute, not here
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!email.trim() || !password.trim()) {
+      toast.error("Please fill in all fields");
+      return;
+    }
+    if (password.length < 6) {
+      toast.error("Password must be at least 6 characters");
+      return;
+    }
     setLoading(true);
-    await new Promise((r) => setTimeout(r, 1000));
-    setLoading(false);
-    navigate(role === "student" ? "/student/dashboard" : "/trainer/dashboard");
+    try {
+      await login(email, password, role);
+      toast.success("Welcome back!");
+      navigate(role === "student" ? "/student/dashboard" : "/trainer/dashboard");
+    } catch {
+      toast.error("Login failed. Please try again.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -53,7 +72,7 @@ export default function LoginPage() {
 
           <div className="space-y-4">
             <div>
-              <label className="text-xs font-medium text-muted-foreground mb-1.5 block flex items-center gap-2">
+              <label className="text-xs font-medium text-muted-foreground mb-1.5 block">
                  Email
               </label>
               <input
@@ -67,7 +86,7 @@ export default function LoginPage() {
             </div>
 
             <div>
-              <label className="text-xs font-medium text-muted-foreground mb-1.5 block flex items-center gap-2">
+              <label className="text-xs font-medium text-muted-foreground mb-1.5 block">
                  Password
               </label>
               <div className="relative">
@@ -77,6 +96,7 @@ export default function LoginPage() {
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
                   required
+                  minLength={6}
                   className="w-full bg-background border border-white/10 rounded-xl px-4 py-3 text-sm text-foreground focus:outline-none focus:border-primary transition-colors pr-12"
                 />
                 <button

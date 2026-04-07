@@ -7,6 +7,7 @@ import {
   ClipboardList, Award, LogOut, Plus, Search, Zap, Activity
 } from "lucide-react";
 import { useStore } from "@/hooks/useStore";
+import { useAuth } from "@/hooks/useAuth";
 
 const studentNav = [
   { label: "Dashboard", path: "/student/dashboard", icon: LayoutDashboard },
@@ -49,9 +50,13 @@ export default function AppLayout() {
   const nav = isTrainer ? trainerNav : studentNav;
   const mobileBottomNav = isTrainer ? mobileTrainerBottomNav : mobileStudentBottomNav;
   const { notifications } = useStore();
+  const { logout } = useAuth();
 
   const unreadCount = notifications.filter((n) => !n.read).length;
-  const handleLogout = () => navigate("/");
+  const handleLogout = () => {
+    logout();
+    navigate("/");
+  };
 
   return (
     <div className="min-h-screen bg-background flex">
@@ -126,14 +131,16 @@ export default function AppLayout() {
           <span className="font-display font-bold text-xs tracking-widest text-foreground uppercase border border-white/10 rounded-md bg-zinc-900 px-2 py-0.5">After Hours</span>
         </Link>
         <div className="flex items-center gap-4">
-          <Link to="/student/notifications" className="relative text-muted-foreground hover:text-primary transition-all active:scale-90">
-            <Bell className="h-5 w-5" />
-            {unreadCount > 0 && (
-              <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-primary text-[9px] font-bold text-black flex items-center justify-center">
-                {unreadCount}
-              </span>
-            )}
-          </Link>
+          {!isTrainer && (
+            <Link to="/student/notifications" className="relative text-muted-foreground hover:text-primary transition-all active:scale-90">
+              <Bell className="h-5 w-5" />
+              {unreadCount > 0 && (
+                <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-primary text-[9px] font-bold text-black flex items-center justify-center">
+                  {unreadCount}
+                </span>
+              )}
+            </Link>
+          )}
           <button onClick={() => setMobileOpen(true)} className="text-foreground active:scale-90 transition-all">
             <Menu className="h-6 w-6" />
           </button>

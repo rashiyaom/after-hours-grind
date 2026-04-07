@@ -6,6 +6,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 
 import PublicLayout from "@/layouts/PublicLayout";
 import AppLayout from "@/layouts/AppLayout";
+import ProtectedRoute from "@/components/ProtectedRoute";
 
 import LandingPage from "@/pages/LandingPage";
 import LoginPage from "@/pages/LoginPage";
@@ -28,54 +29,61 @@ import TrainerDashboard from "@/pages/trainer/Dashboard";
 import PlanBuilder from "@/pages/trainer/PlanBuilder";
 
 import { StoreProvider } from "@/hooks/useStore";
+import { AuthProvider } from "@/hooks/useAuth";
 
 const queryClient = new QueryClient();
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
-      <StoreProvider>
-        <Toaster />
-        <Sonner />
-        <BrowserRouter>
-          <Routes>
-            {/* Public */}
-            <Route element={<PublicLayout />}>
-              <Route path="/" element={<LandingPage />} />
-            </Route>
-            <Route path="/login" element={<LoginPage />} />
-            <Route path="/signup" element={<SignupPage />} />
+      <AuthProvider>
+        <StoreProvider>
+          <Toaster />
+          <Sonner />
+          <BrowserRouter>
+            <Routes>
+              {/* Public */}
+              <Route element={<PublicLayout />}>
+                <Route path="/" element={<LandingPage />} />
+              </Route>
+              <Route path="/login" element={<LoginPage />} />
+              <Route path="/signup" element={<SignupPage />} />
 
-            {/* Student */}
-            <Route element={<AppLayout />}>
-              <Route path="/student/dashboard" element={<StudentDashboard />} />
-              <Route path="/student/daily-plan" element={<DailyPlan />} />
-              <Route path="/student/progress" element={<Progress />} />
-              <Route path="/student/feed" element={<Feed />} />
-              <Route path="/student/upload" element={<UploadPage />} />
-              <Route path="/student/leaderboard" element={<Leaderboard />} />
-              <Route path="/student/profile" element={<Profile />} />
-              <Route path="/student/profile/:userId" element={<Profile />} />
-              <Route path="/student/community" element={<Community />} />
-              <Route path="/student/notifications" element={<Notifications />} />
-              <Route path="/student/settings" element={<Settings />} />
-              <Route path="/student/achievements" element={<Achievements />} />
-            </Route>
+              {/* Student (protected) */}
+              <Route element={<ProtectedRoute allowedRole="student" />}>
+                <Route element={<AppLayout />}>
+                  <Route path="/student/dashboard" element={<StudentDashboard />} />
+                  <Route path="/student/daily-plan" element={<DailyPlan />} />
+                  <Route path="/student/progress" element={<Progress />} />
+                  <Route path="/student/feed" element={<Feed />} />
+                  <Route path="/student/upload" element={<UploadPage />} />
+                  <Route path="/student/leaderboard" element={<Leaderboard />} />
+                  <Route path="/student/profile" element={<Profile />} />
+                  <Route path="/student/profile/:userId" element={<Profile />} />
+                  <Route path="/student/community" element={<Community />} />
+                  <Route path="/student/notifications" element={<Notifications />} />
+                  <Route path="/student/settings" element={<Settings />} />
+                  <Route path="/student/achievements" element={<Achievements />} />
+                </Route>
+              </Route>
 
-            {/* Trainer */}
-            <Route element={<AppLayout />}>
-              <Route path="/trainer/dashboard" element={<TrainerDashboard />} />
-              <Route path="/trainer/plan-builder" element={<PlanBuilder />} />
-            </Route>
+              {/* Trainer (protected) */}
+              <Route element={<ProtectedRoute allowedRole="trainer" />}>
+                <Route element={<AppLayout />}>
+                  <Route path="/trainer/dashboard" element={<TrainerDashboard />} />
+                  <Route path="/trainer/plan-builder" element={<PlanBuilder />} />
+                </Route>
+              </Route>
 
-            {/* Index redirect */}
-            <Route path="/student" element={<Navigate to="/student/dashboard" replace />} />
-            <Route path="/trainer" element={<Navigate to="/trainer/dashboard" replace />} />
+              {/* Index redirects */}
+              <Route path="/student" element={<Navigate to="/student/dashboard" replace />} />
+              <Route path="/trainer" element={<Navigate to="/trainer/dashboard" replace />} />
 
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </BrowserRouter>
-      </StoreProvider>
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </BrowserRouter>
+        </StoreProvider>
+      </AuthProvider>
     </TooltipProvider>
   </QueryClientProvider>
 );
