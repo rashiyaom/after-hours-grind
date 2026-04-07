@@ -1,4 +1,4 @@
-import { Student, Trainer, DailyTask, Post, LeaderboardEntry, NotificationItem, Badge, WeeklyData } from "@/types";
+import { Student, Trainer, DailyTask, Post, LeaderboardEntry, NotificationItem, Badge, WeeklyData, Submission } from "@/types";
 
 export const currentStudent: Student = {
   id: "s1",
@@ -119,4 +119,11 @@ export const suggestedUsers = [
   { id: "s13", name: "Varun Malhotra", avatar: "", role: "student" as const, streak: 9, mutualFriends: 3 },
   { id: "t4", name: "Coach Sneha", avatar: "", role: "trainer" as const, streak: 0, mutualFriends: 7 },
   { id: "s14", name: "Kavya Iyer", avatar: "", role: "student" as const, streak: 18, mutualFriends: 11 },
+];
+
+export const recentUploads: Submission[] = [
+  { id: "u1", studentId: "s1", studentName: "Arjun Mehta", taskName: "Chest & Triceps Workout", mediaUrl: "", type: "video", status: "pending", timestamp: "20 min ago" },
+  { id: "u2", studentId: "s2", studentName: "Priya Sharma", taskName: "Morning 5K Walk", mediaUrl: "", type: "image", status: "approved", timestamp: "1h ago" },
+  { id: "u3", studentId: "s3", studentName: "Aman Gupta", taskName: "High Protein Diet Logging", mediaUrl: "", type: "image", status: "pending", timestamp: "3h ago" },
+  { id: "u4", studentId: "s4", studentName: "Neha Reddy", taskName: "Leg Day Squats", mediaUrl: "", type: "video", status: "rejected", timestamp: "5h ago" },
 ];

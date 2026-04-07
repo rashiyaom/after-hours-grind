@@ -1,20 +1,17 @@
-import { useState } from "react";
 import { motion } from "framer-motion";
 import NotificationRow from "@/components/NotificationRow";
-import { notifications as initialNotifications } from "@/data/mockData";
-import { NotificationItem } from "@/types";
 import { CheckCheck, Bell } from "lucide-react";
+import { useStore } from "@/hooks/useStore";
 
 export default function NotificationsPage() {
-  const [items, setItems] = useState<NotificationItem[]>(initialNotifications);
+  const { notifications: items, markNotificationRead, markAllNotificationsRead } = useStore();
 
   const unread = items.filter((n) => !n.read);
   const read = items.filter((n) => n.read);
 
-  const markAllRead = () => setItems((prev) => prev.map((n) => ({ ...n, read: true })));
+  const markAllRead = () => markAllNotificationsRead();
 
-  const markRead = (id: string) =>
-    setItems((prev) => prev.map((n) => (n.id === id ? { ...n, read: true } : n)));
+  const markRead = (id: string) => markNotificationRead(id);
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 max-w-2xl mx-auto space-y-6">

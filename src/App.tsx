@@ -55,6 +55,7 @@ const App = () => (
               <Route path="/student/upload" element={<UploadPage />} />
               <Route path="/student/leaderboard" element={<Leaderboard />} />
               <Route path="/student/profile" element={<Profile />} />
+              <Route path="/student/profile/:userId" element={<Profile />} />
               <Route path="/student/community" element={<Community />} />
               <Route path="/student/notifications" element={<Notifications />} />
               <Route path="/student/settings" element={<Settings />} />

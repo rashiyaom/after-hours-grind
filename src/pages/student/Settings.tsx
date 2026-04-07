@@ -1,21 +1,22 @@
 import { useState } from "react";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import {
-  User, Bell, Shield, Palette, Smartphone, Footprints, LogOut,
-  ChevronRight, Moon, Sun, Vibrate, Lock,
+  User, Bell, Shield, Smartphone, Footprints, LogOut,
+  ChevronRight, Moon, Vibrate, Lock, Save, ArrowLeft,
+  Activity, Zap, ShieldCheck, Cpu, Unlock
 } from "lucide-react";
-import { currentStudent } from "@/data/mockData";
+import { useStore } from "@/hooks/useStore";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 
-function Toggle({ enabled, onToggle }: { enabled: boolean; onToggle: () => void }) {
+function Toggle({ enabled, onToggle, accent = "bg-neon-orange" }: { enabled: boolean; onToggle: () => void; accent?: string }) {
   return (
     <button
       onClick={onToggle}
-      className={`relative w-9 h-5 rounded-full transition-all duration-300 ${enabled ? "bg-foreground" : "bg-muted"}`}
+      className={`relative w-12 h-6 rounded-full transition-all duration-500 border-2 ${enabled ? `${accent}/20 border-${accent}/50` : "bg-zinc-950 border-white/5"}`}
     >
       <div
-        className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-background shadow-sm transition-all duration-300 ${enabled ? "translate-x-4" : ""}`}
+        className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full transition-all duration-500 shadow-[0_0_10px_rgba(0,0,0,0.5)] ${enabled ? `translate-x-6 ${accent} shadow-[0_0_15px_rgba(255,165,0,0.5)]` : "bg-muted-foreground/30"}`}
       />
     </button>
   );
@@ -23,7 +24,15 @@ function Toggle({ enabled, onToggle }: { enabled: boolean; onToggle: () => void 
 
 export default function SettingsPage() {
   const navigate = useNavigate();
-  const s = currentStudent;
+  const { student: s, updateProfile } = useStore();
+  const [view, setView] = useState<"menu" | "edit-profile">("menu");
+
+  const [formData, setFormData] = useState({
+    name: s.name,
+    fitnessGoal: s.fitnessGoal,
+    weight: s.weight.toString(),
+    height: s.height.toString(),
+  });
 
   const [notifications, setNotifications] = useState({
     push: true,
@@ -37,175 +46,241 @@ export default function SettingsPage() {
     showStreak: true,
   });
 
+  const handleSaveProfile = () => {
+    updateProfile({
+      name: formData.name,
+      fitnessGoal: formData.fitnessGoal,
+      weight: parseFloat(formData.weight) || s.weight,
+      height: parseFloat(formData.height) || s.height,
+    });
+    toast.success("BIOMETRIC_DATA_UPDATED: PROFILE_SYNCED");
+    setView("menu");
+  };
+
   const toggle = (group: "notifications" | "privacy", key: string) => {
     if (group === "notifications") {
       setNotifications((prev) => ({ ...prev, [key]: !prev[key as keyof typeof prev] }));
     } else {
       setPrivacy((prev) => ({ ...prev, [key]: !prev[key as keyof typeof prev] }));
     }
-    toast.success("Settings updated successfully");
+    toast.success("SYSTEM_FLAG_UPDATED");
   };
 
   return (
-    <div className="p-4 sm:p-6 lg:p-8 max-w-2xl mx-auto space-y-8">
-      <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
-        <h1 className="text-2xl font-display font-bold text-foreground">Settings</h1>
-        <p className="text-sm text-muted-foreground mt-1">Manage your account and preferences</p>
-      </motion.div>
-
-      {/* Profile Summary */}
-      <motion.div
-        initial={{ opacity: 0, y: 12 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.05 }}
-        className="glass-card p-5 flex items-center gap-4"
-      >
-        <div className="w-14 h-14 rounded-full bg-accent flex items-center justify-center text-lg font-display font-bold text-foreground flex-shrink-0">
-          {s.name.split(" ").map((n) => n[0]).join("")}
-        </div>
-        <div className="flex-1 min-w-0">
-          <p className="font-medium text-foreground">{s.name}</p>
-          <p className="text-xs text-muted-foreground">{s.email}</p>
-          <p className="text-[11px] text-muted-foreground">{s.collegeId}</p>
-        </div>
-        <button
-          onClick={() => navigate("/student/profile")}
-          className="text-xs text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1"
-        >
-          Edit <ChevronRight className="h-3 w-3" />
-        </button>
-      </motion.div>
-
-      {/* Notifications */}
-      <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
-        <p className="text-xs uppercase tracking-wider text-muted-foreground mb-3 px-1">Notifications</p>
-        <div className="glass-card divide-y divide-border/50">
-          {[
-            { key: "push", label: "Push Notifications", desc: "Alerts on your device", icon: Bell },
-            { key: "email", label: "Email Alerts", desc: "Weekly summary emails", icon: Bell },
-            { key: "streakReminders", label: "Streak Reminders", desc: "Daily nudge to stay on track", icon: Vibrate },
-            { key: "planUpdates", label: "Plan Updates", desc: "When trainer modifies your plan", icon: Bell },
-          ].map((item) => (
-            <div key={item.key} className="flex items-center gap-4 p-4">
-              <div className="p-2 rounded-xl bg-accent">
-                <item.icon className="h-4 w-4 text-muted-foreground" />
-              </div>
-              <div className="flex-1">
-                <p className="text-sm font-medium text-foreground">{item.label}</p>
-                <p className="text-[11px] text-muted-foreground">{item.desc}</p>
-              </div>
-              <Toggle
-                enabled={notifications[item.key as keyof typeof notifications]}
-                onToggle={() => toggle("notifications", item.key)}
-              />
+    <div className="p-4 sm:p-6 lg:p-8 max-w-4xl mx-auto space-y-10 pb-28 relative">
+       <div className="absolute top-0 right-0 w-64 h-64 bg-neon-orange/5 blur-3xl pointer-events-none" />
+       
+      <AnimatePresence mode="wait">
+        {view === "menu" ? (
+          <motion.div
+            key="menu"
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -20 }}
+            className="space-y-10"
+          >
+            <div className="space-y-1">
+               <div className="flex items-center gap-3">
+                  <div className="p-2 rounded-lg bg-neon-orange/10 border border-neon-orange/20">
+                     <Cpu className="h-4 w-4 text-neon-orange" />
+                  </div>
+                  <p className="text-[10px] font-black text-neon-orange uppercase tracking-[0.4em]">_System_Configuration</p>
+               </div>
+               <h1 className="text-4xl font-display font-black text-foreground tracking-tighter uppercase italic">Control Center</h1>
+               <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mt-2 flex items-center gap-2">
+                  <Activity className="h-3 w-3" /> CONFIGURING_NODE_v1.0.4
+               </p>
             </div>
-          ))}
-        </div>
-      </motion.div>
 
-      {/* Privacy */}
-      <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}>
-        <p className="text-xs uppercase tracking-wider text-muted-foreground mb-3 px-1">Privacy</p>
-        <div className="glass-card divide-y divide-border/50">
-          {[
-            { key: "publicProfile", label: "Public Profile", desc: "Anyone can see your profile", icon: Shield },
-            { key: "showStreak", label: "Show Streak", desc: "Display streak on leaderboard", icon: Lock },
-          ].map((item) => (
-            <div key={item.key} className="flex items-center gap-4 p-4">
-              <div className="p-2 rounded-xl bg-accent">
-                <item.icon className="h-4 w-4 text-muted-foreground" />
+            {/* Profile Summary Card */}
+            <div className="glass-card-hover p-10 bg-zinc-950/20 border-white/5 relative overflow-hidden group">
+               <div className="absolute top-0 right-0 p-8 opacity-5 pointer-events-none group-hover:opacity-10 transition-opacity">
+                  <ShieldCheck className="h-24 w-24 text-neon-orange" />
+               </div>
+              <div className="flex flex-col sm:flex-row items-center gap-8">
+                <div className="w-24 h-24 rounded-[2rem] bg-zinc-900 border-2 border-neon-orange/40 flex items-center justify-center text-2xl font-display font-black text-foreground flex-shrink-0 shadow-[0_0_30px_rgba(255,165,0,0.1)] group-hover:scale-105 transition-transform italic">
+                  {s.name.split(" ").map((n) => n[0]).join("")}
+                </div>
+                <div className="flex-1 text-center sm:text-left">
+                  <p className="text-2xl font-display font-black text-foreground leading-none uppercase italic tracking-tight">{s.name}</p>
+                  <p className="text-[10px] font-black text-muted-foreground/30 uppercase tracking-[0.2em] mt-3 tabular-nums">{s.email}</p>
+                  <div className="flex flex-wrap justify-center sm:justify-start items-center gap-3 mt-5">
+                    <span className="text-[9px] px-4 py-1.5 rounded-full bg-neon-orange/10 text-neon-orange border border-neon-orange/20 font-black tracking-widest uppercase italic">
+                      UID_{s.collegeId}
+                    </span>
+                    <span className="text-[9px] px-4 py-1.5 rounded-full bg-neon-blue/10 text-neon-blue border border-neon-blue/20 font-black tracking-widest uppercase italic">
+                      RANK_#0{s.rank}
+                    </span>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setView("edit-profile")}
+                  className="px-8 py-4 rounded-2xl bg-foreground text-background text-[10px] font-black uppercase tracking-[0.2em] hover:scale-105 active:scale-95 transition-all shadow-xl"
+                >
+                  Edit_Identity
+                </button>
               </div>
-              <div className="flex-1">
-                <p className="text-sm font-medium text-foreground">{item.label}</p>
-                <p className="text-[11px] text-muted-foreground">{item.desc}</p>
+            </div>
+
+            {/* Standard Settings Groups */}
+            <div className="grid md:grid-cols-2 gap-10">
+               {/* Notifications */}
+              <div className="space-y-6">
+                <div className="flex items-center gap-4 border-l-2 border-neon-blue pl-6">
+                   <div>
+                      <p className="text-[10px] font-black uppercase tracking-[0.4em] text-neon-blue mb-1">Signals</p>
+                      <h3 className="text-xl font-display font-black text-foreground uppercase italic tracking-widest">Protocol Alerts</h3>
+                   </div>
+                </div>
+                <div className="glass-card-hover divide-y divide-white/5 bg-zinc-950/20 border-white/5 overflow-hidden rounded-[2.5rem]">
+                  {[
+                    { key: "push", label: "Signal_Burst", desc: "REALTIME_NODE_ALERTS", icon: Bell },
+                    { key: "email", label: "Intel_Digest", desc: "WEEKLY_OPS_SUMMARY", icon: Shield },
+                    { key: "streakReminders", label: "Focus_Pings", desc: "PERSISTENCE_VERIFICATION", icon: Vibrate },
+                    { key: "planUpdates", label: "Directives", desc: "AUTHORIZED_PLAN_SYNC", icon: Zap },
+                  ].map((item) => (
+                    <div key={item.key} className="flex items-center gap-6 p-8 hover:bg-white/[0.02] transition-colors group">
+                      <div className="p-3 rounded-xl bg-zinc-900 border border-white/5 group-hover:border-neon-blue/30 transition-colors">
+                        <item.icon className="h-4 w-4 text-muted-foreground/40 group-hover:text-neon-blue transition-colors" />
+                      </div>
+                      <div className="flex-1">
+                        <p className="text-[11px] font-black text-foreground uppercase tracking-widest">{item.label}</p>
+                        <p className="text-[9px] font-bold text-muted-foreground/30 uppercase tracking-tighter mt-1">{item.desc}</p>
+                      </div>
+                      <Toggle
+                        enabled={notifications[item.key as keyof typeof notifications]}
+                        onToggle={() => toggle("notifications", item.key)}
+                        accent="bg-neon-blue"
+                      />
+                    </div>
+                  ))}
+                </div>
               </div>
-              <Toggle
-                enabled={privacy[item.key as keyof typeof privacy]}
-                onToggle={() => toggle("privacy", item.key)}
-              />
-            </div>
-          ))}
-        </div>
-      </motion.div>
 
-      {/* Appearance */}
-      <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
-        <p className="text-xs uppercase tracking-wider text-muted-foreground mb-3 px-1">Appearance</p>
-        <div className="glass-card p-4 flex items-center gap-4">
-          <div className="p-2 rounded-xl bg-accent">
-            <Moon className="h-4 w-4 text-muted-foreground" />
-          </div>
-          <div className="flex-1">
-            <p className="text-sm font-medium text-foreground">Dark Mode</p>
-            <p className="text-[11px] text-muted-foreground">Monochromatic dark theme active</p>
-          </div>
-          <span className="text-[10px] px-2 py-0.5 rounded-full bg-foreground/10 text-foreground border border-border/50">Active</span>
-        </div>
-      </motion.div>
+               {/* Privacy */}
+              <div className="space-y-6">
+                <div className="flex items-center gap-4 border-l-2 border-neon-orange pl-6">
+                   <div>
+                      <p className="text-[10px] font-black uppercase tracking-[0.4em] text-neon-orange mb-1">Shield</p>
+                      <h3 className="text-xl font-display font-black text-foreground uppercase italic tracking-widest">Visibility Logic</h3>
+                   </div>
+                </div>
+                <div className="glass-card-hover divide-y divide-white/5 bg-zinc-950/20 border-white/5 overflow-hidden rounded-[2.5rem]">
+                  {[
+                    { key: "publicProfile", label: "Cloak_Deactivate", desc: "OPEN_NETWORK_DISCOVERY", icon: Unlock },
+                    { key: "showStreak", label: "Telemetry_Sync", desc: "BROADCAST_PERSISTENCE_STAT", icon: Activity },
+                  ].map((item) => (
+                    <div key={item.key} className="flex items-center gap-6 p-8 hover:bg-white/[0.02] transition-colors group">
+                      <div className="p-3 rounded-xl bg-zinc-900 border border-white/5 group-hover:border-neon-orange/30 transition-colors">
+                        <item.icon className="h-4 w-4 text-muted-foreground/40 group-hover:text-neon-orange transition-colors" />
+                      </div>
+                      <div className="flex-1">
+                        <p className="text-[11px] font-black text-foreground uppercase tracking-widest">{item.label}</p>
+                        <p className="text-[9px] font-bold text-muted-foreground/30 uppercase tracking-tighter mt-1">{item.desc}</p>
+                      </div>
+                      <Toggle
+                        enabled={privacy[item.key as keyof typeof privacy]}
+                        onToggle={() => toggle("privacy", item.key)}
+                        accent="bg-neon-orange"
+                      />
+                    </div>
+                  ))}
+                </div>
 
-      {/* Integrations */}
-      <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }}>
-        <p className="text-xs uppercase tracking-wider text-muted-foreground mb-3 px-1">Integrations</p>
-        <div className="glass-card divide-y divide-border/50">
-          {[
-            { label: "Connected Devices", desc: "Coming soon", icon: Smartphone },
-            { label: "Step Sync", desc: "Sync with health apps — coming soon", icon: Footprints },
-          ].map((item) => (
-            <button key={item.label} onClick={() => toast("Integration coming soon...")} className="w-full flex items-center gap-4 p-4 hover:bg-accent/30 transition-colors first:rounded-t-2xl last:rounded-b-2xl opacity-60">
-              <div className="p-2 rounded-xl bg-accent">
-                <item.icon className="h-4 w-4 text-muted-foreground" />
+                {/* Log Out Section */}
+                <div className="pt-8 space-y-6">
+                  <button
+                    onClick={() => navigate("/")}
+                    className="w-full flex items-center justify-center gap-4 h-20 rounded-[2.5rem] bg-red-500/5 text-red-500 border border-red-500/10 hover:bg-red-500/10 transition-all text-[11px] font-black uppercase tracking-[0.4em] active:scale-95 shadow-xl group"
+                  >
+                    <LogOut className="h-5 w-5 group-hover:-translate-x-1 transition-transform" />
+                    Terminate_Session
+                  </button>
+                  <div className="flex flex-col items-center gap-2 opacity-10">
+                    <p className="text-[9px] uppercase tracking-[0.5em] font-black">AFTER_HOURS_COLLECTIVE</p>
+                    <p className="text-[8px] font-black uppercase tracking-widest tabular-nums">OPERATIONAL_v1.0.4_BETA</p>
+                  </div>
+                </div>
               </div>
-              <div className="flex-1 text-left">
-                <p className="text-sm font-medium text-foreground flex items-center gap-2">
-                  {item.label}
-                  <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground">Soon</span>
-                </p>
-                <p className="text-[11px] text-muted-foreground">{item.desc}</p>
+            </div>
+          </motion.div>
+        ) : (
+          <motion.div
+            key="edit-profile"
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: 20 }}
+            className="space-y-10"
+          >
+            <div className="flex items-center gap-6">
+              <button 
+                onClick={() => setView("menu")} 
+                className="p-4 rounded-2xl bg-zinc-950/50 hover:bg-zinc-900 border border-white/5 transition-all active:scale-90"
+              >
+                <ArrowLeft className="h-5 w-5 text-muted-foreground" />
+              </button>
+              <div>
+                <p className="text-[10px] font-black tracking-[0.4em] text-neon-orange uppercase">Identity_Modification</p>
+                <h1 className="text-4xl font-display font-black text-foreground uppercase italic tracking-tighter">Edit Biometrics</h1>
               </div>
-              <ChevronRight className="h-4 w-4 text-muted-foreground/30" />
-            </button>
-          ))}
-        </div>
-      </motion.div>
+            </div>
 
-      {/* Account */}
-      <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
-        <p className="text-xs uppercase tracking-wider text-muted-foreground mb-3 px-1">Account</p>
-        <div className="glass-card divide-y divide-border/50">
-          <button onClick={() => toast("Account settings coming soon.")} className="w-full flex items-center gap-4 p-4 hover:bg-accent/30 transition-colors rounded-t-2xl">
-            <div className="p-2 rounded-xl bg-accent">
-              <User className="h-4 w-4 text-muted-foreground" />
-            </div>
-            <div className="flex-1 text-left">
-              <p className="text-sm font-medium text-foreground">Account Info</p>
-              <p className="text-[11px] text-muted-foreground">Name, email, college ID</p>
-            </div>
-            <ChevronRight className="h-4 w-4 text-muted-foreground/30" />
-          </button>
-          <button onClick={() => toast("Change password flow coming soon.")} className="w-full flex items-center gap-4 p-4 hover:bg-accent/30 transition-colors rounded-b-2xl">
-            <div className="p-2 rounded-xl bg-accent">
-              <Shield className="h-4 w-4 text-muted-foreground" />
-            </div>
-            <div className="flex-1 text-left">
-              <p className="text-sm font-medium text-foreground">Change Password</p>
-              <p className="text-[11px] text-muted-foreground">Update your password</p>
-            </div>
-            <ChevronRight className="h-4 w-4 text-muted-foreground/30" />
-          </button>
-        </div>
-      </motion.div>
+            <div className="glass-card-hover p-10 bg-zinc-950/20 border-white/5 rounded-[3rem] space-y-10">
+              <div className="grid md:grid-cols-2 gap-10">
+                <div className="space-y-3">
+                  <label className="text-[10px] font-black uppercase tracking-[0.4em] text-muted-foreground px-1">Unit_Alias</label>
+                  <input
+                    value={formData.name}
+                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                    placeholder="ENTER_OPERATIVE_NAME"
+                    className="w-full bg-zinc-900/50 border border-white/5 rounded-2xl px-6 py-5 text-sm font-black text-foreground placeholder:text-white/10 focus:outline-none focus:border-neon-orange/40 transition-all uppercase tracking-widest"
+                  />
+                </div>
 
-      {/* Log Out */}
-      <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.35 }}>
-        <button
-          onClick={() => navigate("/")}
-          className="w-full flex items-center justify-center gap-2 p-4 rounded-2xl border border-destructive/30 text-destructive hover:bg-destructive/10 transition-colors"
-        >
-          <LogOut className="h-4 w-4" />
-          <span className="text-sm font-medium">Log Out</span>
-        </button>
-        <p className="text-[11px] text-muted-foreground/40 text-center mt-4">THE AFTER HOURS · v1.0.0</p>
-      </motion.div>
+                <div className="space-y-3">
+                  <label className="text-[10px] font-black uppercase tracking-[0.4em] text-muted-foreground px-1">Tactical_Objective</label>
+                  <input
+                    value={formData.fitnessGoal}
+                    onChange={(e) => setFormData({ ...formData, fitnessGoal: e.target.value })}
+                    placeholder="e.g., POWER_OUTPUT_MAXIMIZATION"
+                    className="w-full bg-zinc-900/50 border border-white/5 rounded-2xl px-6 py-5 text-sm font-black text-foreground placeholder:text-white/10 focus:outline-none focus:border-neon-orange/40 transition-all uppercase tracking-widest"
+                  />
+                </div>
+
+                <div className="space-y-3">
+                  <label className="text-[10px] font-black uppercase tracking-[0.4em] text-muted-foreground px-1">Bio_Mass (kg)</label>
+                  <input
+                    type="number"
+                    value={formData.weight}
+                    onChange={(e) => setFormData({ ...formData, weight: e.target.value })}
+                    className="w-full bg-zinc-900/50 border border-white/5 rounded-2xl px-6 py-5 text-sm font-black text-foreground tabular-nums focus:outline-none focus:border-neon-orange/40 transition-all"
+                  />
+                </div>
+                <div className="space-y-3">
+                  <label className="text-[10px] font-black uppercase tracking-[0.4em] text-muted-foreground px-1">Vertical_Delta (cm)</label>
+                  <input
+                    type="number"
+                    value={formData.height}
+                    onChange={(e) => setFormData({ ...formData, height: e.target.value })}
+                    className="w-full bg-zinc-900/50 border border-white/5 rounded-2xl px-6 py-5 text-sm font-black text-foreground tabular-nums focus:outline-none focus:border-neon-orange/40 transition-all"
+                  />
+                </div>
+              </div>
+
+              <div className="pt-6">
+                <button
+                  onClick={handleSaveProfile}
+                  className="w-full h-20 bg-foreground text-background rounded-[1.5rem] font-display font-black text-sm uppercase italic tracking-[0.3em] hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-4 shadow-2xl group"
+                >
+                  <Save className="h-6 w-6" />
+                  Synchronize_Changes
+                </button>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
+

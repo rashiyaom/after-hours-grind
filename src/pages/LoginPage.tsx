@@ -1,6 +1,6 @@
 import { Link, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Flame, Eye, EyeOff, Loader2 } from "lucide-react";
+import { Flame, Eye, EyeOff, Loader2, Activity, ShieldCheck, LogIn } from "lucide-react";
 import { useState } from "react";
 
 export default function LoginPage() {
@@ -20,66 +20,78 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center section-padding py-16">
-      <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} className="w-full max-w-md">
-        <div className="text-center mb-8">
-          <Flame className="h-8 w-8 text-streak flame-glow mx-auto mb-4" />
-          <h1 className="text-2xl font-display font-bold text-foreground">Welcome back</h1>
-          <p className="text-sm text-muted-foreground mt-1">Continue your streak</p>
+    <div className="min-h-screen bg-background flex items-center justify-center section-padding py-16 relative overflow-hidden">
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(255,165,0,0.1),transparent_70%)]" />
+      <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] opacity-10 pointer-events-none" />
+      
+      <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }} className="w-full max-w-md relative z-10">
+        <div className="text-center mb-12">
+          <div className="inline-flex items-center justify-center p-4 rounded-2xl bg-primary/10 mb-6 group transition-all">
+             <Flame className="h-10 w-10 text-primary drop-shadow-[0_0_15px_rgba(255,165,0,0.4)]" />
+          </div>
+          <h1 className="text-4xl font-display font-semibold text-foreground tracking-tight">Sign In</h1>
+          <p className="text-xs text-muted-foreground mt-4">Welcome back to After Hours</p>
         </div>
 
-        <form onSubmit={handleSubmit} className="glass-card p-8 space-y-5">
+        <form onSubmit={handleSubmit} className="glass-card p-8 space-y-6 relative border border-white/5">
+
           {/* Role toggle */}
-          <div className="flex gap-1 bg-muted/30 p-1 rounded-xl">
+          <div className="flex gap-2 p-1.5 bg-background rounded-xl">
             {(["student", "trainer"] as const).map((r) => (
               <button
                 key={r}
                 type="button"
                 onClick={() => setRole(r)}
-                className={`flex-1 py-2 text-xs font-medium rounded-lg capitalize transition-all ${
-                  role === r ? "bg-accent text-foreground" : "text-muted-foreground hover:text-foreground"
+                className={`flex-1 py-2 text-xs font-semibold uppercase tracking-wider rounded-lg transition-all ${
+                  role === r ? "bg-card text-primary shadow-md border border-white/5" : "text-muted-foreground hover:text-foreground"
                 }`}
               >
-                {r === "student" ? "Student" : "Gym Trainer"}
+                {r === "student" ? "Student" : "Trainer"}
               </button>
             ))}
           </div>
 
-          <div>
-            <label className="text-xs text-muted-foreground uppercase tracking-wider">Email</label>
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder={role === "student" ? "you@college.edu" : "coach@college.edu"}
-              required
-              className="w-full mt-2 bg-muted/50 border border-border rounded-xl px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-1 focus:ring-ring"
-            />
-          </div>
-
-          <div>
-            <label className="text-xs text-muted-foreground uppercase tracking-wider">Password</label>
-            <div className="relative mt-2">
+          <div className="space-y-4">
+            <div>
+              <label className="text-xs font-medium text-muted-foreground mb-1.5 block flex items-center gap-2">
+                 Email
+              </label>
               <input
-                type={showPassword ? "text" : "password"}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder={role === "student" ? "student@college.edu" : "trainer@college.edu"}
                 required
-                className="w-full bg-muted/50 border border-border rounded-xl px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-1 focus:ring-ring pr-12"
+                className="w-full bg-background border border-white/10 rounded-xl px-4 py-3 text-sm text-foreground focus:outline-none focus:border-primary transition-colors"
               />
-              <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
-              >
-                {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-              </button>
+            </div>
+
+            <div>
+              <label className="text-xs font-medium text-muted-foreground mb-1.5 block flex items-center gap-2">
+                 Password
+              </label>
+              <div className="relative">
+                <input
+                  type={showPassword ? "text" : "password"}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="••••••••"
+                  required
+                  className="w-full bg-background border border-white/10 rounded-xl px-4 py-3 text-sm text-foreground focus:outline-none focus:border-primary transition-colors pr-12"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-primary transition-colors"
+                >
+                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
             </div>
           </div>
 
           <div className="flex justify-end">
-            <button type="button" className="text-xs text-muted-foreground hover:text-foreground transition-colors">
+            <button type="button" className="text-xs font-medium text-muted-foreground hover:text-primary transition-colors">
               Forgot password?
             </button>
           </div>
@@ -87,24 +99,26 @@ export default function LoginPage() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-foreground text-background text-center py-3 rounded-xl font-medium text-sm hover:bg-foreground/90 transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+            className="w-full h-14 relative overflow-hidden rounded-xl bg-primary text-black font-semibold transition-all hover:opacity-90 active:scale-95 flex items-center justify-center disabled:opacity-50"
           >
             {loading ? (
-              <>
+              <div className="flex items-center gap-2">
                 <Loader2 className="h-4 w-4 animate-spin" />
-                Logging in...
-              </>
+                Signing in...
+              </div>
             ) : (
-              "Log In"
+              "Sign In"
             )}
           </button>
 
-          <p className="text-center text-xs text-muted-foreground">
-            Don't have an account?{" "}
-            <Link to="/signup" className="text-foreground hover:underline">
-              Sign up
-            </Link>
-          </p>
+          <div className="pt-4 text-center">
+            <p className="text-xs text-muted-foreground">
+              New user?{" "}
+              <Link to="/signup" className="text-primary font-medium hover:underline underline-offset-4">
+                Create Account
+              </Link>
+            </p>
+          </div>
         </form>
       </motion.div>
     </div>

@@ -126,3 +126,15 @@ export interface WeeklyData {
   completed: number;
   total: number;
 }
+
+export interface Submission {
+  id: string;
+  studentId: string;
+  studentName: string;
+  taskName: string;
+  mediaUrl: string;
+  type: "video" | "image";
+  status: "pending" | "approved" | "rejected";
+  timestamp: string;
+  trainerNote?: string;
+}
