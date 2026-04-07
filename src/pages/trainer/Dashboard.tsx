@@ -18,6 +18,7 @@ export default function TrainerDashboard() {
   const [selectedUpload, setSelectedUpload] = useState<Submission | null>(null);
   const [feedbackNote, setFeedbackNote] = useState("");
   const [reviewing, setReviewing] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
 
   useEffect(() => {
     setLoading(true);
@@ -33,6 +34,10 @@ export default function TrainerDashboard() {
   ];
 
   const handleReview = (id: string, action: 'approved' | 'rejected') => {
+    if (action === 'rejected' && !feedbackNote.trim()) {
+      toast.error("Please provide feedback when requesting changes.");
+      return;
+    }
     setReviewing(true);
     setTimeout(() => {
       reviewSubmission(id, action, feedbackNote);
@@ -43,6 +48,10 @@ export default function TrainerDashboard() {
       else toast.warning("Changes requested. Student notified.");
     }, 1200);
   };
+
+  const filteredUploads = searchQuery.trim()
+    ? uploads.filter(u => u.studentName.toLowerCase().includes(searchQuery.toLowerCase()) || u.taskName.toLowerCase().includes(searchQuery.toLowerCase()))
+    : uploads;
 
   if (loading) {
     return (
@@ -111,7 +120,7 @@ export default function TrainerDashboard() {
             <div className="hidden md:flex gap-4">
                <div className="relative group">
                   <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/30 group-focus-within:text-primary transition-colors" />
-                  <input placeholder="Search students..." className="pl-12 pr-6 py-3 rounded-xl bg-card border border-white/5 text-sm font-medium focus:outline-none w-64 transition-all focus:border-primary/20" />
+                  <input value={searchQuery} onChange={e => setSearchQuery(e.target.value)} placeholder="Search students..." className="pl-12 pr-6 py-3 rounded-xl bg-card border border-white/5 text-sm font-medium focus:outline-none w-64 transition-all focus:border-primary/20" />
                </div>
             </div>
           </div>
@@ -129,7 +138,7 @@ export default function TrainerDashboard() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-white/5">
-                  {uploads.map((upload, i) => (
+                  {filteredUploads.map((upload, i) => (
                     <tr key={upload.id} className="hover:bg-white/5 transition-colors group">
                       <td className="px-8 py-5">
                         <div className="flex items-center gap-4">
