@@ -42,6 +42,7 @@ export interface Student extends User {
   onboardingStatus?: "not_started" | "in_progress" | "completed";
   onboardingStep?: number;
   onboardingDraft?: FitnessQuestionnaire;
+  taskCompletions?: Record<string, string[]>;
 }
 
 export interface Trainer extends User {

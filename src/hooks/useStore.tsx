@@ -329,6 +329,173 @@ const adaptTodayTaskForProfile = (baseTask: LegacyTodayTask, student: Student): 
   };
 };
 
+const getRecordKey = (planId: string, dayNumber: number) => `${planId}:day:${dayNumber}`;
+
+const getPlanDay = (plan: Plan, dayNumber: number): PlanDay | null => {
+  if (!plan.weeks || dayNumber < 1) return null;
+  const zeroBased = dayNumber - 1;
+  const weekNumber = Math.floor(zeroBased / 7) + 1;
+  const dayOfWeek = (zeroBased % 7) + 1;
+  const week = plan.weeks.find((w) => w.week === weekNumber);
+  if (!week) return null;
+  return week.days.find((d) => d.day === dayOfWeek) ?? null;
+};
+
+const deriveDietFromTask = (
+  student: Student,
+  dayNumber: number,
+  nutritionTask: { description?: string; meta?: Record<string, string | number | boolean> },
+  completedKeys: Set<string>
+): LegacyTodayTask['diet'] => {
+  const draft = student.onboardingDraft;
+  const isVeg = draft?.lifestyle.dietType === 'veg';
+  const goal = draft?.goals.primaryGoal ?? 'maintenance';
+  const proteinGoal = Number(nutritionTask.meta?.proteinGoalGrams ?? 110);
+  const caloriesByGoal = goal === 'fat_loss' ? [430, 560, 260, 520] : goal === 'muscle_gain' ? [620, 780, 420, 760] : [520, 680, 320, 610];
+
+  const templates = isVeg
+    ? [
+        {
+          meal: 'Breakfast',
+          description: nutritionTask.description ?? 'Oats + tofu scramble + fruit',
+          foods: [
+            { item: 'Rolled oats', grams: 70 },
+            { item: 'Tofu', grams: 140 },
+            { item: 'Banana', grams: 120 },
+          ],
+        },
+        {
+          meal: 'Lunch',
+          description: 'Paneer/tofu bowl + rice + salad',
+          foods: [
+            { item: 'Paneer/Tofu', grams: 180 },
+            { item: 'Cooked rice', grams: 220 },
+            { item: 'Salad mix', grams: 120 },
+          ],
+        },
+        {
+          meal: 'Snack',
+          description: 'Greek yogurt + nuts',
+          foods: [
+            { item: 'Greek yogurt', grams: 200 },
+            { item: 'Mixed nuts', grams: 25 },
+          ],
+        },
+        {
+          meal: 'Dinner',
+          description: 'Dal + roti + sauteed vegetables',
+          foods: [
+            { item: 'Dal', grams: 220 },
+            { item: 'Roti', grams: 110 },
+            { item: 'Vegetables', grams: 200 },
+          ],
+        },
+      ]
+    : [
+        {
+          meal: 'Breakfast',
+          description: nutritionTask.description ?? 'Oats + eggs + fruit',
+          foods: [
+            { item: 'Rolled oats', grams: 70 },
+            { item: 'Whole eggs', grams: 100 },
+            { item: 'Banana', grams: 120 },
+          ],
+        },
+        {
+          meal: 'Lunch',
+          description: 'Chicken + rice + salad',
+          foods: [
+            { item: 'Chicken breast', grams: 180 },
+            { item: 'Cooked rice', grams: 220 },
+            { item: 'Salad mix', grams: 120 },
+          ],
+        },
+        {
+          meal: 'Snack',
+          description: 'Greek yogurt + nuts',
+          foods: [
+            { item: 'Greek yogurt', grams: 200 },
+            { item: 'Mixed nuts', grams: 25 },
+          ],
+        },
+        {
+          meal: 'Dinner',
+          description: 'Fish/paneer + vegetables + roti',
+          foods: [
+            { item: 'Fish/Paneer', grams: 170 },
+            { item: 'Mixed vegetables', grams: 200 },
+            { item: 'Roti', grams: 100 },
+          ],
+        },
+      ];
+
+  const times = ['08:00', '13:30', '17:00', '20:30'];
+  return templates.map((entry, idx) => {
+    const id = `d-${dayNumber}-${idx + 1}`;
+    const protein = Math.max(18, Math.round((proteinGoal / 4) * (idx === 2 ? 0.8 : 1)));
+    const carbs = goal === 'fat_loss' ? [45, 55, 18, 42][idx] : goal === 'muscle_gain' ? [72, 84, 34, 78][idx] : [57, 64, 18, 48][idx];
+    const fats = goal === 'fat_loss' ? [12, 13, 11, 14][idx] : goal === 'muscle_gain' ? [18, 20, 14, 22][idx] : [16, 14, 15, 24][idx];
+    return {
+      id,
+      meal: entry.meal,
+      description: entry.description,
+      time: times[idx],
+      calories: caloriesByGoal[idx],
+      completed: completedKeys.has(id),
+      foods: entry.foods,
+      macros: { protein, carbs, fats },
+    };
+  });
+};
+
+const buildTodayTaskFromPlan = (student: Student, plan: Plan | null, dayNumber: number): LegacyTodayTask => {
+  if (!plan || !plan.id) {
+    return adaptTodayTaskForProfile(cloneTodayTask(), student);
+  }
+
+  const dayData = getPlanDay(plan, dayNumber);
+  if (!dayData) {
+    return adaptTodayTaskForProfile(cloneTodayTask(), student);
+  }
+
+  const completedSet = new Set(student.taskCompletions?.[getRecordKey(plan.id, dayNumber)] ?? []);
+  const workoutTasks = dayData.tasks.filter((task) => task.type === 'workout' || task.type === 'habit');
+  const nutritionTask = dayData.tasks.find((task) => task.type === 'nutrition');
+
+  const workout = workoutTasks.map((task, idx) => {
+    const id = `w-${dayNumber}-${idx + 1}`;
+    const setCount = task.intensity === 'high' ? 4 : task.intensity === 'low' ? 2 : 3;
+    const repCount = task.intensity === 'high' ? 8 : task.intensity === 'low' ? 16 : 12;
+    const equipmentMode = String(task.meta?.equipmentMode ?? (student.onboardingDraft?.environment.equipment ?? 'basic'));
+    return {
+      id,
+      name: task.title,
+      sets: setCount,
+      reps: repCount,
+      rest: task.intensity === 'high' ? '75s' : '45s',
+      completed: completedSet.has(id),
+      focus: task.description ?? 'Execute with strict form and controlled tempo.',
+      equipmentMode:
+        equipmentMode === 'bodyweight_only' ? 'bodyweight_only' : equipmentMode === 'full_gym' ? 'full_gym' : 'basic',
+      alternatives: ['Tempo variation', 'Range-of-motion regression'],
+    } as LegacyTodayTask['workout'][number];
+  });
+
+  const diet = nutritionTask
+    ? deriveDietFromTask(student, dayNumber, nutritionTask, completedSet)
+    : adaptTodayTaskForProfile(cloneTodayTask(), student).diet;
+
+  const stepTarget = Number(dayData.tasks.find((task) => task.type === 'habit')?.meta?.stepsGoal ?? 9000);
+  const hydrationGoal = `${Number(dayData.tasks.find((task) => task.type === 'habit')?.meta?.waterLiters ?? 3)}L`;
+
+  return {
+    stepTarget,
+    hydrationGoal,
+    workout,
+    diet,
+  };
+};
+
 // ========= STORE STATE =========
 interface AppState {
   // Core Data - Normalized
@@ -491,6 +658,7 @@ function buildCredentialUser(role: UserRole): Student | Trainer | Admin {
       warnings: 0,
       onboardingStatus: 'not_started',
       onboardingStep: 1,
+      taskCompletions: {},
     };
   }
 
@@ -680,6 +848,7 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
             warnings: 0,
             onboardingStatus: 'in_progress',
             onboardingStep: 1,
+            taskCompletions: {},
           }
         : {
             ...baseUser,
@@ -838,6 +1007,7 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
           currentDay: 1,
           totalDays: duration,
           completionPercentage: 0,
+          taskCompletions: {},
         };
         nextUsers = {
           ...nextUsers,
@@ -940,6 +1110,7 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
         currentDay: 1,
         totalDays: generatedPlan.duration ?? 30,
         completionPercentage: 0,
+        taskCompletions: {},
       };
 
       const log: ActivityLog = {
@@ -1161,6 +1332,7 @@ const normalizeStudent = (candidate: Partial<Student> & Pick<User, 'id' | 'name'
   onboardingStatus: candidate.onboardingStatus ?? 'not_started',
   onboardingStep: candidate.onboardingStep ?? 1,
   onboardingDraft: candidate.onboardingDraft,
+  taskCompletions: candidate.taskCompletions ?? {},
 });
 
 const normalizeTrainer = (candidate: Partial<Trainer> & Pick<User, 'id' | 'name' | 'email' | 'password' | 'avatar'>): Trainer => ({
@@ -1245,9 +1417,21 @@ export const useStore = () => {
 
   const notifications = state.system.legacyNotifications;
   const currentStudentPlan = student.currentPlanId ? state.plans[student.currentPlanId] : null;
-  const autoGeneratedPlansQueue = Object.values(state.plans).filter(
-    (plan) => plan.type === 'auto_generated' && plan.status === 'pending_trainer_approval'
-  );
+  const autoGeneratedPlansQueue = Object.values(state.plans).filter((plan) => plan.type === 'auto_generated');
+  const getDayTask = (dayNumber: number) => buildTodayTaskFromPlan(student, currentStudentPlan, dayNumber);
+  const todayTask = getDayTask(student.currentDay);
+  const weeklyData = Array.from({ length: 7 }, (_, index) => {
+    const day = index + 1;
+    const absoluteDay = Math.min(student.totalDays, Math.max(1, student.currentDay - ((student.currentDay - 1) % 7) + index));
+    const dayTask = getDayTask(absoluteDay);
+    const total = dayTask.workout.length + dayTask.diet.length;
+    const done = dayTask.workout.filter((item) => item.completed).length + dayTask.diet.filter((item) => item.completed).length;
+    const percent = total > 0 ? Math.round((done / total) * 100) : 0;
+    return {
+      name: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'][index],
+      uv: percent,
+    };
+  });
   const onboardingRequired = student.onboardingStatus !== 'completed';
   const canStartCurrentPlan = Boolean(!currentStudentPlan || currentStudentPlan.status === 'active');
 
@@ -1256,8 +1440,9 @@ export const useStore = () => {
     trainer,
     students,
     leaderboard,
-    todayTask: state.system.legacyTodayTask,
-    weeklyData: defaultWeeklyData,
+    todayTask,
+    getDayTask,
+    weeklyData,
     posts: allPosts,
     loading: state.system.isLoading,
     notifications,
@@ -1303,46 +1488,47 @@ export const useStore = () => {
         };
       });
     },
-    completeTask: (type: 'workout' | 'diet', itemId: string) => {
+    completeTask: (type: 'workout' | 'diet', itemId: string, dayNumber?: number) => {
       useAppStore.setState((prev) => {
         const actor = prev.session.currentUser;
-        let changed = false;
-        const nextTodayTask: LegacyTodayTask = {
-          ...prev.system.legacyTodayTask,
-          [type]: prev.system.legacyTodayTask[type].map((item) => {
-            if (item.id !== itemId || item.completed) return item;
-            changed = true;
-            return { ...item, completed: true };
-          }),
-        };
-        if (!changed) return prev;
-
-        if (!actor || actor.role !== 'student') {
-          return {
-            ...prev,
-            system: {
-              ...prev.system,
-              legacyTodayTask: nextTodayTask,
-            },
-          };
-        }
-
-        const totalTasks = nextTodayTask.workout.length + nextTodayTask.diet.length;
-        const completedTasks =
-          nextTodayTask.workout.filter((item) => item.completed).length +
-          nextTodayTask.diet.filter((item) => item.completed).length;
-        const completionPercentage = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
+        if (!actor || actor.role !== 'student') return prev;
 
         const studentUser = prev.users[actor.id];
-        if (!studentUser || studentUser.role !== 'student') {
-          return {
-            ...prev,
-            system: { ...prev.system },
-          };
+        if (!studentUser || studentUser.role !== 'student') return prev;
+
+        const studentRecord = studentUser as Student;
+        const plan = studentRecord.currentPlanId ? prev.plans[studentRecord.currentPlanId] : null;
+        const targetDay = dayNumber ?? studentRecord.currentDay;
+        const key = plan?.id ? getRecordKey(plan.id, targetDay) : `legacy:day:${targetDay}`;
+
+        const existingKeys = studentRecord.taskCompletions?.[key] ?? [];
+        if (existingKeys.includes(itemId)) return prev;
+
+        const updatedTaskCompletions: Record<string, string[]> = {
+          ...(studentRecord.taskCompletions ?? {}),
+          [key]: [...existingKeys, itemId],
+        };
+
+        let completionPercentage = studentRecord.completionPercentage;
+        if (plan?.id) {
+          let totalTasks = 0;
+          let completedTasks = 0;
+          const maxDays = plan.duration ?? studentRecord.totalDays;
+
+          for (let day = 1; day <= maxDays; day += 1) {
+            const taskForDay = buildTodayTaskFromPlan({ ...studentRecord, taskCompletions: updatedTaskCompletions }, plan, day);
+            totalTasks += taskForDay.workout.length + taskForDay.diet.length;
+            completedTasks +=
+              taskForDay.workout.filter((task) => task.completed).length +
+              taskForDay.diet.filter((task) => task.completed).length;
+          }
+
+          completionPercentage = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
         }
 
         const updatedStudent: Student = {
-          ...(studentUser as Student),
+          ...studentRecord,
+          taskCompletions: updatedTaskCompletions,
           completionPercentage,
         };
 
@@ -1356,10 +1542,7 @@ export const useStore = () => {
             ...prev.session,
             currentUser: updatedStudent,
           },
-          system: {
-            ...prev.system,
-            legacyTodayTask: nextTodayTask,
-          },
+          system: { ...prev.system },
         };
       });
     },

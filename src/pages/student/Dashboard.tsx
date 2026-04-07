@@ -23,7 +23,7 @@ const DASHBOARD_TABS: DashboardTab[] = ["Overview", "Training", "Nutrition", "Pr
 const DASHBOARD_PILLS: DashboardPill[] = ["All", "Workout", "Nutrition", "Recovery"];
 
 export default function StudentDashboard() {
-  const { student: s, leaderboard, todayTask, completeTask, loading, setLoading, onboardingRequired } = useStore();
+  const { student: s, leaderboard, todayTask, completeTask, loading, setLoading, onboardingRequired, notifications } = useStore();
   const currentUser = useCurrentUser();
   const permissions = usePermissions();
   const canPostFeed = Boolean(currentUser && permissions[currentUser.role].post_feed);
@@ -32,13 +32,13 @@ export default function StudentDashboard() {
   const [activeTab, setActiveTab] = useState<DashboardTab>("Overview");
   const [activePill, setActivePill] = useState<DashboardPill>("All");
   const [timeframe, setTimeframe] = useState<"Weekly" | "Monthly">("Weekly");
-  const [now, setNow] = useState(new Date());
-  const [notificationCount, setNotificationCount] = useState(2);
   const [showNotifications, setShowNotifications] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [streakWindow, setStreakWindow] = useState<"5w" | "10w">("5w");
   const searchInputRef = useRef<HTMLInputElement>(null);
+
+  const notificationCount = notifications.filter((n) => !n.read).length;
 
   const activityMultiplier =
     activePill === "All" ? 1 : activePill === "Workout" ? 1.08 : activePill === "Nutrition" ? 0.96 : 0.9;
@@ -70,16 +70,15 @@ export default function StudentDashboard() {
 
   const streakCellCount = streakWindow === "5w" ? 35 : 70;
   const streakCells = useMemo(() => {
-    const pulse = Math.floor(now.getSeconds() / 10);
     return Array.from({ length: streakCellCount }).map((_, idx) => {
-      const seed = (idx + s.streak + pulse) % 10;
+      const seed = (idx + s.streak + Math.floor(s.completionPercentage / 10)) % 10;
       if (seed <= 2) return 0;
       if (seed <= 4) return 1;
       if (seed <= 6) return 2;
       if (seed <= 8) return 3;
       return 4;
     });
-  }, [streakCellCount, s.streak, now]);
+  }, [streakCellCount, s.streak, s.completionPercentage]);
 
   const activeStreakDays = streakCells.filter((cell) => cell > 0).length;
   const longestStreak = Math.max(s.streak + 6, Math.round(s.streak * 1.4));
@@ -91,7 +90,7 @@ export default function StudentDashboard() {
     return ranked.filter((entry) => entry.name.toLowerCase().includes(q));
   }, [leaderboard, searchQuery]);
 
-  const liveClock = now.toLocaleTimeString([], {
+  const liveClock = new Date().toLocaleTimeString([], {
     hour: "2-digit",
     minute: "2-digit",
     second: "2-digit",
@@ -132,18 +131,6 @@ export default function StudentDashboard() {
     const timer = setTimeout(() => setLoading(false), 800);
     return () => clearTimeout(timer);
   }, [setLoading]);
-
-  useEffect(() => {
-    const tick = setInterval(() => setNow(new Date()), 1000);
-    return () => clearInterval(tick);
-  }, []);
-
-  useEffect(() => {
-    const notificationTicker = setInterval(() => {
-      setNotificationCount((count) => Math.min(20, count + 1));
-    }, 20000);
-    return () => clearInterval(notificationTicker);
-  }, []);
 
   useEffect(() => {
     if (!searchOpen) return;

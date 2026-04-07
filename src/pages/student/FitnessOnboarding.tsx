@@ -152,6 +152,12 @@ export default function FitnessOnboardingPage() {
       if (!validMinutes.includes(questionnaire.commitment.timePerDayMinutes)) {
         return "Please choose valid daily workout time.";
       }
+      if (questionnaire.environment.workoutType === "home" && questionnaire.environment.equipment === "full_gym") {
+        return "Home workout cannot use full gym setup. Choose none/basic or switch workout type to gym.";
+      }
+      if (questionnaire.environment.workoutType === "gym" && questionnaire.environment.equipment === "none") {
+        return "Gym mode requires at least basic equipment selection.";
+      }
     }
 
     if (stepNumber === 4) {

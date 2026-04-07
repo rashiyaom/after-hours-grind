@@ -22,11 +22,12 @@ const dayTypes = [
 ];
 
 export default function DailyPlanPage() {
-  const { student: s, todayTask, completeTask, canStartCurrentPlan, currentStudentPlan } = useStore();
+  const { student: s, getDayTask, completeTask, canStartCurrentPlan, currentStudentPlan } = useStore();
   const currentUser = useCurrentUser();
   const permissions = usePermissions();
   const canPostFeed = Boolean(currentUser && permissions[currentUser.role].post_feed);
   const [selectedDay, setSelectedDay] = useState(s.currentDay);
+  const todayTask = getDayTask(selectedDay);
   const [selectedExercise, setSelectedExercise] = useState<typeof todayTask.workout[0] | null>(null);
 
   const workouts = todayTask.workout;
@@ -34,14 +35,14 @@ export default function DailyPlanPage() {
 
   const toggleWorkout = (id: string) => {
     if(!workouts.find(w => w.id === id)?.completed) {
-      completeTask('workout', id);
+      completeTask('workout', id, selectedDay);
       toast.success("Workout logged.");
     }
   };
 
   const toggleMeal = (id: string) => {
     if(!meals.find(m => m.id === id)?.completed) {
-      completeTask('diet', id);
+      completeTask('diet', id, selectedDay);
       toast.success("Meal logged.");
     }
   };
@@ -226,6 +227,17 @@ export default function DailyPlanPage() {
                   <div className="flex-1 min-w-0">
                     <p className={`text-sm font-semibold tracking-tight ${w.completed ? "text-foreground opacity-80":""}`}>{w.name}</p>
                     <p className="text-xs font-medium text-muted-foreground mt-0.5">{w.sets} Sets × {w.reps} Reps</p>
+                    <p className="mt-1 text-[11px] text-muted-foreground">{w.focus}</p>
+                    <div className="mt-2 flex flex-wrap gap-1.5">
+                      <span className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[10px] uppercase tracking-wide text-muted-foreground">
+                        {w.equipmentMode.replace(/_/g, " ")}
+                      </span>
+                      {w.alternatives.slice(0, 2).map((alt) => (
+                        <span key={alt} className="rounded-full border border-primary/25 bg-primary/10 px-2 py-0.5 text-[10px] text-primary">
+                          Alt: {alt}
+                        </span>
+                      ))}
+                    </div>
                   </div>
                   <button onClick={() => setSelectedExercise(w)} className="p-2.5 rounded-xl bg-white/5 text-muted-foreground hover:text-primary hover:bg-primary/10 transition-all opacity-0 group-hover:opacity-100">
                     <Play className="h-4 w-4" />
@@ -262,6 +274,17 @@ export default function DailyPlanPage() {
                 <div className="flex-1">
                   <p className={`text-sm font-semibold tracking-tight ${m.completed ? "text-foreground opacity-80":""}`}>{m.meal}</p>
                   <p className="text-xs font-medium text-muted-foreground mt-0.5">{m.time} · {m.calories} kcal</p>
+                  <p className="mt-1 text-[11px] text-muted-foreground">{m.description}</p>
+                  <div className="mt-2 flex flex-wrap gap-1.5">
+                    {m.foods.map((f) => (
+                      <span key={`${m.id}-${f.item}`} className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[10px] text-emerald-400">
+                        {f.item}: {f.grams}g
+                      </span>
+                    ))}
+                  </div>
+                  <div className="mt-2 text-[10px] text-muted-foreground">
+                    Protein {m.macros.protein}g · Carbs {m.macros.carbs}g · Fats {m.macros.fats}g
+                  </div>
                 </div>
               </button>
             ))}
