@@ -3,8 +3,8 @@ import { Post } from "@/types";
 import { motion } from "framer-motion";
 import { useState } from "react";
 import { Link } from "react-router-dom";
+import { useStore } from "@/hooks/useStore";
 
-// Generate deterministic gradient backgrounds for posts without media
 const mediaColors = [
   "from-zinc-900 to-zinc-800",
   "from-stone-900 to-stone-800",
@@ -21,15 +21,13 @@ function getInitials(name: string) {
 }
 
 export default function FeedPostCard({ post }: { post: Post }) {
-  const [liked, setLiked] = useState(post.liked);
-  const [likeCount, setLikeCount] = useState(post.likes);
+  const { likePost } = useStore();
   const [bookmarked, setBookmarked] = useState(false);
   const [showComments, setShowComments] = useState(false);
 
   const handleLike = (e: React.MouseEvent) => {
     e.stopPropagation();
-    setLiked(!liked);
-    setLikeCount((c) => (liked ? c - 1 : c + 1));
+    likePost(post.id);
   };
 
   const handleAction = (e: React.MouseEvent) => {
@@ -76,7 +74,6 @@ export default function FeedPostCard({ post }: { post: Post }) {
       {/* Media */}
       <div className={`relative aspect-square bg-gradient-to-br ${mediaColors[colorIdx]} flex items-center justify-center overflow-hidden cursor-zoom-in group`}>
         <div className="text-muted-foreground/5 text-8xl font-display font-black select-none group-hover:scale-110 transition-transform">TAH</div>
-        {/* Day badge overlay */}
         {post.caption.includes("Day") && (
           <div className="absolute top-4 left-4 flex items-center gap-2 bg-background/90 backdrop-blur-md px-3 py-1.5 rounded-2xl border border-border/50 shadow-xl z-10">
             <div className="w-1.5 h-1.5 rounded-full bg-streak animate-pulse" />
@@ -106,7 +103,7 @@ export default function FeedPostCard({ post }: { post: Post }) {
           <div className="flex items-center gap-5">
             <button onClick={handleLike} className="transition-transform active:scale-90 hover:scale-110">
               <Heart
-                className={`h-6 w-6 transition-colors ${liked ? "text-red-500 fill-red-500" : "text-foreground hover:text-muted-foreground"}`}
+                className={`h-6 w-6 transition-colors ${post.liked ? "text-red-500 fill-red-500" : "text-foreground hover:text-muted-foreground"}`}
               />
             </button>
             <button onClick={(e) => { e.stopPropagation(); setShowComments(!showComments); }} className="hover:scale-110 transition-transform hover:text-muted-foreground">
@@ -122,7 +119,7 @@ export default function FeedPostCard({ post }: { post: Post }) {
         </div>
         
         <div className="space-y-1">
-          <p className="text-sm font-bold text-foreground">{likeCount.toLocaleString()} grind enthusiasts liked this</p>
+          <p className="text-sm font-bold text-foreground">{post.likes.toLocaleString()} grind enthusiasts liked this</p>
           <p className="text-sm text-secondary-foreground leading-relaxed">
             <Link to={`/student/profile/${post.userId}`} className="font-bold text-foreground hover:underline" onClick={handleAction}>{post.userName}</Link>{" "}
             {post.caption}
@@ -136,7 +133,6 @@ export default function FeedPostCard({ post }: { post: Post }) {
           {showComments ? "Hide comments" : `View all ${post.comments} comments`}
         </button>
 
-        {/* Inline comments mock */}
         {showComments && (
           <motion.div
             initial={{ opacity: 0, height: 0 }}

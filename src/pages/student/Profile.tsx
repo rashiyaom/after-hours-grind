@@ -34,7 +34,7 @@ export default function ProfilePage() {
     return () => clearTimeout(timer);
   }, [userId, setLoading]);
 
-  const isMe = !userId || userId === "s1";
+  const isMe = !userId || userId === me.id;
   
   const s = useMemo(() => {
     if (isMe) return me;
@@ -118,7 +118,7 @@ export default function ProfilePage() {
 
           <div className="flex items-center justify-center sm:justify-start gap-10 border-y sm:border-y-0 sm:border-none border-white/5 py-6 sm:p-0">
              <div className="text-center sm:text-left transition-transform hover:scale-110 cursor-pointer">
-               <p className="text-2xl font-display font-black text-foreground">{isMe ? Math.max(userPosts.length, 9) : 4}</p>
+               <p className="text-2xl font-display font-black text-foreground">{userPosts.length}</p>
                <p className="text-[9px] font-black uppercase tracking-widest text-muted-foreground opacity-60">Posts</p>
              </div>
              <div className="text-center sm:text-left transition-transform hover:scale-110 cursor-pointer text-neon-orange">
