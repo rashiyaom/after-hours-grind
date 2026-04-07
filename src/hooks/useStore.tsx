@@ -218,12 +218,27 @@ const defaultPermissions: PermissionMatrix = {
   },
 };
 
+const fullAdminPermissions: Record<PermissionKey, boolean> = {
+  view_dashboard: true,
+  manage_users: true,
+  moderate_content: true,
+  build_plans: true,
+  post_feed: true,
+  view_analytics: true,
+};
+
 const PERMISSIONS_STORAGE_KEY = 'ah_permissions_v1';
 
 const clonePermissions = (source: PermissionMatrix): PermissionMatrix => ({
   student: { ...source.student },
   trainer: { ...source.trainer },
-  admin: { ...source.admin },
+  admin: { ...fullAdminPermissions },
+});
+
+const enforceAdminFullAccess = (permissions: PermissionMatrix): PermissionMatrix => ({
+  student: { ...permissions.student },
+  trainer: { ...permissions.trainer },
+  admin: { ...fullAdminPermissions },
 });
 
 const readPersistedPermissions = (): PermissionMatrix => {
@@ -232,11 +247,11 @@ const readPersistedPermissions = (): PermissionMatrix => {
     const raw = window.localStorage.getItem(PERMISSIONS_STORAGE_KEY);
     if (!raw) return clonePermissions(defaultPermissions);
     const parsed = JSON.parse(raw) as Partial<PermissionMatrix>;
-    return {
+    return enforceAdminFullAccess({
       student: { ...defaultPermissions.student, ...(parsed.student ?? {}) },
       trainer: { ...defaultPermissions.trainer, ...(parsed.trainer ?? {}) },
       admin: { ...defaultPermissions.admin, ...(parsed.admin ?? {}) },
-    };
+    });
   } catch {
     return clonePermissions(defaultPermissions);
   }
@@ -245,7 +260,10 @@ const readPersistedPermissions = (): PermissionMatrix => {
 const persistPermissions = (permissions: PermissionMatrix) => {
   if (typeof window === 'undefined') return;
   try {
-    window.localStorage.setItem(PERMISSIONS_STORAGE_KEY, JSON.stringify(permissions));
+    window.localStorage.setItem(
+      PERMISSIONS_STORAGE_KEY,
+      JSON.stringify(enforceAdminFullAccess(permissions))
+    );
   } catch {
     // Ignore localStorage write failures in restricted environments.
   }
@@ -560,14 +578,18 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
 
   setRolePermission: (role, permission, allowed) =>
     set((state) => {
+      if (role === 'admin') {
+        return state;
+      }
+
       const previous = state.system.permissions[role][permission];
-      const nextPermissions: PermissionMatrix = {
+      const nextPermissions = enforceAdminFullAccess({
         ...state.system.permissions,
         [role]: {
           ...state.system.permissions[role],
           [permission]: allowed,
         },
-      };
+      });
       persistPermissions(nextPermissions);
 
       const log: ActivityLog = {
@@ -590,7 +612,7 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
 
   resetPermissions: () =>
     set((state) => {
-      const nextPermissions = clonePermissions(defaultPermissions);
+      const nextPermissions = enforceAdminFullAccess(clonePermissions(defaultPermissions));
       persistPermissions(nextPermissions);
 
       const log: ActivityLog = {

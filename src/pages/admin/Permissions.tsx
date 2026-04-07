@@ -6,7 +6,7 @@ import { Shield } from "lucide-react";
 import { useAppStore, usePermissions } from "@/hooks/useStore";
 import { PermissionKey } from "@/types";
 
-type RoleKey = "student" | "trainer" | "admin";
+type RoleKey = "student" | "trainer";
 
 const permissionLabels: Record<PermissionKey, string> = {
   view_dashboard: "View Dashboard",
@@ -33,7 +33,7 @@ export default function PermissionsPage() {
       <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <div>
           <h1 className="text-3xl font-bold">Permissions Matrix</h1>
-          <p className="text-sm text-muted-foreground">Role-based access control preview for Student, Trainer, and Admin.</p>
+          <p className="text-sm text-muted-foreground">Role-based access control preview for Student and Trainer. Admin always has full access.</p>
         </div>
         <Button variant="outline" onClick={resetPermissions}>Reset Defaults</Button>
       </div>
@@ -53,14 +53,13 @@ export default function PermissionsPage() {
                   <th className="p-3 text-left text-xs uppercase tracking-wide text-muted-foreground">Permission</th>
                   <th className="p-3 text-left text-xs uppercase tracking-wide text-muted-foreground">Student</th>
                   <th className="p-3 text-left text-xs uppercase tracking-wide text-muted-foreground">Trainer</th>
-                  <th className="p-3 text-left text-xs uppercase tracking-wide text-muted-foreground">Admin</th>
                 </tr>
               </thead>
               <tbody>
                 {permissionKeys.map((permission) => (
                   <tr key={permission} className="border-b">
                     <td className="p-3 text-sm font-medium">{permissionLabels[permission]}</td>
-                    {(["student", "trainer", "admin"] as RoleKey[]).map((role) => (
+                    {(["student", "trainer"] as RoleKey[]).map((role) => (
                       <td key={`${role}-${permission}`} className="p-3">
                         <button
                           onClick={() => togglePermission(role, permission)}

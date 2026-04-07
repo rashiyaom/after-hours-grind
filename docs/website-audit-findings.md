@@ -185,7 +185,7 @@ Scope: Full frontend logic, auth, RBAC, state/actions, route protection, feature
   - Tighten TS config incrementally.
 
 ### 13) Unauthorized UX redirects to login
-- Status: not-started
+- Status: done
 - Severity: medium
 - Evidence:
   - src/components/ProtectedRoute.tsx:21
@@ -198,7 +198,7 @@ Scope: Full frontend logic, auth, RBAC, state/actions, route protection, feature
   - Add unauthorized page and redirect there for denied access.
 
 ### 14) Dead auth file remains
-- Status: not-started
+- Status: done
 - Severity: medium
 - Evidence:
   - src/hooks/useAuth.tsx:1
@@ -210,7 +210,7 @@ Scope: Full frontend logic, auth, RBAC, state/actions, route protection, feature
   - Delete file or clearly deprecate in docs.
 
 ## Testing Gaps
-- Status: not-started
+- Status: done
 - Severity: high
 - Evidence:
   - src/test/example.test.ts:3
@@ -250,3 +250,6 @@ Scope: Full frontend logic, auth, RBAC, state/actions, route protection, feature
 - 2026-04-07: Completed finding #10 leaderboard ranking. Updated leaderboard generation to sort by computed score descending, then assign rank from sorted order.
 - 2026-04-07: Completed finding #11 upload steps persistence. Upload now parses steps, appends steps to post caption metadata, and updates student `todaySteps` profile value when provided.
 - 2026-04-07: Completed finding #12 incremental TS tightening. Enabled `noImplicitAny` and `noFallthroughCasesInSwitch`, then resolved surfaced typing gaps in Achievements badge literals/types.
+- 2026-04-07: Completed finding #13 unauthorized UX. Added dedicated unauthorized page/route and updated permission/role-denied redirects to `/unauthorized` so access denials are distinct from auth failures.
+- 2026-04-07: Completed finding #14 dead auth cleanup. Removed unused legacy `useAuth` hook file to eliminate misleading duplicate auth entrypoints.
+- 2026-04-07: Completed testing-gap closure. Added focused regression tests for password validation, permission gating decisions, key store mutations, and feed tab filtering behavior.

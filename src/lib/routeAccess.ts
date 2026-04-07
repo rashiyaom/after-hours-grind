@@ -15,6 +15,7 @@ export const resolveProtectedRouteRedirect = ({
 }): "/login" | "/unauthorized" | null => {
   if (!isAuthenticated) return "/login";
   if (!currentUser || !allowedRoles.includes(currentUser.role)) return "/unauthorized";
+  if (currentUser.role === "admin") return null;
   if (requiredPermission && !permissions[currentUser.role][requiredPermission]) return "/unauthorized";
   return null;
 };

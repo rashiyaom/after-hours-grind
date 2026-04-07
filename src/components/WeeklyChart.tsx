@@ -11,7 +11,7 @@ export default function WeeklyChart({ data }: { data: WeeklyData[] }) {
           const pct = (d.completed / d.total) * 100;
           const isMax = pct === maxPct;
           return (
-            <div key={d.day} className="flex-1 flex flex-col items-center gap-1.5 group">
+            <div key={`${d.day}-${i}`} className="flex-1 flex flex-col items-center gap-1.5 group">
               <span className="text-[9px] text-muted-foreground/0 group-hover:text-muted-foreground transition-colors">
                 {Math.round(pct)}%
               </span>
