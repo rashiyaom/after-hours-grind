@@ -14,10 +14,7 @@ export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
-  // Redirect if already logged in
-  if (isAuthenticated) {
-    return <>{navigate(role === "student" ? "/student/dashboard" : "/trainer/dashboard")}</>;
-  }
+  // Note: redirect handled by ProtectedRoute, not here
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

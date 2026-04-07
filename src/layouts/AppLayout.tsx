@@ -7,6 +7,7 @@ import {
   ClipboardList, Award, LogOut, Plus, Search, Zap, Activity
 } from "lucide-react";
 import { useStore } from "@/hooks/useStore";
+import { useAuth } from "@/hooks/useAuth";
 
 const studentNav = [
   { label: "Dashboard", path: "/student/dashboard", icon: LayoutDashboard },
@@ -49,9 +50,13 @@ export default function AppLayout() {
   const nav = isTrainer ? trainerNav : studentNav;
   const mobileBottomNav = isTrainer ? mobileTrainerBottomNav : mobileStudentBottomNav;
   const { notifications } = useStore();
+  const { logout } = useAuth();
 
   const unreadCount = notifications.filter((n) => !n.read).length;
-  const handleLogout = () => navigate("/");
+  const handleLogout = () => {
+    logout();
+    navigate("/");
+  };
 
   return (
     <div className="min-h-screen bg-background flex">
