@@ -4,6 +4,7 @@ import { motion } from "framer-motion";
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { useStore } from "@/hooks/useStore";
+import { LUXURY_TWEEN_MEDIUM } from "@/lib/motionTokens";
 
 const mediaColors = [
   "from-zinc-900 to-zinc-800",
@@ -40,6 +41,7 @@ export default function FeedPostCard({ post }: { post: Post }) {
     <motion.div
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
+      transition={LUXURY_TWEEN_MEDIUM}
       className="glass-card overflow-hidden"
     >
       {/* Header */}
@@ -137,6 +139,7 @@ export default function FeedPostCard({ post }: { post: Post }) {
           <motion.div
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: "auto" }}
+            transition={LUXURY_TWEEN_MEDIUM}
             className="space-y-3 pt-3 border-t border-border/20"
           >
             {[

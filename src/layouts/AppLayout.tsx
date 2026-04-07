@@ -7,7 +7,7 @@ import {
   ClipboardList, Award, LogOut, Plus, Search, Zap, Activity, Shield
 } from "lucide-react";
 import { useAppStore } from "@/hooks/useStore";
-import { LUXURY_EASE, LUXURY_SPRING, LUXURY_TWEEN_MEDIUM } from "@/lib/motionTokens";
+import { LUXURY_SPRING, LUXURY_TWEEN_MEDIUM } from "@/lib/motionTokens";
 
 const studentNav = [
   { label: "Dashboard", path: "/student/dashboard", icon: LayoutDashboard },
@@ -277,7 +277,7 @@ export default function AppLayout() {
                  initial={{ opacity: 0, x: 20 }}
                  animate={{ opacity: 1, x: 0 }}
                  exit={{ opacity: 0, x: -20 }}
-                 transition={{ duration: 0.45, ease: LUXURY_EASE }}
+                 transition={LUXURY_TWEEN_MEDIUM}
                  className="min-h-screen"
                >
                  <Outlet />

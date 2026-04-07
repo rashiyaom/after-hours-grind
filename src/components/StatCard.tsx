@@ -1,5 +1,6 @@
 import { motion } from "framer-motion";
 import { LucideIcon } from "lucide-react";
+import { LUXURY_TWEEN_MEDIUM } from "@/lib/motionTokens";
 
 interface StatCardProps {
   label: string;
@@ -14,6 +15,7 @@ export default function StatCard({ label, value, icon: Icon, sub, accent }: Stat
     <motion.div
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
+      transition={LUXURY_TWEEN_MEDIUM}
       className="glass-card p-6 flex flex-col gap-4 border border-border/50 hover:border-neon-orange/20 transition-all group overflow-hidden relative"
     >
       <div className="absolute -bottom-2 -right-2 opacity-5 scale-150 rotate-12 transition-transform group-hover:rotate-0">

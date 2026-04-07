@@ -4,6 +4,7 @@ import { Flame, User, Dumbbell, ArrowLeft, ChevronRight, Loader2 } from "lucide-
 import { useState } from "react";
 import { useAppStore } from "@/hooks/useStore";
 import { toast } from "sonner";
+import { LUXURY_TWEEN_MEDIUM, LUXURY_TWEEN_SLOW } from "@/lib/motionTokens";
 
 export default function SignupPage() {
   const [role, setRole] = useState<"student" | "trainer" | null>(null);
@@ -86,7 +87,7 @@ export default function SignupPage() {
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_100%,rgba(255,165,0,0.1),transparent_70%)]" />
       <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] opacity-10 pointer-events-none" />
       
-      <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }} className="w-full max-w-md relative z-10">
+      <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={LUXURY_TWEEN_SLOW} className="w-full max-w-md relative z-10">
         <div className="text-center mb-12">
           <div className="inline-flex items-center justify-center p-4 rounded-2xl bg-primary/10 mb-6 group transition-all">
              <Flame className="h-10 w-10 text-primary drop-shadow-[0_0_15px_rgba(255,165,0,0.4)]" />
@@ -97,7 +98,7 @@ export default function SignupPage() {
 
         <AnimatePresence mode="wait">
           {!role ? (
-            <motion.div key="role" initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-6">
+            <motion.div key="role" initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} transition={LUXURY_TWEEN_MEDIUM} className="space-y-6">
               <p className="text-center text-xs font-medium uppercase tracking-wider text-muted-foreground mb-8">Choose Your Role</p>
               {[
                 { value: "student" as const, label: "Student / Athlete", desc: "Track progress & discover routines", icon: User },
@@ -126,7 +127,7 @@ export default function SignupPage() {
               </div>
             </motion.div>
           ) : (
-            <motion.div key="form" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }}>
+            <motion.div key="form" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }} transition={LUXURY_TWEEN_MEDIUM}>
               <button 
                 onClick={() => { setRole(null); setErrors({}); }} 
                 className="flex items-center gap-2 text-xs font-medium text-muted-foreground hover:text-primary mb-8 transition-colors group"

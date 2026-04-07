@@ -1,5 +1,6 @@
 import { Flame } from "lucide-react";
 import { motion } from "framer-motion";
+import { LUXURY_TWEEN_MEDIUM } from "@/lib/motionTokens";
 
 interface StreakCardProps {
   streak: number;
@@ -11,6 +12,7 @@ export default function StreakCard({ streak, label = "Day Streak" }: StreakCardP
     <motion.div
       initial={{ opacity: 0, scale: 0.95 }}
       animate={{ opacity: 1, scale: 1 }}
+      transition={LUXURY_TWEEN_MEDIUM}
       className="glass-card p-5 flex items-center gap-4"
     >
       <div className="relative">

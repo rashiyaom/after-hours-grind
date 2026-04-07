@@ -1,6 +1,7 @@
 import { Outlet, Link, useLocation } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Flame } from "lucide-react";
+import { LUXURY_TWEEN_MEDIUM } from "@/lib/motionTokens";
 
 const navLinks = [
   { label: "Home", path: "/" },
@@ -38,7 +39,7 @@ export default function PublicLayout() {
         key={location.pathname}
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
-        transition={{ duration: 0.3 }}
+        transition={LUXURY_TWEEN_MEDIUM}
         className="pt-16"
       >
         <Outlet />

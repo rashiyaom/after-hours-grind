@@ -5,6 +5,7 @@ import { useState } from "react";
 import { useAppStore } from "@/hooks/useStore";
 import { toast } from "sonner";
 import { Student, UserRole } from "@/types";
+import { LUXURY_TWEEN_SLOW } from "@/lib/motionTokens";
 
 export default function LoginPage() {
   const navigate = useNavigate();
@@ -70,7 +71,7 @@ export default function LoginPage() {
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(255,165,0,0.1),transparent_70%)]" />
       <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] opacity-10 pointer-events-none" />
       
-      <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }} className="w-full max-w-md relative z-10">
+      <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={LUXURY_TWEEN_SLOW} className="w-full max-w-md relative z-10">
         <div className="text-center mb-12">
           <div className="inline-flex items-center justify-center p-4 rounded-2xl bg-primary/10 mb-6 group transition-all">
              <Flame className="h-10 w-10 text-primary drop-shadow-[0_0_15px_rgba(255,165,0,0.4)]" />

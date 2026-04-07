@@ -1,5 +1,6 @@
 import { WeeklyData } from "@/types";
 import { motion } from "framer-motion";
+import { LUXURY_TWEEN_MEDIUM } from "@/lib/motionTokens";
 
 export default function WeeklyChart({ data }: { data: WeeklyData[] }) {
   const maxPct = Math.max(...data.map((d) => (d.completed / d.total) * 100));
@@ -19,7 +20,7 @@ export default function WeeklyChart({ data }: { data: WeeklyData[] }) {
                 <motion.div
                   initial={{ height: 0 }}
                   animate={{ height: `${pct}%` }}
-                  transition={{ duration: 0.6, delay: i * 0.07, ease: "easeOut" }}
+                  transition={{ ...LUXURY_TWEEN_MEDIUM, delay: i * 0.07 }}
                   className={`absolute bottom-0 left-0 right-0 rounded-lg transition-colors ${
                     isMax ? "bg-foreground" : "bg-foreground/50"
                   }`}

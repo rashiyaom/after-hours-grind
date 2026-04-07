@@ -237,6 +237,27 @@ const fullAdminPermissions: Record<PermissionKey, boolean> = {
 
 const PERMISSIONS_STORAGE_KEY = 'ah_permissions_v1';
 
+const hardcodedRoleCredentials: Record<
+  UserRole,
+  { email: string; password: string; defaultUserId: string }
+> = {
+  student: {
+    email: 's@g.com',
+    password: 'student1234',
+    defaultUserId: 's1',
+  },
+  trainer: {
+    email: 't@g.com',
+    password: 'trainer1234',
+    defaultUserId: 't1',
+  },
+  admin: {
+    email: 'a@g.com',
+    password: 'admin@1234',
+    defaultUserId: 'a1',
+  },
+};
+
 const clonePermissions = (source: PermissionMatrix): PermissionMatrix => ({
   student: { ...source.student },
   trainer: { ...source.trainer },
@@ -310,12 +331,15 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
 
   // Session
   login: (email, password, role) => {
-    const user = Object.values(get().users).find(
-      (u) =>
-        u.email.toLowerCase() === email.toLowerCase() &&
-        u.password === password &&
-        u.role === role
-    );
+    const credential = hardcodedRoleCredentials[role];
+    const emailMatches = email.trim().toLowerCase() === credential.email;
+    const passwordMatches = password === credential.password;
+    if (!emailMatches || !passwordMatches) return false;
+
+    const user =
+      get().users[credential.defaultUserId] ??
+      Object.values(get().users).find((u) => u.role === role);
+
     if (user) {
       set((state) => ({
         ...state,

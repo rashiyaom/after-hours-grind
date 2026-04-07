@@ -2,6 +2,7 @@ import React from "react";
 import { NotificationItem } from "@/types";
 import { Flame, TrendingUp, Heart, CheckCircle, MessageCircle, Award, FilePlus, ClipboardList } from "lucide-react";
 import { motion } from "framer-motion";
+import { LUXURY_TWEEN_MEDIUM } from "@/lib/motionTokens";
 
 const iconMap: Record<string, React.ElementType> = {
   flame: Flame,
@@ -30,6 +31,7 @@ export default function NotificationRow({ notification }: { notification: Notifi
     <motion.div
       initial={{ opacity: 0, x: -8 }}
       animate={{ opacity: 1, x: 0 }}
+      transition={LUXURY_TWEEN_MEDIUM}
       className={`flex items-start gap-4 p-4 rounded-2xl transition-colors cursor-pointer ${
         notification.read ? "hover:bg-accent/30" : "bg-accent/50 hover:bg-accent/70"
       }`}
