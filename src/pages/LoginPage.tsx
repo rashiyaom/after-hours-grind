@@ -36,15 +36,9 @@ export default function LoginPage() {
         switch (role) {
           case "student": {
             const student = currentUser?.role === "student" ? (currentUser as Student) : null;
-            const studentPlan = student?.currentPlanId ? currentSession.plans[student.currentPlanId] : null;
 
             if (!student || student.onboardingStatus !== "completed") {
               navigate("/student/onboarding");
-              break;
-            }
-
-            if (studentPlan?.status === "pending_trainer_approval" || studentPlan?.status === "rejected") {
-              navigate("/student/plan-status");
               break;
             }
 

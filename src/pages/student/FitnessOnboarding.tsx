@@ -12,11 +12,11 @@ const TOTAL_STEPS = 6;
 
 const defaultQuestionnaire: FitnessQuestionnaire = {
   basic: {
-    age: 20,
+    age: 0,
     gender: "male",
-    heightCm: 170,
-    weightKg: 70,
-    bmi: 24.2,
+    heightCm: 0,
+    weightKg: 0,
+    bmi: 0,
   },
   fitnessStatus: {
     activityLevel: "lightly_active",
@@ -25,9 +25,9 @@ const defaultQuestionnaire: FitnessQuestionnaire = {
   goals: {
     primaryGoal: "fat_loss",
     targetMode: "weight",
-    targetWeightKg: 66,
+    targetWeightKg: undefined,
     targetBodyType: "lean",
-    weightDifferenceKg: -4,
+    weightDifferenceKg: 0,
   },
   commitment: {
     daysPerWeek: 5,
@@ -41,7 +41,7 @@ const defaultQuestionnaire: FitnessQuestionnaire = {
     dietType: "non_veg",
     proteinAwareness: "medium",
     hydrationHabit: "moderate",
-    sleepHours: 7,
+    sleepHours: 0,
   },
   constraints: {
     hasInjuries: false,
@@ -49,6 +49,42 @@ const defaultQuestionnaire: FitnessQuestionnaire = {
     restrictions: "",
   },
 };
+
+function getGoalConsistencyError(questionnaire: FitnessQuestionnaire): string | null {
+  if (questionnaire.goals.targetMode !== "weight") return null;
+  if (!questionnaire.goals.targetWeightKg || questionnaire.basic.weightKg <= 0) return null;
+
+  const currentWeight = questionnaire.basic.weightKg;
+  const targetWeight = questionnaire.goals.targetWeightKg;
+  const delta = Number((targetWeight - currentWeight).toFixed(1));
+  const maxAllowedShift = Number((currentWeight * 0.25).toFixed(1));
+
+  if (targetWeight < 35 || targetWeight > 220) {
+    return "Target weight must be between 35 kg and 220 kg.";
+  }
+
+  if (Math.abs(delta) > maxAllowedShift) {
+    return `Target change is too extreme. Keep it within +/-${maxAllowedShift} kg from current weight.`;
+  }
+
+  if (questionnaire.goals.primaryGoal === "fat_loss" && delta >= 0) {
+    return "Fat loss goal needs a lower target weight than current weight.";
+  }
+
+  if (questionnaire.goals.primaryGoal === "muscle_gain" && delta <= 0) {
+    return "Muscle gain goal needs a higher target weight than current weight.";
+  }
+
+  if (questionnaire.goals.primaryGoal === "maintenance" && Math.abs(delta) > 2) {
+    return "Maintenance goal should stay close to current weight (within 2 kg).";
+  }
+
+  if (questionnaire.goals.primaryGoal === "endurance" && Math.abs(delta) > 8) {
+    return "Endurance goal target is too far from current weight.";
+  }
+
+  return null;
+}
 
 export default function FitnessOnboardingPage() {
   const navigate = useNavigate();
@@ -71,6 +107,7 @@ export default function FitnessOnboardingPage() {
   );
 
   const issues = useMemo(() => validateQuestionnaire(questionnaire), [questionnaire]);
+  const goalConsistencyError = useMemo(() => getGoalConsistencyError(questionnaire), [questionnaire]);
 
   const updateQuestionnaire = (updater: (prev: FitnessQuestionnaire) => FitnessQuestionnaire) => {
     setQuestionnaire((prev) => {
@@ -88,6 +125,9 @@ export default function FitnessOnboardingPage() {
 
   const validateStep = (stepNumber: number): string | null => {
     if (stepNumber === 1) {
+      if (!Number.isFinite(questionnaire.basic.age) || questionnaire.basic.age <= 0) return "Please enter your age.";
+      if (!Number.isFinite(questionnaire.basic.heightCm) || questionnaire.basic.heightCm <= 0) return "Please enter your height.";
+      if (!Number.isFinite(questionnaire.basic.weightKg) || questionnaire.basic.weightKg <= 0) return "Please enter your current weight.";
       if (questionnaire.basic.age < 13 || questionnaire.basic.age > 80) return "Age should be between 13 and 80.";
       if (questionnaire.basic.heightCm < 120 || questionnaire.basic.heightCm > 230) return "Height should be between 120 cm and 230 cm.";
       if (questionnaire.basic.weightKg < 30 || questionnaire.basic.weightKg > 250) return "Weight should be between 30 kg and 250 kg.";
@@ -97,14 +137,56 @@ export default function FitnessOnboardingPage() {
       if (questionnaire.goals.targetMode === "weight" && (!questionnaire.goals.targetWeightKg || questionnaire.goals.targetWeightKg <= 0)) {
         return "Please enter a valid target weight.";
       }
-    }
-
-    if (stepNumber === 4) {
-      if (questionnaire.constraints.hasInjuries && questionnaire.constraints.injuryTypes.length === 0) {
-        return "Please add at least one injury type when injuries are marked as yes.";
+      if (goalConsistencyError) return goalConsistencyError;
+      if (questionnaire.goals.targetMode === "body_type" && !questionnaire.goals.targetBodyType) {
+        return "Please select a target body type.";
       }
     }
 
+    if (stepNumber === 3) {
+      const validDays = [3, 5, 6, 7];
+      const validMinutes = [15, 30, 45, 60];
+      if (!validDays.includes(questionnaire.commitment.daysPerWeek)) {
+        return "Please choose valid days per week.";
+      }
+      if (!validMinutes.includes(questionnaire.commitment.timePerDayMinutes)) {
+        return "Please choose valid daily workout time.";
+      }
+    }
+
+    if (stepNumber === 4) {
+      if (!Number.isFinite(questionnaire.lifestyle.sleepHours) || questionnaire.lifestyle.sleepHours <= 0) {
+        return "Please enter sleep hours.";
+      }
+      if (questionnaire.lifestyle.sleepHours < 4 || questionnaire.lifestyle.sleepHours > 12) {
+        return "Sleep hours should be between 4 and 12.";
+      }
+      if (questionnaire.constraints.hasInjuries && questionnaire.constraints.injuryTypes.length === 0) {
+        return "Please add at least one injury type when injuries are marked as yes.";
+      }
+      if (
+        questionnaire.constraints.hasInjuries &&
+        questionnaire.constraints.restrictions.trim().length < 5
+      ) {
+        return "Please describe restrictions so the plan can avoid risky movements.";
+      }
+    }
+
+    if (stepNumber === 5) {
+      if (goalConsistencyError) return goalConsistencyError;
+    }
+
+    return null;
+  };
+
+  const validateAllSteps = (): string | null => {
+    for (let s = 1; s <= 5; s += 1) {
+      const error = validateStep(s);
+      if (error) {
+        setStep(s);
+        return error;
+      }
+    }
     return null;
   };
 
@@ -136,15 +218,10 @@ export default function FitnessOnboardingPage() {
   const submit = async () => {
     if (!currentUser || currentUser.role !== "student") return;
 
-    const criticalMissing = [
-      questionnaire.basic.age,
-      questionnaire.basic.heightCm,
-      questionnaire.basic.weightKg,
-      questionnaire.commitment.timePerDayMinutes,
-    ].some((value) => !value || Number.isNaN(value));
-
-    if (criticalMissing) {
-      toast.error("Please complete all required inputs before generating a plan.");
+    const validationError = validateAllSteps();
+    if (validationError) {
+      setStepError(validationError);
+      toast.error(validationError);
       return;
     }
 
@@ -153,11 +230,11 @@ export default function FitnessOnboardingPage() {
 
     await new Promise((resolve) => setTimeout(resolve, 1500));
 
-    const plan = completeOnboardingAndGeneratePlan(currentUser.id, questionnaire);
+    completeOnboardingAndGeneratePlan(currentUser.id, questionnaire);
     setSubmitting(false);
 
-    toast.success("Your personalized plan is ready and sent for trainer approval.");
-    navigate(`/student/plan-status?planId=${plan.id}`);
+    toast.success("Your personalized plan is ready and active.");
+    navigate("/student/dashboard");
   };
 
   const stepTitle = [
@@ -172,30 +249,30 @@ export default function FitnessOnboardingPage() {
   const stepLabels = ["Metrics", "Status + Goal", "Time + Setup", "Lifestyle", "Safety", "Generate"];
 
   return (
-    <div className="relative min-h-screen overflow-hidden bg-[#f8f6f1] px-4 py-10 text-[#101010] sm:px-8">
+    <div className="relative min-h-screen overflow-hidden bg-zinc-950 px-4 py-10 text-zinc-100 sm:px-8">
       <div className="pointer-events-none absolute inset-0">
-        <div className="absolute left-0 top-0 h-72 w-72 rounded-full bg-[#d9ece2] blur-3xl" />
-        <div className="absolute right-10 top-10 h-64 w-64 rounded-full bg-[#f3e5cf] blur-3xl" />
-        <div className="absolute bottom-0 left-1/3 h-72 w-72 rounded-full bg-[#dfe7fb] blur-3xl" />
+        <div className="absolute left-0 top-0 h-72 w-72 rounded-full bg-emerald-500/20 blur-3xl" />
+        <div className="absolute right-10 top-10 h-64 w-64 rounded-full bg-amber-500/20 blur-3xl" />
+        <div className="absolute bottom-0 left-1/3 h-72 w-72 rounded-full bg-indigo-500/20 blur-3xl" />
       </div>
 
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={LUXURY_TWEEN_SLOW}
-        className="relative mx-auto max-w-4xl rounded-3xl border border-black/10 bg-white/75 p-6 shadow-[0_25px_60px_rgba(20,20,20,0.08)] backdrop-blur-xl sm:p-8"
+        className="relative mx-auto max-w-4xl rounded-3xl border border-zinc-700/70 bg-zinc-900/90 p-6 shadow-[0_25px_60px_rgba(0,0,0,0.55)] backdrop-blur-xl sm:p-8"
       >
         <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-black/45">Fitness Onboarding Flow</p>
-            <h1 className="mt-2 font-display text-3xl font-semibold tracking-tight">{stepTitle}</h1>
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-400">Fitness Onboarding Flow</p>
+            <h1 className="mt-2 font-display text-3xl font-semibold tracking-tight text-white">{stepTitle}</h1>
           </div>
-          <div className="rounded-full border border-black/10 bg-white/80 px-4 py-2 text-sm font-semibold">
+          <div className="rounded-full border border-zinc-700 bg-zinc-800 px-4 py-2 text-sm font-semibold text-zinc-100">
             Step {step} of {TOTAL_STEPS}
           </div>
         </div>
 
-        <div className="mb-8 h-2 rounded-full bg-black/10">
+        <div className="mb-8 h-2 rounded-full bg-zinc-700">
           <motion.div
             className="h-full rounded-full bg-gradient-to-r from-[#86c9b4] via-[#f2c489] to-[#9eb1eb]"
             initial={{ width: "0%" }}
@@ -214,7 +291,7 @@ export default function FitnessOnboardingPage() {
                 key={label}
                 whileHover={{ y: -2 }}
                 transition={LUXURY_SPRING}
-                className={`rounded-xl border px-2 py-2 text-center text-[11px] font-semibold ${active ? "border-black/30 bg-white" : done ? "border-emerald-300/60 bg-emerald-50" : "border-black/10 bg-white/70 text-black/50"}`}
+                className={`rounded-xl border px-2 py-2 text-center text-[11px] font-semibold ${active ? "border-zinc-400 bg-zinc-800 text-zinc-100" : done ? "border-emerald-500/40 bg-emerald-500/15 text-emerald-100" : "border-zinc-700 bg-zinc-900 text-zinc-400"}`}
               >
                 {label}
               </motion.div>
@@ -227,7 +304,7 @@ export default function FitnessOnboardingPage() {
             initial={{ opacity: 0, y: -6 }}
             animate={{ opacity: 1, y: 0 }}
             transition={LUXURY_TWEEN_MEDIUM}
-            className="mb-6 rounded-2xl border border-rose-300/70 bg-rose-50 px-4 py-3 text-sm text-rose-900"
+            className="mb-6 rounded-2xl border border-rose-300/70 bg-rose-50 px-4 py-3 text-sm text-rose-900 dark:border-rose-500/40 dark:bg-rose-500/12 dark:text-rose-200"
           >
             {stepError}
           </motion.div>
@@ -244,18 +321,18 @@ export default function FitnessOnboardingPage() {
           >
             {step === 1 && (
               <div className="grid gap-4 sm:grid-cols-2">
-                <Input label="Age" type="number" value={questionnaire.basic.age} onChange={(v) => updateQuestionnaire((prev) => ({ ...prev, basic: { ...prev.basic, age: Number(v) } }))} />
+                <Input label="Age" type="number" value={questionnaire.basic.age || ""} onChange={(v) => updateQuestionnaire((prev) => ({ ...prev, basic: { ...prev.basic, age: Number(v) } }))} />
                 <Select
                   label="Gender"
                   value={questionnaire.basic.gender}
                   onChange={(v) => updateQuestionnaire((prev) => ({ ...prev, basic: { ...prev.basic, gender: v as FitnessQuestionnaire["basic"]["gender"] } }))}
                   options={[{ label: "Male", value: "male" }, { label: "Female", value: "female" }, { label: "Other", value: "other" }]}
                 />
-                <Input label="Height (cm)" type="number" value={questionnaire.basic.heightCm} onChange={(v) => updateQuestionnaire((prev) => ({ ...prev, basic: { ...prev.basic, heightCm: Number(v) } }))} />
-                <Input label="Weight (kg)" type="number" value={questionnaire.basic.weightKg} onChange={(v) => updateQuestionnaire((prev) => ({ ...prev, basic: { ...prev.basic, weightKg: Number(v) } }))} />
-                <div className="sm:col-span-2 rounded-2xl border border-black/10 bg-white/80 p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.7)]">
-                  <p className="text-xs font-semibold uppercase tracking-[0.2em] text-black/45">Simulated BMI</p>
-                  <p className="mt-1 text-2xl font-semibold">{bmi}</p>
+                <Input label="Height (cm)" type="number" value={questionnaire.basic.heightCm || ""} onChange={(v) => updateQuestionnaire((prev) => ({ ...prev, basic: { ...prev.basic, heightCm: Number(v) } }))} />
+                <Input label="Weight (kg)" type="number" value={questionnaire.basic.weightKg || ""} onChange={(v) => updateQuestionnaire((prev) => ({ ...prev, basic: { ...prev.basic, weightKg: Number(v) } }))} />
+                <div className="sm:col-span-2 rounded-2xl border border-zinc-700 bg-zinc-800 p-4">
+                  <p className="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-400">Simulated BMI</p>
+                  <p className="mt-1 text-2xl font-semibold text-white">{bmi || "-"}</p>
                 </div>
               </div>
             )}
@@ -309,7 +386,7 @@ export default function FitnessOnboardingPage() {
                   <Input
                     label="Target Weight (kg)"
                     type="number"
-                    value={questionnaire.goals.targetWeightKg ?? ""}
+                    value={questionnaire.goals.targetWeightKg || ""}
                     onChange={(v) => updateQuestionnaire((prev) => ({ ...prev, goals: { ...prev.goals, targetWeightKg: Number(v), targetBodyType: undefined } }))}
                   />
                 ) : (
@@ -321,10 +398,16 @@ export default function FitnessOnboardingPage() {
                   />
                 )}
 
-                <div className="rounded-2xl border border-black/10 bg-white/80 p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.7)]">
-                  <p className="text-xs font-semibold uppercase tracking-[0.2em] text-black/45">Weight Difference</p>
-                  <p className="mt-1 text-xl font-semibold">{questionnaire.goals.weightDifferenceKg ?? 0} kg</p>
+                <div className="rounded-2xl border border-zinc-700 bg-zinc-800 p-4">
+                  <p className="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-400">Weight Difference</p>
+                  <p className="mt-1 text-xl font-semibold text-white">{questionnaire.goals.weightDifferenceKg ?? 0} kg</p>
                 </div>
+
+                {goalConsistencyError && (
+                  <div className="rounded-2xl border border-rose-500/40 bg-rose-500/10 px-4 py-3 text-sm text-rose-200">
+                    {goalConsistencyError}
+                  </div>
+                )}
               </div>
             )}
 
@@ -384,7 +467,7 @@ export default function FitnessOnboardingPage() {
                 <Input
                   label="Sleep Hours"
                   type="number"
-                  value={questionnaire.lifestyle.sleepHours}
+                  value={questionnaire.lifestyle.sleepHours || ""}
                   onChange={(v) => updateQuestionnaire((prev) => ({ ...prev, lifestyle: { ...prev.lifestyle, sleepHours: Number(v) } }))}
                 />
                 <Select
@@ -424,21 +507,21 @@ export default function FitnessOnboardingPage() {
 
             {step === 5 && (
               <div className="space-y-4">
-                <div className="rounded-2xl border border-black/10 bg-white/80 p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.7)]">
-                  <p className="text-sm font-semibold">Smart onboarding diagnostics</p>
-                  <p className="mt-1 text-sm text-black/65">We pre-check unrealistic targets, missing inputs, injury conflicts, and low time availability.</p>
+                <div className="rounded-2xl border border-zinc-700 bg-zinc-800 p-4">
+                  <p className="text-sm font-semibold text-white">Smart onboarding diagnostics</p>
+                  <p className="mt-1 text-sm text-zinc-300">We pre-check unrealistic targets, missing inputs, injury conflicts, and low time availability.</p>
                 </div>
                 {issues.length === 0 ? (
-                  <div className="rounded-2xl border border-emerald-300/60 bg-emerald-50 p-4 text-sm text-emerald-800">
+                  <div className="rounded-2xl border border-emerald-500/40 bg-emerald-500/10 p-4 text-sm text-emerald-200">
                     No critical risks detected. Your plan can be generated safely.
                   </div>
                 ) : (
                   issues.map((issue) => (
-                    <div key={`${issue.code}-${issue.message}`} className="flex items-start gap-3 rounded-2xl border border-amber-300/70 bg-amber-50 p-4 text-sm text-amber-900">
+                    <div key={`${issue.code}-${issue.message}`} className="flex items-start gap-3 rounded-2xl border border-amber-500/40 bg-amber-500/10 p-4 text-sm text-amber-100">
                       <AlertTriangle className="mt-0.5 h-4 w-4" />
                       <div>
                         <p className="font-semibold capitalize">{issue.code.replace(/_/g, " ")}</p>
-                        <p className="text-amber-900/80">{issue.message}</p>
+                        <p className="text-amber-100/80">{issue.message}</p>
                       </div>
                     </div>
                   ))
@@ -448,21 +531,21 @@ export default function FitnessOnboardingPage() {
 
             {step === 6 && (
               <div className="space-y-4">
-                <div className="rounded-2xl border border-black/10 bg-white/80 p-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.7)]">
-                  <p className="text-xs font-semibold uppercase tracking-[0.2em] text-black/45">Final Review</p>
-                  <p className="mt-2 text-sm text-black/70">
+                <div className="rounded-2xl border border-zinc-700 bg-zinc-800 p-5">
+                  <p className="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-400">Final Review</p>
+                  <p className="mt-2 text-sm text-zinc-200">
                     Goal: <strong>{questionnaire.goals.primaryGoal.replace(/_/g, " ")}</strong> | Days: <strong>{questionnaire.commitment.daysPerWeek}/week</strong> | Time: <strong>{questionnaire.commitment.timePerDayMinutes}m/day</strong>
                   </p>
-                  <p className="mt-2 text-sm text-black/70">Environment: <strong>{questionnaire.environment.workoutType}</strong> ({questionnaire.environment.equipment.replace(/_/g, " ")})</p>
-                  <p className="mt-2 text-sm text-black/70">BMI: <strong>{bmi}</strong></p>
+                  <p className="mt-2 text-sm text-zinc-200">Environment: <strong>{questionnaire.environment.workoutType}</strong> ({questionnaire.environment.equipment.replace(/_/g, " ")})</p>
+                  <p className="mt-2 text-sm text-zinc-200">BMI: <strong>{bmi || "-"}</strong></p>
                 </div>
 
-                <div className="rounded-2xl border border-black/10 bg-gradient-to-r from-[#eaf7f1] via-[#f8f2e7] to-[#eef2ff] p-5 shadow-[0_10px_30px_rgba(30,40,60,0.08)]">
-                  <p className="text-sm font-semibold">Plan Output Pipeline</p>
-                  <ul className="mt-3 list-disc pl-5 text-sm text-black/70">
+                <div className="rounded-2xl border border-zinc-700 bg-gradient-to-r from-emerald-500/15 via-zinc-900 to-indigo-500/15 p-5 shadow-[0_10px_30px_rgba(0,0,0,0.4)]">
+                  <p className="text-sm font-semibold text-zinc-100">Plan Output Pipeline</p>
+                  <ul className="mt-3 list-disc pl-5 text-sm text-zinc-300">
                     <li>Base template selection from 6 core templates</li>
                     <li>Intensity + schedule + constraints adaptation</li>
-                    <li>Status initialized as pending_trainer_approval</li>
+                    <li>Status initialized as active and ready to start</li>
                   </ul>
                 </div>
               </div>
@@ -474,7 +557,7 @@ export default function FitnessOnboardingPage() {
           <button
             onClick={back}
             disabled={step === 1 || submitting}
-            className="inline-flex items-center gap-2 rounded-full border border-black/15 bg-white px-4 py-2 text-sm font-semibold transition-all hover:-translate-y-0.5 hover:shadow-sm disabled:opacity-40"
+            className="inline-flex items-center gap-2 rounded-full border border-zinc-700 bg-zinc-800 px-4 py-2 text-sm font-semibold text-zinc-100 transition-all hover:-translate-y-0.5 hover:shadow-sm disabled:opacity-40"
           >
             <ChevronLeft className="h-4 w-4" /> Back
           </button>
@@ -483,7 +566,7 @@ export default function FitnessOnboardingPage() {
             <button
               onClick={next}
               disabled={submitting}
-              className="inline-flex items-center gap-2 rounded-full bg-black px-5 py-2.5 text-sm font-semibold text-white transition-all hover:-translate-y-0.5 hover:shadow-md"
+              className="inline-flex items-center gap-2 rounded-full bg-white px-5 py-2.5 text-sm font-semibold text-black transition-all hover:-translate-y-0.5 hover:shadow-md"
             >
               Next <ChevronRight className="h-4 w-4" />
             </button>
@@ -491,7 +574,7 @@ export default function FitnessOnboardingPage() {
             <button
               onClick={submit}
               disabled={submitting}
-              className="inline-flex items-center gap-2 rounded-full bg-black px-5 py-2.5 text-sm font-semibold text-white transition-all hover:-translate-y-0.5 hover:shadow-md disabled:opacity-60"
+              className="inline-flex items-center gap-2 rounded-full bg-white px-5 py-2.5 text-sm font-semibold text-black transition-all hover:-translate-y-0.5 hover:shadow-md disabled:opacity-60"
             >
               {submitting ? (
                 <>
@@ -521,13 +604,13 @@ type InputProps = {
 function Input({ label, value, onChange, type = "text", placeholder }: InputProps) {
   return (
     <label className="group block text-sm font-medium">
-      <span className="mb-1 block text-xs font-semibold uppercase tracking-[0.16em] text-black/45">{label}</span>
+      <span className="mb-1 block text-xs font-semibold uppercase tracking-[0.16em] text-zinc-400">{label}</span>
       <input
         type={type}
         value={value}
         onChange={(event) => onChange(event.target.value)}
         placeholder={placeholder}
-        className="w-full rounded-xl border border-black/15 bg-white px-3 py-2.5 text-sm outline-none transition-all placeholder:text-black/30 focus:border-black/35 focus:shadow-[0_0_0_3px_rgba(20,20,20,0.06)]"
+        className="w-full rounded-xl border border-zinc-700 bg-zinc-800 px-3 py-2.5 text-sm text-zinc-100 outline-none transition-all placeholder:text-zinc-500 focus:border-zinc-500 focus:shadow-[0_0_0_3px_rgba(255,255,255,0.08)]"
       />
     </label>
   );
@@ -543,11 +626,11 @@ type SelectProps = {
 function Select({ label, value, onChange, options }: SelectProps) {
   return (
     <label className="group block text-sm font-medium">
-      <span className="mb-1 block text-xs font-semibold uppercase tracking-[0.16em] text-black/45">{label}</span>
+      <span className="mb-1 block text-xs font-semibold uppercase tracking-[0.16em] text-zinc-400">{label}</span>
       <select
         value={value}
         onChange={(event) => onChange(event.target.value)}
-        className="w-full rounded-xl border border-black/15 bg-white px-3 py-2.5 text-sm outline-none transition-all focus:border-black/35 focus:shadow-[0_0_0_3px_rgba(20,20,20,0.06)]"
+        className="w-full rounded-xl border border-zinc-700 bg-zinc-800 px-3 py-2.5 text-sm text-zinc-100 outline-none transition-all focus:border-zinc-500 focus:shadow-[0_0_0_3px_rgba(255,255,255,0.08)]"
       >
         {options.map((option) => (
           <option key={option.value} value={option.value}>
@@ -569,13 +652,13 @@ type TextAreaProps = {
 function TextArea({ label, value, onChange, placeholder }: TextAreaProps) {
   return (
     <label className="group block text-sm font-medium">
-      <span className="mb-1 block text-xs font-semibold uppercase tracking-[0.16em] text-black/45">{label}</span>
+      <span className="mb-1 block text-xs font-semibold uppercase tracking-[0.16em] text-zinc-400">{label}</span>
       <textarea
         value={value}
         onChange={(event) => onChange(event.target.value)}
         placeholder={placeholder}
         rows={3}
-        className="w-full rounded-xl border border-black/15 bg-white px-3 py-2.5 text-sm outline-none transition-all placeholder:text-black/30 focus:border-black/35 focus:shadow-[0_0_0_3px_rgba(20,20,20,0.06)]"
+        className="w-full rounded-xl border border-zinc-700 bg-zinc-800 px-3 py-2.5 text-sm text-zinc-100 outline-none transition-all placeholder:text-zinc-500 focus:border-zinc-500 focus:shadow-[0_0_0_3px_rgba(255,255,255,0.08)]"
       />
     </label>
   );

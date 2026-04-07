@@ -18,7 +18,7 @@ export default function PublicLayout() {
         <div className="max-w-7xl mx-auto flex items-center justify-between h-16 px-4 sm:px-6">
           <Link to="/" className="flex items-center gap-2">
             <Flame className="h-6 w-6 text-streak" />
-            <span className="font-display font-bold text-lg tracking-tight text-foreground">THE AFTER HOURS</span>
+            <span className="font-display font-bold text-lg tracking-tight text-foreground">AFTER HOURS GRIND</span>
           </Link>
           <div className="hidden md:flex items-center gap-8">
             {navLinks.map((l) => (

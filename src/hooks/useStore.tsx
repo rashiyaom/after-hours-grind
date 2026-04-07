@@ -29,8 +29,27 @@ import {
 type LegacyTodayTask = {
   stepTarget: number;
   hydrationGoal: string;
-  workout: Array<{ id: string; name: string; sets: number; reps: number; rest: string; completed: boolean }>;
-  diet: Array<{ id: string; meal: string; description: string; time: string; calories: number; completed: boolean }>;
+  workout: Array<{
+    id: string;
+    name: string;
+    sets: number;
+    reps: number;
+    rest: string;
+    completed: boolean;
+    focus: string;
+    equipmentMode: 'bodyweight_only' | 'basic' | 'full_gym';
+    alternatives: string[];
+  }>;
+  diet: Array<{
+    id: string;
+    meal: string;
+    description: string;
+    time: string;
+    calories: number;
+    completed: boolean;
+    foods: Array<{ item: string; grams: number }>;
+    macros: { protein: number; carbs: number; fats: number };
+  }>;
 };
 
 type LegacySubmission = {
@@ -58,16 +77,107 @@ const defaultTodayTask: LegacyTodayTask = {
   stepTarget: 10000,
   hydrationGoal: '3.5L',
   workout: [
-    { id: 'w1', name: 'Incline Dumbbell Press', sets: 4, reps: 12, rest: '60s', completed: true },
-    { id: 'w2', name: 'Cable Fly', sets: 3, reps: 15, rest: '45s', completed: false },
-    { id: 'w3', name: 'Overhead Triceps Extension', sets: 3, reps: 12, rest: '45s', completed: false },
-    { id: 'w4', name: 'Push-ups', sets: 3, reps: 20, rest: '30s', completed: false },
+    {
+      id: 'w1',
+      name: 'Incline Dumbbell Press',
+      sets: 4,
+      reps: 12,
+      rest: '60s',
+      completed: true,
+      focus: 'Upper chest and front delts',
+      equipmentMode: 'basic',
+      alternatives: ['Elevated push-ups', 'Resistance-band press'],
+    },
+    {
+      id: 'w2',
+      name: 'Cable Fly',
+      sets: 3,
+      reps: 15,
+      rest: '45s',
+      completed: false,
+      focus: 'Chest isolation and contraction quality',
+      equipmentMode: 'full_gym',
+      alternatives: ['Dumbbell fly on floor', 'Band fly'],
+    },
+    {
+      id: 'w3',
+      name: 'Overhead Triceps Extension',
+      sets: 3,
+      reps: 12,
+      rest: '45s',
+      completed: false,
+      focus: 'Long-head triceps loading',
+      equipmentMode: 'basic',
+      alternatives: ['Chair dips', 'Close-grip push-ups'],
+    },
+    {
+      id: 'w4',
+      name: 'Push-ups',
+      sets: 3,
+      reps: 20,
+      rest: '30s',
+      completed: false,
+      focus: 'Volume finisher',
+      equipmentMode: 'bodyweight_only',
+      alternatives: ['Knee push-ups', 'Tempo push-ups'],
+    },
   ],
   diet: [
-    { id: 'd1', meal: 'Breakfast', description: 'Oats + eggs + fruit', time: '08:00', calories: 520, completed: true },
-    { id: 'd2', meal: 'Lunch', description: 'Chicken + rice + salad', time: '13:30', calories: 680, completed: false },
-    { id: 'd3', meal: 'Snack', description: 'Greek yogurt + nuts', time: '17:00', calories: 320, completed: false },
-    { id: 'd4', meal: 'Dinner', description: 'Paneer + veggies + roti', time: '20:30', calories: 610, completed: false },
+    {
+      id: 'd1',
+      meal: 'Breakfast',
+      description: 'Oats + eggs + fruit',
+      time: '08:00',
+      calories: 520,
+      completed: true,
+      foods: [
+        { item: 'Rolled oats', grams: 70 },
+        { item: 'Whole eggs', grams: 100 },
+        { item: 'Banana', grams: 120 },
+      ],
+      macros: { protein: 31, carbs: 57, fats: 16 },
+    },
+    {
+      id: 'd2',
+      meal: 'Lunch',
+      description: 'Chicken + rice + salad',
+      time: '13:30',
+      calories: 680,
+      completed: false,
+      foods: [
+        { item: 'Chicken breast', grams: 180 },
+        { item: 'Cooked rice', grams: 220 },
+        { item: 'Salad mix', grams: 120 },
+      ],
+      macros: { protein: 52, carbs: 64, fats: 14 },
+    },
+    {
+      id: 'd3',
+      meal: 'Snack',
+      description: 'Greek yogurt + nuts',
+      time: '17:00',
+      calories: 320,
+      completed: false,
+      foods: [
+        { item: 'Greek yogurt', grams: 200 },
+        { item: 'Mixed nuts', grams: 25 },
+      ],
+      macros: { protein: 24, carbs: 18, fats: 15 },
+    },
+    {
+      id: 'd4',
+      meal: 'Dinner',
+      description: 'Paneer + veggies + roti',
+      time: '20:30',
+      calories: 610,
+      completed: false,
+      foods: [
+        { item: 'Paneer', grams: 160 },
+        { item: 'Mixed vegetables', grams: 200 },
+        { item: 'Roti', grams: 100 },
+      ],
+      macros: { protein: 36, carbs: 48, fats: 24 },
+    },
   ],
 };
 
@@ -121,9 +231,103 @@ const defaultAppNotifications: NotificationItem[] = [
 
 const cloneTodayTask = (): LegacyTodayTask => ({
   ...defaultTodayTask,
-  workout: defaultTodayTask.workout.map((item) => ({ ...item })),
-  diet: defaultTodayTask.diet.map((item) => ({ ...item })),
+  workout: defaultTodayTask.workout.map((item) => ({ ...item, alternatives: [...item.alternatives] })),
+  diet: defaultTodayTask.diet.map((item) => ({
+    ...item,
+    foods: item.foods.map((food) => ({ ...food })),
+    macros: { ...item.macros },
+  })),
 });
+
+const adaptTodayTaskForProfile = (baseTask: LegacyTodayTask, student: Student): LegacyTodayTask => {
+  const draft = student.onboardingDraft;
+  if (!draft) return cloneTodayTask();
+
+  const equipment = draft.environment.equipment;
+  const workoutType = draft.environment.workoutType;
+  const isVeg = draft.lifestyle.dietType === 'veg';
+  const primaryGoal = draft.goals.primaryGoal;
+
+  let workout = baseTask.workout.map((item) => ({ ...item, alternatives: [...item.alternatives] }));
+
+  if (workoutType === 'home' && equipment === 'none') {
+    workout = workout.map((item) => {
+      const fallback = item.alternatives[0] ?? item.name;
+      return {
+        ...item,
+        name: `Bodyweight - ${fallback}`,
+        focus: `${item.focus} (home adaptation)`,
+        equipmentMode: 'bodyweight_only',
+      };
+    });
+  } else if (equipment === 'basic') {
+    workout = workout.map((item) => ({
+      ...item,
+      name: item.equipmentMode === 'full_gym' ? item.alternatives[0] ?? item.name : item.name,
+      equipmentMode: item.equipmentMode === 'full_gym' ? 'basic' : item.equipmentMode,
+    }));
+  } else if (workoutType === 'gym' && equipment === 'full_gym') {
+    workout = workout.map((item) => ({
+      ...item,
+      focus: `${item.focus} (machine-enabled progression)`,
+      equipmentMode: 'full_gym',
+    }));
+  }
+
+  let diet = baseTask.diet.map((item) => ({
+    ...item,
+    foods: item.foods.map((food) => ({ ...food })),
+    macros: { ...item.macros },
+  }));
+
+  if (isVeg) {
+    diet = diet.map((meal) => {
+      const mappedFoods = meal.foods.map((food) => {
+        if (/chicken|egg/i.test(food.item)) {
+          return { item: 'Paneer/Tofu', grams: Math.max(120, Math.round(food.grams * 0.9)) };
+        }
+        return food;
+      });
+      return {
+        ...meal,
+        description: meal.description.replace(/eggs?/gi, 'tofu').replace(/chicken/gi, 'paneer/tofu'),
+        foods: mappedFoods,
+      };
+    });
+  }
+
+  if (primaryGoal === 'fat_loss') {
+    diet = diet.map((meal) => ({
+      ...meal,
+      calories: Math.max(220, Math.round(meal.calories * 0.9)),
+      macros: {
+        protein: meal.macros.protein,
+        carbs: Math.max(20, Math.round(meal.macros.carbs * 0.85)),
+        fats: Math.max(8, Math.round(meal.macros.fats * 0.9)),
+      },
+    }));
+  }
+
+  if (primaryGoal === 'muscle_gain') {
+    diet = diet.map((meal) => ({
+      ...meal,
+      calories: Math.round(meal.calories * 1.12),
+      macros: {
+        protein: Math.round(meal.macros.protein * 1.15),
+        carbs: Math.round(meal.macros.carbs * 1.12),
+        fats: meal.macros.fats,
+      },
+    }));
+  }
+
+  return {
+    ...baseTask,
+    workout,
+    diet,
+    hydrationGoal: draft.lifestyle.hydrationHabit === 'poor' ? '3.8L' : baseTask.hydrationGoal,
+    stepTarget: primaryGoal === 'fat_loss' ? 11000 : primaryGoal === 'muscle_gain' ? 9000 : baseTask.stepTarget,
+  };
+};
 
 // ========= STORE STATE =========
 interface AppState {
@@ -244,19 +448,79 @@ const hardcodedRoleCredentials: Record<
   student: {
     email: 's@g.com',
     password: 'student1234',
-    defaultUserId: 's1',
+    defaultUserId: 'hc-student',
   },
   trainer: {
     email: 't@g.com',
     password: 'trainer1234',
-    defaultUserId: 't1',
+    defaultUserId: 'hc-trainer',
   },
   admin: {
     email: 'a@g.com',
     password: 'admin@1234',
-    defaultUserId: 'a1',
+    defaultUserId: 'hc-admin',
   },
 };
+
+function buildCredentialUser(role: UserRole): Student | Trainer | Admin {
+  if (role === 'student') {
+    return {
+      id: hardcodedRoleCredentials.student.defaultUserId,
+      name: 'Student Demo',
+      email: hardcodedRoleCredentials.student.email,
+      password: hardcodedRoleCredentials.student.password,
+      avatar: '',
+      role: 'student',
+      collegeId: 'COL-DEMO-001',
+      height: 170,
+      weight: 70,
+      fitnessGoal: 'General fitness',
+      streak: 0,
+      totalPlansCompleted: 0,
+      followers: 0,
+      following: 0,
+      trainerId: 'hc-trainer',
+      currentPlanId: null,
+      currentDay: 1,
+      totalDays: 30,
+      completionPercentage: 0,
+      todaySteps: 0,
+      rank: 999,
+      badges: [],
+      isBanned: false,
+      warnings: 0,
+      onboardingStatus: 'not_started',
+      onboardingStep: 1,
+    };
+  }
+
+  if (role === 'trainer') {
+    return {
+      id: hardcodedRoleCredentials.trainer.defaultUserId,
+      name: 'Trainer Demo',
+      email: hardcodedRoleCredentials.trainer.email,
+      password: hardcodedRoleCredentials.trainer.password,
+      avatar: '',
+      role: 'trainer',
+      specialization: 'Strength & Conditioning',
+      experience: 6,
+      certifications: ['ACE-CPT'],
+      totalStudents: 1,
+      activePlans: 0,
+      isVerified: true,
+    };
+  }
+
+  return {
+    id: hardcodedRoleCredentials.admin.defaultUserId,
+    name: 'Admin Demo',
+    email: hardcodedRoleCredentials.admin.email,
+    password: hardcodedRoleCredentials.admin.password,
+    avatar: '',
+    role: 'admin',
+    permissions: ['manage-users', 'view-reports', 'moderate-content'],
+  };
+}
 
 const clonePermissions = (source: PermissionMatrix): PermissionMatrix => ({
   student: { ...source.student },
@@ -336,18 +600,47 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
     const passwordMatches = password === credential.password;
     if (!emailMatches || !passwordMatches) return false;
 
-    const user =
-      get().users[credential.defaultUserId] ??
-      Object.values(get().users).find((u) => u.role === role);
+    let isAuthenticated = false;
+    set((state) => {
+      const existingUser = state.users[credential.defaultUserId];
+      const user = existingUser ?? buildCredentialUser(role);
+      let nextPlans = state.plans;
 
-    if (user) {
-      set((state) => ({
+      if (role === 'student') {
+        const studentUser = user as Student;
+        if (studentUser.currentPlanId) {
+          const existingPlan = state.plans[studentUser.currentPlanId];
+          if (existingPlan && existingPlan.status !== 'active') {
+            nextPlans = {
+              ...state.plans,
+              [existingPlan.id]: {
+                ...existingPlan,
+                status: 'active',
+                reviewedAt: existingPlan.reviewedAt ?? new Date().toISOString(),
+                reviewFeedback:
+                  existingPlan.reviewFeedback ?? 'Automatically activated for direct student access.',
+              },
+            };
+          }
+        }
+      }
+
+      isAuthenticated = true;
+
+      return {
         ...state,
+        users: existingUser
+          ? state.users
+          : {
+              ...state.users,
+              [user.id]: user,
+            },
+        plans: nextPlans,
         session: { ...state.session, currentUser: user, isAuthenticated: true },
-      }));
-      return true;
-    }
-    return false;
+      };
+    });
+
+    return isAuthenticated;
   },
   logout: () =>
     set({
@@ -626,7 +919,12 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
     }),
 
   completeOnboardingAndGeneratePlan: (studentId, payload) => {
-    const generatedPlan = generateAutoPlan(studentId, payload);
+    const generatedPlan: Plan = {
+      ...generateAutoPlan(studentId, payload),
+      status: 'active',
+      reviewedAt: new Date().toISOString(),
+      reviewFeedback: 'Auto-activated after onboarding completion.',
+    };
 
     set((state) => {
       const user = state.users[studentId];

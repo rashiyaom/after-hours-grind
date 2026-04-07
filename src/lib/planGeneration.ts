@@ -290,7 +290,7 @@ export function generateAutoPlan(studentId: string, questionnaire: FitnessQuesti
     dailyTasks: [],
     type: "auto_generated",
     templateKey,
-    status: "pending_trainer_approval",
+    status: "active",
     generatedAt: new Date().toISOString(),
     basedOn: {
       goal: questionnaire.goals.primaryGoal,
