@@ -1,5 +1,5 @@
 import { Outlet, Link, useLocation, useNavigate } from "react-router-dom";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence, MotionConfig } from "framer-motion";
 import { useState } from "react";
 import {
   LayoutDashboard, Calendar, BarChart3, Rss, Trophy, User, Users,
@@ -7,6 +7,7 @@ import {
   ClipboardList, Award, LogOut, Plus, Search, Zap, Activity, Shield
 } from "lucide-react";
 import { useAppStore } from "@/hooks/useStore";
+import { LUXURY_EASE, LUXURY_SPRING, LUXURY_TWEEN_MEDIUM } from "@/lib/motionTokens";
 
 const studentNav = [
   { label: "Dashboard", path: "/student/dashboard", icon: LayoutDashboard },
@@ -30,13 +31,14 @@ const mobileStudentBottomNav = [
 const mobileTrainerBottomNav = [
   { label: "Home", path: "/trainer/dashboard", icon: LayoutDashboard },
   { label: "Builder", path: "/trainer/plan-builder", icon: ClipboardList },
-  { label: "Verify", path: "/trainer/dashboard", icon: Zap, isAction: true },
+  { label: "Verify", path: "/trainer/auto-plans", icon: Zap, isAction: true },
   { label: "Roster", path: "/trainer/dashboard", icon: Users },
   { label: "Stats", path: "/trainer/dashboard", icon: Activity },
 ];
 
 const trainerNav = [
   { label: "Dashboard", path: "/trainer/dashboard", icon: LayoutDashboard },
+  { label: "Auto Plans Queue", path: "/trainer/auto-plans", icon: Zap },
   { label: "Plan Builder", path: "/trainer/plan-builder", icon: ClipboardList },
 ];
 
@@ -197,8 +199,8 @@ export default function AppLayout() {
       <AnimatePresence>
         {mobileOpen && (
           <>
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="lg:hidden fixed inset-0 bg-background/90 backdrop-blur-md z-[100]" onClick={() => setMobileOpen(false)} />
-            <motion.div initial={{ x: "100%" }} animate={{ x: 0 }} exit={{ x: "100%" }} transition={{ type: "spring", damping: 30, stiffness: 300 }} className="lg:hidden fixed top-0 right-0 h-full w-full max-w-[280px] bg-card border-l border-white/10 z-[101] flex flex-col shadow-[-20px_0_50px_rgba(0,0,0,0.5)]">
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={LUXURY_TWEEN_MEDIUM} className="lg:hidden fixed inset-0 bg-background/90 backdrop-blur-md z-[100]" onClick={() => setMobileOpen(false)} />
+            <motion.div initial={{ x: "100%" }} animate={{ x: 0 }} exit={{ x: "100%" }} transition={LUXURY_SPRING} className="lg:hidden fixed top-0 right-0 h-full w-full max-w-[280px] bg-card border-l border-white/10 z-[101] flex flex-col shadow-[-20px_0_50px_rgba(0,0,0,0.5)]">
                <div className="p-6 border-b border-white/5 flex items-center justify-between">
                   <h3 className="font-display font-semibold text-lg text-foreground tracking-tight">Menu</h3>
                   <button onClick={() => setMobileOpen(false)} className="p-2 rounded-lg bg-white/5 hover:bg-white/10 transition-all"><X className="h-5 w-5" /></button>
@@ -268,18 +270,20 @@ export default function AppLayout() {
         <div className="fixed inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,165,0,0.03),transparent_40%),radial-gradient(circle_at_bottom_left,rgba(0,255,170,0.02),transparent_40%)] pointer-events-none" />
         
         <div className="relative z-10 min-h-screen">
-           <AnimatePresence mode="wait">
-             <motion.div 
-               key={location.pathname} 
-               initial={{ opacity: 0, x: 20 }} 
-               animate={{ opacity: 1, x: 0 }} 
-               exit={{ opacity: 0, x: -20 }}
-               transition={{ duration: 0.3, ease: "easeOut" }} 
-               className="min-h-screen"
-             >
-               <Outlet />
-             </motion.div>
-           </AnimatePresence>
+           <MotionConfig transition={LUXURY_TWEEN_MEDIUM}>
+             <AnimatePresence mode="wait">
+               <motion.div
+                 key={location.pathname}
+                 initial={{ opacity: 0, x: 20 }}
+                 animate={{ opacity: 1, x: 0 }}
+                 exit={{ opacity: 0, x: -20 }}
+                 transition={{ duration: 0.45, ease: LUXURY_EASE }}
+                 className="min-h-screen"
+               >
+                 <Outlet />
+               </motion.div>
+             </AnimatePresence>
+           </MotionConfig>
         </div>
       </main>
     </div>

@@ -9,6 +9,7 @@ import SectionHeader from "@/components/SectionHeader";
 import { useCurrentUser, usePermissions, useStore } from "@/hooks/useStore";
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
+import { LUXURY_TWEEN_MEDIUM, LUXURY_TWEEN_SLOW } from "@/lib/motionTokens";
 
 const dayTypes = [
   "Push Day — Chest & Triceps",
@@ -21,7 +22,7 @@ const dayTypes = [
 ];
 
 export default function DailyPlanPage() {
-  const { student: s, todayTask, completeTask } = useStore();
+  const { student: s, todayTask, completeTask, canStartCurrentPlan, currentStudentPlan } = useStore();
   const currentUser = useCurrentUser();
   const permissions = usePermissions();
   const canPostFeed = Boolean(currentUser && permissions[currentUser.role].post_feed);
@@ -53,6 +54,24 @@ export default function DailyPlanPage() {
   const dayType = dayTypes[(selectedDay - 1) % 7];
   const isToday = selectedDay === s.currentDay;
   const isPast = selectedDay < s.currentDay;
+
+  if (!canStartCurrentPlan) {
+    return (
+      <div className="p-6 sm:p-8 lg:p-12 max-w-3xl mx-auto space-y-6">
+        <div className="bg-card border border-white/10 rounded-3xl p-8 space-y-4">
+          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">Plan Access</p>
+          <h1 className="text-3xl font-display font-semibold text-foreground tracking-tight">Waiting for trainer approval</h1>
+          <p className="text-sm text-muted-foreground">
+            Your auto-generated plan status is <span className="text-foreground font-semibold">{currentStudentPlan?.status}</span>. You cannot start daily tasks until the plan becomes active.
+          </p>
+          <Link to="/student/plan-status" className="inline-flex items-center gap-2 rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-black">
+            View plan status
+            <ChevRight className="h-4 w-4" />
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="p-6 sm:p-8 lg:p-12 max-w-4xl mx-auto space-y-12">
@@ -145,7 +164,7 @@ export default function DailyPlanPage() {
       </motion.div>
 
       {/* 28-Day Timeline */}
-      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="bg-card border border-white/5 p-6 sm:p-8 rounded-3xl relative overflow-hidden group">
+      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ ...LUXURY_TWEEN_MEDIUM, delay: 0.1 }} className="bg-card border border-white/5 p-6 sm:p-8 rounded-3xl relative overflow-hidden group">
         <div className="absolute top-0 right-0 p-6 flex gap-2">
            <button onClick={() => setSelectedDay((d) => Math.max(1, d - 7))} disabled={selectedDay <= 7} className="p-2 rounded-lg bg-white/5 hover:bg-white/10 transition-all disabled:opacity-30"><ChevronLeft className="h-5 w-5" /></button>
            <button onClick={() => setSelectedDay((d) => Math.min(s.totalDays, d + 7))} disabled={selectedDay > s.totalDays - 7} className="p-2 rounded-lg bg-white/5 hover:bg-white/10 transition-all disabled:opacity-30"><ChevronRight className="h-5 w-5" /></button>
@@ -180,7 +199,7 @@ export default function DailyPlanPage() {
       {/* Main Grid: Workout & Diet */}
       <div className="grid lg:grid-cols-2 gap-6">
         {/* Workout Section */}
-        <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.2 }} className="bg-card border border-white/5 p-6 sm:p-8 rounded-3xl space-y-6 relative overflow-hidden">
+        <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ ...LUXURY_TWEEN_MEDIUM, delay: 0.2 }} className="bg-card border border-white/5 p-6 sm:p-8 rounded-3xl space-y-6 relative overflow-hidden">
           <div className="flex items-center gap-4 relative z-10">
              <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center border border-primary/20">
                 <Dumbbell className="h-5 w-5 text-primary" />
@@ -218,7 +237,7 @@ export default function DailyPlanPage() {
         </motion.div>
 
         {/* Diet Section */}
-        <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.3 }} className="bg-card border border-white/5 p-6 sm:p-8 rounded-3xl space-y-6 relative overflow-hidden">
+        <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ ...LUXURY_TWEEN_MEDIUM, delay: 0.3 }} className="bg-card border border-white/5 p-6 sm:p-8 rounded-3xl space-y-6 relative overflow-hidden">
           <div className="flex items-center gap-4 relative z-10">
              <div className="w-12 h-12 rounded-xl bg-emerald-500/10 flex items-center justify-center border border-emerald-500/20">
                 <Utensils className="h-5 w-5 text-emerald-500" />
@@ -252,31 +271,31 @@ export default function DailyPlanPage() {
 
       {/* Activity Stats */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }} className="bg-card border border-white/5 p-8 rounded-3xl relative overflow-hidden group">
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ ...LUXURY_TWEEN_MEDIUM, delay: 0.4 }} className="bg-card border border-white/5 p-8 rounded-3xl relative overflow-hidden group">
            <p className="text-xs font-semibold text-muted-foreground mb-4 relative z-10">Steps</p>
            <p className="text-4xl font-display font-semibold text-foreground mb-2 relative z-10 tracking-tight">{s.todaySteps.toLocaleString()}</p>
            <p className="text-xs font-medium text-muted-foreground relative z-10 flex items-center gap-2">
               <Activity className="h-3 w-3 text-primary" /> Target: {todayTask.stepTarget.toLocaleString()}
            </p>
            <div className="h-1.5 bg-background rounded-full mt-6 overflow-hidden relative z-10 border border-white/5">
-              <motion.div initial={{ width: 0 }} animate={{ width: "75%" }} transition={{ duration: 1.5 }} className="h-full bg-primary rounded-full" />
+              <motion.div initial={{ width: 0 }} animate={{ width: "75%" }} transition={LUXURY_TWEEN_SLOW} className="h-full bg-primary rounded-full" />
            </div>
         </motion.div>
         
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }} className="bg-card border border-white/5 p-8 rounded-3xl relative overflow-hidden group">
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ ...LUXURY_TWEEN_MEDIUM, delay: 0.5 }} className="bg-card border border-white/5 p-8 rounded-3xl relative overflow-hidden group">
            <p className="text-xs font-semibold text-muted-foreground mb-4 relative z-10">Hydration</p>
            <p className="text-4xl font-display font-semibold text-foreground mb-2 relative z-10 tracking-tight">2.4L</p>
            <p className="text-xs font-medium text-muted-foreground relative z-10 flex items-center gap-2">
               <Droplets className="h-3 w-3 text-sky-400" /> Goal: {todayTask.hydrationGoal}
            </p>
            <div className="h-1.5 bg-background rounded-full mt-6 overflow-hidden relative z-10 border border-white/5">
-              <motion.div initial={{ width: 0 }} animate={{ width: "65%" }} transition={{ duration: 1.5 }} className="h-full bg-sky-400 rounded-full" />
+              <motion.div initial={{ width: 0 }} animate={{ width: "65%" }} transition={LUXURY_TWEEN_SLOW} className="h-full bg-sky-400 rounded-full" />
            </div>
         </motion.div>
       </div>
 
       {/* Upload Check-in CTA */}
-      <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.6 }} className="bg-card border border-white/5 p-12 rounded-3xl text-center relative overflow-hidden group">
+      <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ ...LUXURY_TWEEN_MEDIUM, delay: 0.6 }} className="bg-card border border-white/5 p-12 rounded-3xl text-center relative overflow-hidden group">
          <div className="relative z-10">
             <div className="w-16 h-16 rounded-2xl bg-background border border-white/5 flex items-center justify-center mx-auto mb-6 transition-all duration-500">
               <Upload className="h-6 w-6 text-foreground" />

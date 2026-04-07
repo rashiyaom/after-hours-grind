@@ -6,6 +6,7 @@ import WeeklyChart from "@/components/WeeklyChart";
 import SectionHeader from "@/components/SectionHeader";
 import { Link } from "react-router-dom";
 import { useStore } from "@/hooks/useStore";
+import { LUXURY_TWEEN_MEDIUM, LUXURY_TWEEN_SLOW } from "@/lib/motionTokens";
 
 const monthlyData = [
   { label: "Week 1", value: 92 },
@@ -66,7 +67,7 @@ export default function ProgressPage() {
                     <span>{w.value}%</span>
                   </div>
                   <div className="h-2.5 bg-zinc-950 rounded-full overflow-hidden border border-white/5 p-0.5">
-                    <motion.div initial={{ width: 0 }} animate={{ width: `${w.value}%` }} transition={{ duration: 1.2, delay: i * 0.1 }} className="h-full bg-foreground rounded-full shadow-[0_0_10px_rgba(255,255,255,0.1)]" />
+                    <motion.div initial={{ width: 0 }} animate={{ width: `${w.value}%` }} transition={{ ...LUXURY_TWEEN_SLOW, delay: i * 0.1 }} className="h-full bg-foreground rounded-full shadow-[0_0_10px_rgba(255,255,255,0.1)]" />
                   </div>
                 </div>
               ))}
@@ -85,7 +86,7 @@ export default function ProgressPage() {
                     key={i} 
                     initial={{ scale: 0 }}
                     animate={{ scale: 1 }}
-                    transition={{ delay: i * 0.02 }}
+                    transition={{ ...LUXURY_TWEEN_MEDIUM, delay: i * 0.02 }}
                     className={`aspect-square rounded-md flex items-center justify-center text-xs font-semibold border transition-all ${
                     streakDay ? "bg-primary text-black border-primary shadow-sm" : 
                     active ? "bg-white/5 border-white/10 text-muted-foreground" : 

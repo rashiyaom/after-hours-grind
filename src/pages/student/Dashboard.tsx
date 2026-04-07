@@ -7,11 +7,12 @@ import ProgressRing from "@/components/ProgressRing";
 import WeeklyChart from "@/components/WeeklyChart";
 import SectionHeader from "@/components/SectionHeader";
 import { Link } from "react-router-dom";
+import { Navigate } from "react-router-dom";
 import { useCurrentUser, usePermissions, useStore } from "@/hooks/useStore";
 import { Skeleton } from "@/components/ui/skeleton";
 
 export default function StudentDashboard() {
-  const { student: s, leaderboard, todayTask, weeklyData, loading, setLoading } = useStore();
+  const { student: s, leaderboard, todayTask, weeklyData, loading, setLoading, onboardingRequired, currentStudentPlan } = useStore();
   const currentUser = useCurrentUser();
   const permissions = usePermissions();
   const canPostFeed = Boolean(currentUser && permissions[currentUser.role].post_feed);
@@ -21,6 +22,10 @@ export default function StudentDashboard() {
     const timer = setTimeout(() => setLoading(false), 800);
     return () => clearTimeout(timer);
   }, [setLoading]);
+
+  if (onboardingRequired) {
+    return <Navigate to="/student/onboarding" replace />;
+  }
 
   if (loading) {
     return (
@@ -52,6 +57,12 @@ export default function StudentDashboard() {
         <p className="text-sm text-muted-foreground mt-1 font-medium">
           <span className="text-primary font-semibold">Day {s.currentDay}</span> of {s.totalDays} · Assigned to Coach <span className="text-foreground">Vikram</span>
         </p>
+        {currentStudentPlan?.status === "pending_trainer_approval" && (
+          <div className="mt-4 inline-flex items-center gap-2 rounded-full border border-amber-500/30 bg-amber-500/10 px-3 py-1 text-xs text-amber-300">
+            Plan pending trainer approval
+            <Link to="/student/plan-status" className="font-semibold underline underline-offset-4">View status</Link>
+          </div>
+        )}
       </motion.div>
 
       {/* Top Stats */}

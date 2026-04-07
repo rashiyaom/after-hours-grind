@@ -39,6 +39,9 @@ export interface Student extends User {
   badges: Badge[];
   isBanned: boolean;
   warnings: number;
+  onboardingStatus?: "not_started" | "in_progress" | "completed";
+  onboardingStep?: number;
+  onboardingDraft?: FitnessQuestionnaire;
 }
 
 export interface Trainer extends User {
@@ -62,6 +65,113 @@ export interface DailyTask {
   completed: boolean;
 }
 
+export type ActivityLevel = "sedentary" | "lightly_active" | "active";
+export type FitnessExperience = "beginner" | "intermediate" | "advanced";
+export type PrimaryGoal = "fat_loss" | "muscle_gain" | "maintenance" | "endurance";
+export type BodyTypeTarget = "lean" | "bulky" | "toned";
+export type DaysAvailable = 3 | 5 | 6 | 7;
+export type TimePerDay = 15 | 30 | 45 | 60;
+export type WorkoutEnvironment = "home" | "gym";
+export type EquipmentLevel = "none" | "basic" | "full_gym";
+export type DietType = "veg" | "non_veg";
+export type AwarenessLevel = "low" | "medium" | "high";
+export type HydrationHabit = "poor" | "moderate" | "good";
+export type PlanStatus = "draft" | "pending_trainer_approval" | "active" | "rejected";
+export type PlanTemplateKey =
+  | "fat_loss"
+  | "muscle_gain"
+  | "general_fitness"
+  | "endurance"
+  | "home_workout"
+  | "gym_workout";
+
+export interface FitnessQuestionnaire {
+  basic: {
+    age: number;
+    gender: "male" | "female" | "other";
+    heightCm: number;
+    weightKg: number;
+    bmi?: number;
+  };
+  fitnessStatus: {
+    activityLevel: ActivityLevel;
+    experience: FitnessExperience;
+  };
+  goals: {
+    primaryGoal: PrimaryGoal;
+    targetMode: "weight" | "body_type";
+    targetWeightKg?: number;
+    targetBodyType?: BodyTypeTarget;
+    weightDifferenceKg?: number;
+  };
+  commitment: {
+    daysPerWeek: DaysAvailable;
+    timePerDayMinutes: TimePerDay;
+  };
+  environment: {
+    workoutType: WorkoutEnvironment;
+    equipment: EquipmentLevel;
+  };
+  lifestyle: {
+    dietType: DietType;
+    proteinAwareness: AwarenessLevel;
+    hydrationHabit: HydrationHabit;
+    sleepHours: number;
+  };
+  constraints: {
+    hasInjuries: boolean;
+    injuryTypes: string[];
+    restrictions: string;
+  };
+}
+
+export interface PlanTaskItem {
+  type: "workout" | "nutrition" | "habit";
+  title: string;
+  description?: string;
+  durationMinutes?: number;
+  intensity?: "low" | "moderate" | "high";
+  points: number;
+  meta?: Record<string, string | number | boolean>;
+}
+
+export interface PlanDay {
+  day: number;
+  tasks: PlanTaskItem[];
+}
+
+export interface PlanWeek {
+  week: number;
+  days: PlanDay[];
+}
+
+export interface PlanBasedOn {
+  goal: PrimaryGoal;
+  weightKg: number;
+  level: FitnessExperience;
+  bmi: number;
+  activityLevel: ActivityLevel;
+  daysPerWeek: DaysAvailable;
+  environment: WorkoutEnvironment;
+  equipment: EquipmentLevel;
+}
+
+export interface PlanGenerationIssue {
+  code: "missing_inputs" | "unrealistic_goal" | "injury_conflict" | "low_time";
+  message: string;
+  severity: "info" | "warning";
+}
+
+export interface PlanTemplateMeta {
+  key: PlanTemplateKey;
+  name: string;
+  durationDays: 30;
+  weeks: 4;
+  daysPerWeek: 7;
+  baseIntensity: "low" | "moderate" | "high";
+  focus: string;
+}
+
 export interface WorkoutItem {
   id: string;
   description: string;
@@ -83,6 +193,17 @@ export interface Plan {
   goalType?: string;
   difficulty: "beginner" | "intermediate" | "advanced";
   dailyTasks: DailyTask[];
+  type?: "manual" | "auto_generated";
+  status?: PlanStatus;
+  templateKey?: PlanTemplateKey;
+  basedOn?: PlanBasedOn;
+  weeks?: PlanWeek[];
+  generationIssues?: PlanGenerationIssue[];
+  reviewFeedback?: string;
+  reviewNote?: string;
+  generatedAt?: string;
+  reviewedAt?: string;
+  reviewedByTrainerId?: string;
 }
 
 export interface Post {

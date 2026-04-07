@@ -7,6 +7,7 @@ import { Link, useParams } from "react-router-dom";
 import { toast } from "sonner";
 import SectionHeader from "@/components/SectionHeader";
 import { Skeleton } from "@/components/ui/skeleton";
+import { LUXURY_TWEEN_MEDIUM } from "@/lib/motionTokens";
 
 const postColors = [
   "from-zinc-900 to-zinc-800",
@@ -159,7 +160,7 @@ export default function ProfilePage() {
 
       {/* Highlights Grid */}
       <div className="grid grid-cols-3 gap-3">
-         <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="glass-card-hover p-6 text-center flex flex-col items-center group relative overflow-hidden">
+         <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ ...LUXURY_TWEEN_MEDIUM, delay: 0.1 }} className="glass-card-hover p-6 text-center flex flex-col items-center group relative overflow-hidden">
             <div className="absolute top-0 left-0 w-full h-1 bg-neon-orange/20" />
             <div className="w-12 h-12 rounded-2xl bg-neon-orange/10 flex items-center justify-center mb-4 group-hover:scale-110 group-hover:bg-neon-orange/20 transition-all">
                <Flame className="h-6 w-6 text-neon-orange" />
@@ -167,7 +168,7 @@ export default function ProfilePage() {
             <p className="text-2xl font-display font-black text-foreground">{s.streak}</p>
             <p className="text-[9px] font-black uppercase tracking-widest text-muted-foreground mt-1">Stamina Streak</p>
          </motion.div>
-         <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }} className="glass-card-hover p-6 text-center flex flex-col items-center group relative overflow-hidden">
+         <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ ...LUXURY_TWEEN_MEDIUM, delay: 0.15 }} className="glass-card-hover p-6 text-center flex flex-col items-center group relative overflow-hidden">
             <div className="absolute top-0 left-0 w-full h-1 bg-neon-blue/20" />
             <div className="w-12 h-12 rounded-2xl bg-neon-blue/10 flex items-center justify-center mb-4 group-hover:scale-110 group-hover:bg-neon-blue/20 transition-all">
                <Award className="h-6 w-6 text-neon-blue" />
@@ -175,7 +176,7 @@ export default function ProfilePage() {
             <p className="text-2xl font-display font-black text-foreground">{s.currentDay}</p>
             <p className="text-[9px] font-black uppercase tracking-widest text-muted-foreground mt-1">Ops Completed</p>
          </motion.div>
-         <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="glass-card-hover p-6 text-center flex flex-col items-center group relative overflow-hidden">
+         <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ ...LUXURY_TWEEN_MEDIUM, delay: 0.2 }} className="glass-card-hover p-6 text-center flex flex-col items-center group relative overflow-hidden">
             <div className="absolute top-0 left-0 w-full h-1 bg-neon-green/20" />
             <div className="mb-4 group-hover:scale-110 transition-transform">
                <ProgressRing percentage={s.completionPercentage} size={48} strokeWidth={4} />
@@ -199,7 +200,7 @@ export default function ProfilePage() {
                key={i} 
                initial={{ opacity: 0, scale: 0.9 }} 
                animate={{ opacity: 1, scale: 1 }} 
-               transition={{ delay: i * 0.05 }}
+               transition={{ ...LUXURY_TWEEN_MEDIUM, delay: i * 0.05 }}
                className={`aspect-square rounded-[1.5rem] bg-gradient-to-br ${postColors[i % postColors.length]} flex items-center justify-center relative group cursor-pointer overflow-hidden border border-white/5`}
              >
                 <div className="absolute inset-0 bg-zinc-950 opacity-20 group-hover:opacity-40 transition-opacity" />
@@ -231,7 +232,7 @@ export default function ProfilePage() {
                 ))}
              </div>
           </div>
-          <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="glass-card p-8 border-l-4 border-l-neon-orange relative overflow-hidden">
+           <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={LUXURY_TWEEN_MEDIUM} className="glass-card p-8 border-l-4 border-l-neon-orange relative overflow-hidden">
              <div className="absolute top-0 right-0 p-4 opacity-5">
                 <Star className="h-16 w-16 text-neon-orange" />
              </div>

@@ -70,7 +70,7 @@ export default function SignupPage() {
         certifications: form.certifications || undefined,
       });
       toast.success("Account created successfully!");
-      navigate(role === "student" ? "/student/dashboard" : "/trainer/dashboard");
+      navigate(role === "student" ? "/student/onboarding" : "/trainer/dashboard");
     } catch {
       toast.error("Signup failed. Please try again.");
     } finally {

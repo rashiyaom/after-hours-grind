@@ -3,6 +3,7 @@ import { motion } from "framer-motion";
 import { Award, Flame, Footprints, Trophy, Star, Sun, Leaf, Lock, ShieldCheck, Zap, Activity, ChevronRight, CheckCircle2 } from "lucide-react";
 import { useStore } from "@/hooks/useStore";
 import { Badge } from "@/types";
+import { LUXURY_TWEEN_MEDIUM, LUXURY_TWEEN_SLOW } from "@/lib/motionTokens";
 
 const iconMap: Record<string, React.ElementType> = {
   flame: Flame,
@@ -55,7 +56,7 @@ export default function AchievementsPage() {
       <motion.div
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
-        transition={{ delay: 0.1 }}
+        transition={{ ...LUXURY_TWEEN_MEDIUM, delay: 0.1 }}
         className="glass-card-hover p-10 flex flex-col sm:flex-row items-center gap-10 bg-zinc-950/40 relative overflow-hidden group"
       >
         <div className="absolute top-0 right-0 p-4 opacity-5 pointer-events-none group-hover:opacity-10 transition-opacity">
@@ -83,7 +84,7 @@ export default function AchievementsPage() {
       </motion.div>
 
       {/* Earned Badges */}
-      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.2 }}>
+      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ ...LUXURY_TWEEN_MEDIUM, delay: 0.2 }}>
         <div className="flex items-end justify-between border-l-2 border-neon-orange pl-6 mb-8 mt-6">
            <div>
               <p className="text-[10px] font-black uppercase tracking-[0.5em] text-neon-orange mb-1">Authenticated_Assets</p>
@@ -99,7 +100,7 @@ export default function AchievementsPage() {
                 key={badge.id}
                 initial={{ opacity: 0, scale: 0.9 }}
                 animate={{ opacity: 1, scale: 1 }}
-                transition={{ delay: i * 0.05 }}
+                transition={{ ...LUXURY_TWEEN_MEDIUM, delay: i * 0.05 }}
                 className="bg-card glass-card-hover p-8 flex flex-col items-center text-center gap-5 border-white/5 rounded-[3rem] group"
               >
                 <div className="relative">
@@ -123,7 +124,7 @@ export default function AchievementsPage() {
       </motion.div>
 
       {/* Locked Badges */}
-      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.3 }}>
+      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ ...LUXURY_TWEEN_MEDIUM, delay: 0.3 }}>
         <div className="flex items-end justify-between border-l-2 border-white/10 pl-6 mb-8 mt-12">
            <div>
               <p className="text-[10px] font-black uppercase tracking-[0.5em] text-white/20 mb-1">Encrypted_Items</p>
@@ -156,7 +157,7 @@ export default function AchievementsPage() {
       </motion.div>
 
       {/* Progress Milestones */}
-      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }} className="glass-card-hover p-10 bg-zinc-950/20 border-white/5 rounded-[3rem] mt-12">
+      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ ...LUXURY_TWEEN_MEDIUM, delay: 0.4 }} className="glass-card-hover p-10 bg-zinc-950/20 border-white/5 rounded-[3rem] mt-12">
         <div className="flex items-center gap-4 mb-10">
            <Activity className="h-5 w-5 text-neon-blue" />
            <h3 className="text-xl font-display font-black text-foreground uppercase italic tracking-widest">Operational Milestones</h3>
@@ -179,7 +180,7 @@ export default function AchievementsPage() {
                   <motion.div
                     initial={{ width: 0 }}
                     animate={{ width: `${pct}%` }}
-                    transition={{ duration: 1.2, delay: i * 0.1 }}
+                    transition={{ ...LUXURY_TWEEN_SLOW, delay: i * 0.1 }}
                     className={`h-full rounded-full ${m.done ? "bg-neon-orange shadow-[0_0_15px_rgba(255,165,0,0.4)]" : "bg-white/5"}`}
                   />
                 </div>

@@ -4,7 +4,7 @@ import { Flame, Eye, EyeOff, Loader2, ShieldCheck } from "lucide-react";
 import { useState } from "react";
 import { useAppStore } from "@/hooks/useStore";
 import { toast } from "sonner";
-import { UserRole } from "@/types";
+import { Student, UserRole } from "@/types";
 
 export default function LoginPage() {
   const navigate = useNavigate();
@@ -30,10 +30,26 @@ export default function LoginPage() {
 
       if (success) {
         toast.success("Welcome back!");
+        const currentSession = useAppStore.getState();
+        const currentUser = currentSession.session.currentUser;
         switch (role) {
-          case "student":
+          case "student": {
+            const student = currentUser?.role === "student" ? (currentUser as Student) : null;
+            const studentPlan = student?.currentPlanId ? currentSession.plans[student.currentPlanId] : null;
+
+            if (!student || student.onboardingStatus !== "completed") {
+              navigate("/student/onboarding");
+              break;
+            }
+
+            if (studentPlan?.status === "pending_trainer_approval" || studentPlan?.status === "rejected") {
+              navigate("/student/plan-status");
+              break;
+            }
+
             navigate("/student/dashboard");
             break;
+          }
           case "trainer":
             navigate("/trainer/dashboard");
             break;

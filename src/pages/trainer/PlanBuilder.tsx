@@ -4,6 +4,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 import SectionHeader from "@/components/SectionHeader";
 import { useStore } from "@/hooks/useStore";
+import { LUXURY_TWEEN_MEDIUM } from "@/lib/motionTokens";
 
 export default function PlanBuilder() {
   const [days, setDays] = useState([1]);
@@ -125,7 +126,7 @@ export default function PlanBuilder() {
           {/* Daily Plans */}
           <div className="space-y-6">
             {days.map((day, i) => (
-              <motion.div key={day} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.1 }} className="glass-card-hover p-8 space-y-6 relative group border-t-4 border-t-neon-orange">
+              <motion.div key={day} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ ...LUXURY_TWEEN_MEDIUM, delay: i * 0.1 }} className="glass-card-hover p-8 space-y-6 relative group border-t-4 border-t-neon-orange">
                 <div className="flex items-center justify-between">
                   <div>
                     <h3 className="text-xl font-display font-black text-foreground tracking-tight italic uppercase">Day 0{day} Matrix</h3>

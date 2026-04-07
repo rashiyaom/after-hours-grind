@@ -2,6 +2,7 @@ import { motion } from "framer-motion";
 import NotificationRow from "@/components/NotificationRow";
 import { CheckCheck, Bell } from "lucide-react";
 import { useStore } from "@/hooks/useStore";
+import { LUXURY_TWEEN_MEDIUM } from "@/lib/motionTokens";
 
 export default function NotificationsPage() {
   const { notifications: items, markNotificationRead, markAllNotificationsRead } = useStore();
@@ -49,7 +50,7 @@ export default function NotificationsPage() {
       ) : (
         <>
           {unread.length > 0 && (
-            <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }} className="space-y-1">
+            <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ ...LUXURY_TWEEN_MEDIUM, delay: 0.05 }} className="space-y-1">
               <p className="text-xs uppercase tracking-wider text-muted-foreground mb-2 px-1">New</p>
               <div className="glass-card p-1 space-y-0.5">
                 {unread.map((n) => (
@@ -62,7 +63,7 @@ export default function NotificationsPage() {
           )}
 
           {read.length > 0 && (
-            <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="space-y-1">
+            <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ ...LUXURY_TWEEN_MEDIUM, delay: 0.1 }} className="space-y-1">
               <p className="text-xs uppercase tracking-wider text-muted-foreground mb-2 px-1">Earlier</p>
               <div className="glass-card p-1 space-y-0.5">
                 {read.map((n) => (

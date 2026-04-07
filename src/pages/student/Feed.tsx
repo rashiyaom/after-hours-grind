@@ -9,6 +9,7 @@ import { Link } from "react-router-dom";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
 import { filterPostsByTab } from "@/lib/feedFilters";
+import { LUXURY_TWEEN_MEDIUM } from "@/lib/motionTokens";
 
 export default function FeedPage() {
   const { posts, likePost, addComment, loading, setLoading } = useStore();
@@ -72,7 +73,7 @@ export default function FeedPage() {
       </motion.div>
 
       {/* Tabs */}
-      <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="flex gap-1.5 bg-accent/20 p-1.5 border border-white/5 rounded-2xl w-fit">
+      <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ ...LUXURY_TWEEN_MEDIUM, delay: 0.1 }} className="flex gap-1.5 bg-accent/20 p-1.5 border border-white/5 rounded-2xl w-fit">
         {["All", "Videos", "Photos"].map((tab) => (
           <button
             key={tab}
@@ -95,7 +96,7 @@ export default function FeedPage() {
              key={post.id} 
              initial={{ opacity: 0, y: 20 }} 
              animate={{ opacity: 1, y: 0 }} 
-             transition={{ delay: i * 0.1 }}
+             transition={{ ...LUXURY_TWEEN_MEDIUM, delay: i * 0.1 }}
              onClick={() => setSelectedPost(post)}
           >
             <FeedPostCard post={post} />

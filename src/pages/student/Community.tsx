@@ -6,6 +6,7 @@ import SectionHeader from "@/components/SectionHeader";
 import { toast } from "sonner";
 import { useStore } from "@/hooks/useStore";
 import { Skeleton } from "@/components/ui/skeleton";
+import { LUXURY_TWEEN_MEDIUM } from "@/lib/motionTokens";
 
 export default function CommunityPage() {
   const { suggestedUsers, loading, setLoading, followUser } = useStore();
@@ -73,7 +74,7 @@ export default function CommunityPage() {
       </motion.div>
 
       {/* Search */}
-      <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="relative group">
+      <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ ...LUXURY_TWEEN_MEDIUM, delay: 0.1 }} className="relative group">
         <div className="absolute inset-y-0 left-5 flex items-center pointer-events-none">
           <Search className="h-4 w-4 text-muted-foreground group-focus-within:text-neon-orange transition-colors" />
         </div>
@@ -97,7 +98,7 @@ export default function CommunityPage() {
       <motion.div
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
-        transition={{ delay: 0.15 }}
+        transition={{ ...LUXURY_TWEEN_MEDIUM, delay: 0.15 }}
         className="grid grid-cols-3 gap-4"
       >
         {[
@@ -114,7 +115,7 @@ export default function CommunityPage() {
       </motion.div>
 
       {/* Suggested / Search Results */}
-      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.2 }}>
+      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ ...LUXURY_TWEEN_MEDIUM, delay: 0.2 }}>
         <div className="flex items-end justify-between border-l-2 border-neon-orange pl-6 mb-8 mt-6">
            <div>
               <p className="text-[10px] font-black uppercase tracking-[0.5em] text-neon-orange mb-1">Target_Acquisition</p>
@@ -135,7 +136,7 @@ export default function CommunityPage() {
                 key={u.id}
                 initial={{ opacity: 0, scale: 0.95 }}
                 animate={{ opacity: 1, scale: 1 }}
-                transition={{ delay: i * 0.05 }}
+                transition={{ ...LUXURY_TWEEN_MEDIUM, delay: i * 0.05 }}
                 className="bg-card glass-card-hover p-6 flex items-center gap-5 relative group border-white/5 rounded-[2.5rem]"
               >
                 <div className="w-14 h-14 rounded-2xl bg-zinc-900 border border-white/10 flex items-center justify-center text-sm font-display font-black text-foreground flex-shrink-0 transition-all group-hover:rotate-12 group-hover:scale-110 group-hover:border-neon-orange/40">
@@ -175,7 +176,7 @@ export default function CommunityPage() {
 
       {/* Trending Section */}
       {!query && (
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.3 }} className="space-y-8 pt-8">
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ ...LUXURY_TWEEN_MEDIUM, delay: 0.3 }} className="space-y-8 pt-8">
            <div className="flex items-center gap-4 text-neon-green">
               <Activity className="h-5 w-5" />
               <p className="text-[10px] font-black uppercase tracking-[0.5em]">High_Performance_Metrics</p>

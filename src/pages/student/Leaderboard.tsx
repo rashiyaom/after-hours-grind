@@ -5,6 +5,7 @@ import { useStore } from "@/hooks/useStore";
 import { Trophy, Flame, Footprints, Target, Crown, Activity, ShieldCheck, Zap } from "lucide-react";
 import { LeaderboardEntry } from "@/types";
 import { Skeleton } from "@/components/ui/skeleton";
+import { LUXURY_TWEEN_MEDIUM } from "@/lib/motionTokens";
 
 const filters = ["Weekly", "Monthly", "Streak", "Steps", "Uploads"];
 
@@ -142,7 +143,7 @@ export default function LeaderboardPage() {
                 key={e.userId + activeFilter}
                 initial={{ opacity: 0, scale: 0.9 }}
                 animate={{ opacity: 1, scale: 1 }}
-                transition={{ delay: i * 0.15 }}
+                transition={{ ...LUXURY_TWEEN_MEDIUM, delay: i * 0.15 }}
                 className="flex flex-col items-center gap-4 relative group"
               >
                 <div className="relative">
@@ -201,7 +202,7 @@ export default function LeaderboardPage() {
         key={activeFilter + "list"}
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
-        transition={{ delay: 0.2 }}
+        transition={{ ...LUXURY_TWEEN_MEDIUM, delay: 0.2 }}
         className="glass-card p-4 space-y-1 mt-10 border-t-2 border-t-white/5"
       >
         <div className="flex items-center gap-4 px-6 py-4 border-b border-white/5 mb-4 opacity-50">

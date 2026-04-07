@@ -26,10 +26,13 @@ import Community from "@/pages/student/Community";
 import Notifications from "@/pages/student/Notifications";
 import Settings from "@/pages/student/Settings";
 import Achievements from "@/pages/student/Achievements";
+import FitnessOnboardingPage from "@/pages/student/FitnessOnboarding";
+import PlanApprovalStatusPage from "@/pages/student/PlanApprovalStatus";
 
 // Trainer Pages
 import TrainerDashboard from "@/pages/trainer/Dashboard";
 import PlanBuilder from "@/pages/trainer/PlanBuilder";
+import AutoPlansQueuePage from "@/pages/trainer/AutoPlansQueue";
 
 // Admin Pages
 import AdminDashboard from "@/pages/admin/Dashboard";
@@ -59,6 +62,8 @@ const App = () => (
             <Route path="/student" element={<AppLayout />}>
               <Route index element={<Navigate to="dashboard" replace />} />
               <Route path="dashboard" element={<StudentDashboard />} />
+              <Route path="onboarding" element={<FitnessOnboardingPage />} />
+              <Route path="plan-status" element={<PlanApprovalStatusPage />} />
               <Route path="daily-plan" element={<DailyPlan />} />
               <Route path="progress" element={<Progress />} />
               <Route path="feed" element={<Feed />} />
@@ -80,6 +85,7 @@ const App = () => (
             <Route path="/trainer" element={<AppLayout />}>
               <Route index element={<Navigate to="dashboard" replace />} />
               <Route path="dashboard" element={<TrainerDashboard />} />
+              <Route path="auto-plans" element={<AutoPlansQueuePage />} />
               <Route element={<ProtectedRoute allowedRoles={["trainer"]} requiredPermission="build_plans" />}>
                 <Route path="plan-builder" element={<PlanBuilder />} />
               </Route>

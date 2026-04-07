@@ -1,6 +1,6 @@
 import { Navigate, Outlet, useLocation } from "react-router-dom";
-import { useCurrentUser, useIsAuthenticated, usePermissions } from "@/hooks/useStore";
-import { PermissionKey, UserRole } from "@/types";
+import { useAppStore, useCurrentUser, useIsAuthenticated, usePermissions } from "@/hooks/useStore";
+import { PermissionKey, Student, UserRole } from "@/types";
 import { resolveProtectedRouteRedirect } from "@/lib/routeAccess";
 
 interface ProtectedRouteProps {
@@ -13,6 +13,26 @@ const ProtectedRoute = ({ allowedRoles, requiredPermission }: ProtectedRouteProp
   const isAuthenticated = useIsAuthenticated();
   const currentUser = useCurrentUser();
   const permissions = usePermissions();
+  const plans = useAppStore((state) => state.plans);
+
+  if (isAuthenticated && currentUser?.role === "student") {
+    const student = currentUser as Student;
+    const onboardingIncomplete = student.onboardingStatus !== "completed";
+    const isOnboardingRoute = location.pathname.startsWith("/student/onboarding");
+
+    if (onboardingIncomplete && !isOnboardingRoute) {
+      return <Navigate to="/student/onboarding" state={{ from: location }} replace />;
+    }
+
+    const currentPlan = student.currentPlanId ? plans[student.currentPlanId] : null;
+    const isPlanStatusRoute = location.pathname.startsWith("/student/plan-status");
+    const isDailyPlanRoute = location.pathname.startsWith("/student/daily-plan");
+    const isBlockedByApproval = currentPlan?.status === "pending_trainer_approval" || currentPlan?.status === "rejected";
+
+    if (isBlockedByApproval && isDailyPlanRoute && !isPlanStatusRoute) {
+      return <Navigate to="/student/plan-status" state={{ from: location }} replace />;
+    }
+  }
 
   const redirectTo = resolveProtectedRouteRedirect({
     isAuthenticated,

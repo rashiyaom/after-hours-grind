@@ -7,6 +7,7 @@ import {
 import { useNavigate } from "react-router-dom";
 import { useStore } from "@/hooks/useStore";
 import { toast } from "sonner";
+import { LUXURY_SPRING, LUXURY_TWEEN_MEDIUM } from "@/lib/motionTokens";
 
 const suggestedTags = ["#push", "#pull", "#legs", "#discipline", "#afterhours", "#grind", "#bio_sync", "#apex"];
 
@@ -117,7 +118,7 @@ export default function UploadPage() {
   if (submitted) {
     return (
       <div className="p-8 max-w-2xl mx-auto flex flex-col items-center justify-center min-h-[70vh] text-center">
-        <motion.div initial={{ scale: 0, rotate: -20 }} animate={{ scale: 1, rotate: 0 }} transition={{ type: "spring", damping: 12 }}>
+        <motion.div initial={{ scale: 0, rotate: -20 }} animate={{ scale: 1, rotate: 0 }} transition={{ ...LUXURY_SPRING, damping: 12 }}>
           <div className="w-24 h-24 rounded-full bg-primary/10 flex items-center justify-center mb-8">
             <Check className="h-12 w-12 text-primary" />
           </div>
@@ -153,7 +154,7 @@ export default function UploadPage() {
       <motion.div
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.1 }}
+        transition={{ ...LUXURY_TWEEN_MEDIUM, delay: 0.1 }}
       >
         {file && filePreview ? (
           <div className="glass-card p-6 border border-white/5 relative">
@@ -207,7 +208,7 @@ export default function UploadPage() {
       <motion.div
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.15 }}
+        transition={{ ...LUXURY_TWEEN_MEDIUM, delay: 0.15 }}
         className="glass-card p-6 space-y-4 border border-white/5"
       >
         <div className="flex items-center gap-2 mb-2">
@@ -228,7 +229,7 @@ export default function UploadPage() {
       <motion.div
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.2 }}
+        transition={{ ...LUXURY_TWEEN_MEDIUM, delay: 0.2 }}
         className="grid sm:grid-cols-2 gap-4"
       >
         <div className="glass-card p-5 focus-within:border-primary/40 transition-colors group border border-white/5">
@@ -262,7 +263,7 @@ export default function UploadPage() {
       <motion.div
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.25 }}
+        transition={{ ...LUXURY_TWEEN_MEDIUM, delay: 0.25 }}
         className="glass-card p-6 border border-white/5"
       >
         <div className="flex items-center gap-2 mb-4">
@@ -288,7 +289,7 @@ export default function UploadPage() {
       </motion.div>
 
       {/* Submit */}
-      <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }} className="space-y-3 pt-2">
+      <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ ...LUXURY_TWEEN_MEDIUM, delay: 0.3 }} className="space-y-3 pt-2">
         <button
           onClick={handleSubmit}
           disabled={submitting || !file}

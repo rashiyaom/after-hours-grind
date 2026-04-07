@@ -39,6 +39,8 @@ const students: Student[] = [
     badges: [],
     isBanned: false,
     warnings: 0,
+    onboardingStatus: "completed",
+    onboardingStep: 6,
   },
   {
     id: "s2",
@@ -65,6 +67,8 @@ const students: Student[] = [
     badges: [],
     isBanned: false,
     warnings: 1,
+    onboardingStatus: "completed",
+    onboardingStep: 6,
   },
 ];
 
