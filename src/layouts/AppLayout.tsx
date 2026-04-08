@@ -46,6 +46,7 @@ const trainerNav = [
 const adminNav = [
   { label: "Dashboard", path: "/admin/dashboard", icon: LayoutDashboard },
   { label: "Users", path: "/admin/users", icon: Users },
+  { label: "Events", path: "/admin/events", icon: Calendar },
   { label: "Content", path: "/admin/content", icon: Rss },
   { label: "Permissions", path: "/admin/permissions", icon: Shield },
 ];
