@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   ArrowLeft, Flame, Footprints, TrendingUp, Calendar, Target,
   Dumbbell, Utensils, CheckCircle2, XCircle, Clock, Award, BarChart3,
-  Edit3, Save, X, ChevronLeft, ChevronRight, Bell, Plus, Trash2
+  Edit3, Save, X, ChevronLeft, ChevronRight, Bell, Plus, Trash2, Send
 } from "lucide-react";
 import { useAppStore } from "@/hooks/useStore";
 import { Student, Plan, PlanTaskItem } from "@/types";
@@ -25,6 +25,8 @@ export default function StudentDetail() {
   const notifyStudentPlanUpdated = useAppStore((s) => s.notifyStudentPlanUpdated);
   const approveTaskSubmission = useAppStore((s) => s.approveTaskSubmission);
   const rejectTaskSubmission = useAppStore((s) => s.rejectTaskSubmission);
+  const createOrGetChatThread = useAppStore((s) => s.createOrGetChatThread);
+  const sendChatMessage = useAppStore((s) => s.sendChatMessage);
 
   const student = studentId ? users[studentId] : null;
   const isStudent = student?.role === "student";
@@ -40,6 +42,7 @@ export default function StudentDetail() {
   const [savingEdit, setSavingEdit] = useState(false);
   const [reviewNote, setReviewNote] = useState("");
   const [reviewingId, setReviewingId] = useState<string | null>(null);
+  const [coachMessage, setCoachMessage] = useState("");
 
   const studentSubmissions = useMemo(() =>
     s ? legacySubmissions.filter((sub) => sub.studentId === s.id) : [],
@@ -135,6 +138,24 @@ export default function StudentDetail() {
     toast.warning("Changes requested. Student has been notified.");
   };
 
+  const handleCoachMessageSend = () => {
+    const message = coachMessage.trim();
+    if (!message) {
+      toast.error("Write a message before sending.");
+      return;
+    }
+
+    const threadId = createOrGetChatThread(s.id);
+    if (!threadId) {
+      toast.error("Could not start chat thread for this student.");
+      return;
+    }
+
+    sendChatMessage({ threadId, text: message });
+    setCoachMessage("");
+    toast.success("Message sent to student community chat.");
+  };
+
   return (
     <div className="mx-auto max-w-5xl space-y-6 p-4 sm:p-6 lg:p-8 pb-24">
       {/* Back button */}
@@ -218,6 +239,40 @@ export default function StudentDetail() {
             )}
           </button>
         ))}
+      </motion.div>
+
+      <motion.div
+        initial={{ opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.14 }}
+        className="rounded-3xl border border-white/10 bg-[#141414] p-4 sm:p-5"
+      >
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <p className="text-xs uppercase tracking-wider text-[#C9F85A] font-semibold">Community Chat</p>
+            <p className="text-sm text-white/45">Send measurable check-in instructions directly to this student.</p>
+          </div>
+        </div>
+        <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+          <input
+            value={coachMessage}
+            onChange={(event) => setCoachMessage(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") {
+                event.preventDefault();
+                handleCoachMessageSend();
+              }
+            }}
+            placeholder="Example: Send bodyweight + waist measurement by 8 PM today"
+            className="h-11 flex-1 rounded-xl border border-white/10 bg-[#1A1A1A] px-3 text-sm text-white placeholder:text-white/30 focus:border-[#C9F85A]/40 focus:outline-none"
+          />
+          <button
+            onClick={handleCoachMessageSend}
+            className="h-11 rounded-xl bg-[#C9F85A] px-5 text-sm font-semibold text-black hover:bg-[#d4ff60] transition-all inline-flex items-center justify-center gap-2"
+          >
+            <Send className="h-4 w-4" /> Send to Chat
+          </button>
+        </div>
       </motion.div>
 
       {/* TAB: Overview */}

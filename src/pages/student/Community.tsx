@@ -1,276 +1,533 @@
-import { useState, useEffect } from "react";
-import { Link } from "react-router-dom";
-import { motion, AnimatePresence } from "framer-motion";
-import {
-  Search, UserPlus, UserCheck, Flame, Star, TrendingUp,
-  Users, Activity, Target, ShieldCheck, ArrowUpRight, X,
-} from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { motion } from "framer-motion";
+import { MessageCircle, Mic, Search, Send, Sparkles, Video } from "lucide-react";
 import { toast } from "sonner";
-import { useStore } from "@/hooks/useStore";
-import { Skeleton } from "@/components/ui/skeleton";
+import { useAppStore } from "@/hooks/useStore";
 import { LUXURY_TWEEN_MEDIUM } from "@/lib/motionTokens";
+import { User } from "@/types";
 
-/* gradient per index for avatar rings */
-const AVATAR_GRADIENTS = [
-  "from-[#C9F85A] to-[#4DD2FF]",
-  "from-[#FF7AE5] to-[#A78BFA]",
-  "from-[#FFD36E] to-[#FF4D00]",
-  "from-[#4DD2FF] to-[#6F5CFF]",
-  "from-[#C9F85A] to-[#FFD36E]",
-];
+const initials = (name: string) =>
+  name
+    .split(" ")
+    .map((part) => part[0])
+    .join("")
+    .toUpperCase()
+    .slice(0, 2);
 
-function getInitials(name: string) {
-  return name.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2);
-}
+const relativeTime = (iso: string) => {
+  const diffMs = Date.now() - new Date(iso).getTime();
+  const mins = Math.max(1, Math.floor(diffMs / 60000));
+  if (mins < 60) return `${mins}m`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours}h`;
+  return `${Math.floor(hours / 24)}d`;
+};
+
+const formatSeconds = (seconds: number) => {
+  const mins = Math.floor(seconds / 60);
+  const rem = seconds % 60;
+  return `${mins}:${String(rem).padStart(2, "0")}`;
+};
+
+const blobToDataUrl = (blob: Blob) =>
+  new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => resolve(typeof reader.result === "string" ? reader.result : "");
+    reader.onerror = () => reject(new Error("Failed to read audio blob"));
+    reader.readAsDataURL(blob);
+  });
 
 export default function CommunityPage() {
-  const { suggestedUsers, loading, setLoading, followUser } = useStore();
+  const currentUser = useAppStore((state) => state.session.currentUser);
+  const users = useAppStore((state) => state.users);
+  const posts = useAppStore((state) => state.posts);
+  const chatThreads = useAppStore((state) => state.system.chatThreads);
+  const createOrGetChatThread = useAppStore((state) => state.createOrGetChatThread);
+  const sendChatMessage = useAppStore((state) => state.sendChatMessage);
+  const markChatThreadRead = useAppStore((state) => state.markChatThreadRead);
+
   const [query, setQuery] = useState("");
-  const [followed, setFollowed] = useState<Set<string>>(new Set());
+  const [activeContactId, setActiveContactId] = useState<string | null>(null);
+  const [messageText, setMessageText] = useState("");
+  const [selectedReelId, setSelectedReelId] = useState<string>("");
+  const [isRecordingVoice, setIsRecordingVoice] = useState(false);
+  const [isPreparingVoice, setIsPreparingVoice] = useState(false);
+  const [voiceDraftSeconds, setVoiceDraftSeconds] = useState(0);
+  const [voiceDraftAudioUrl, setVoiceDraftAudioUrl] = useState<string>("");
 
-  useEffect(() => {
-    setLoading(true);
-    const timer = setTimeout(() => setLoading(false), 600);
-    return () => clearTimeout(timer);
-  }, [setLoading]);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+  const recordingStartRef = useRef<number>(0);
+  const recordingStreamRef = useRef<MediaStream | null>(null);
 
-  const toggleFollow = (id: string) => {
-    setFollowed((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) {
-        next.delete(id);
-        toast.info("Unfollowed.");
-      } else {
-        followUser(id);
-        next.add(id);
-        toast.success("Following!");
-      }
-      return next;
-    });
-  };
+  const role = currentUser?.role;
+  const isStudent = role === "student";
+  const isTrainer = role === "trainer";
 
-  const filtered = suggestedUsers.filter(
-    (u) => query.trim() === "" || u.name.toLowerCase().includes(query.toLowerCase())
+  const trainerContact = useMemo(() => {
+    if (!isStudent || !currentUser || currentUser.role !== "student" || !currentUser.trainerId) return null;
+    const trainer = users[currentUser.trainerId];
+    if (!trainer || trainer.role !== "trainer") return null;
+    return trainer;
+  }, [currentUser, isStudent, users]);
+
+  const contacts = useMemo(() => {
+    if (!currentUser) return [] as User[];
+
+    const allUsers = Object.values(users);
+    let base: User[] = [];
+
+    if (isStudent) {
+      const peers = allUsers.filter(
+        (user) => user.role === "student" && user.id !== currentUser.id
+      );
+      base = [trainerContact, ...peers].filter((item): item is User => Boolean(item));
+    } else if (isTrainer) {
+      base = allUsers.filter(
+        (user) => user.role === "student" && user.trainerId === currentUser.id
+      );
+    }
+
+    return base.filter((user) =>
+      query.trim()
+        ? user.name.toLowerCase().includes(query.trim().toLowerCase())
+        : true
+    );
+  }, [currentUser, isStudent, isTrainer, query, trainerContact, users]);
+
+  const myThreads = useMemo(() => {
+    if (!currentUser) return [];
+    return chatThreads
+      .filter((thread) => thread.participantIds.includes(currentUser.id))
+      .sort((a, b) => +new Date(b.updatedAt) - +new Date(a.updatedAt));
+  }, [chatThreads, currentUser]);
+
+  const activeThread = useMemo(() => {
+    if (!currentUser || !activeContactId) return null;
+    return (
+      myThreads.find(
+        (thread) =>
+          thread.participantIds.includes(currentUser.id) &&
+          thread.participantIds.includes(activeContactId)
+      ) ?? null
+    );
+  }, [activeContactId, currentUser, myThreads]);
+
+  const activeThreadNeedsReadSync = useMemo(() => {
+    if (!activeThread || !currentUser) return false;
+    return (
+      activeThread.unreadBy.includes(currentUser.id) ||
+      activeThread.messages.some((message) => !message.seenBy.includes(currentUser.id))
+    );
+  }, [activeThread, currentUser]);
+
+  const reelPosts = useMemo(
+    () =>
+      Object.values(posts)
+        .filter((post) => post.type === "reel" && post.status === "visible")
+        .sort((a, b) => +new Date(b.timestamp) - +new Date(a.timestamp)),
+    [posts]
   );
 
-  if (loading) {
+  useEffect(() => {
+    if (!contacts.length) {
+      setActiveContactId(null);
+      return;
+    }
+    setActiveContactId((prev) =>
+      prev && contacts.some((contact) => contact.id === prev) ? prev : contacts[0].id
+    );
+  }, [contacts]);
+
+  useEffect(() => {
+    if (!activeContactId || !currentUser) return;
+    createOrGetChatThread(activeContactId);
+  }, [activeContactId, createOrGetChatThread, currentUser]);
+
+  useEffect(() => {
+    if (!activeThread || !activeThreadNeedsReadSync) return;
+    markChatThreadRead(activeThread.id);
+  }, [activeThread?.id, activeThreadNeedsReadSync, markChatThreadRead]);
+
+  useEffect(() => {
+    if (!isRecordingVoice) return;
+    const timer = window.setInterval(() => {
+      setVoiceDraftSeconds((prev) => prev + 1);
+    }, 1000);
+
+    return () => window.clearInterval(timer);
+  }, [isRecordingVoice]);
+
+  useEffect(() => {
+    return () => {
+      if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
+        mediaRecorderRef.current.stop();
+      }
+      if (recordingStreamRef.current) {
+        recordingStreamRef.current.getTracks().forEach((track) => track.stop());
+      }
+    };
+  }, []);
+
+  if (!currentUser || (!isStudent && !isTrainer)) {
     return (
-      <div className="mx-auto max-w-4xl space-y-6 p-4 sm:p-6 lg:p-8">
-        <Skeleton className="h-12 w-64 rounded-2xl" />
-        <Skeleton className="h-14 w-full rounded-2xl" />
-        <div className="grid grid-cols-3 gap-4">
-          {[1, 2, 3].map((i) => <Skeleton key={i} className="h-28 rounded-3xl" />)}
-        </div>
-        <div className="grid sm:grid-cols-2 gap-4">
-          {[1, 2, 3, 4].map((i) => <Skeleton key={i} className="h-24 rounded-3xl" />)}
-        </div>
+      <div className="mx-auto max-w-4xl p-6 text-center">
+        <p className="text-white/50">Community chat is available for student and trainer accounts.</p>
       </div>
     );
   }
 
-  return (
-    <div className="mx-auto max-w-4xl space-y-6 p-4 sm:p-6 lg:p-8">
+  const activeContact = activeContactId ? users[activeContactId] : null;
 
-      {/* ── Header ──────────────────────────────────────── */}
+  const startVoiceRecording = async () => {
+    if (!activeContact) {
+      toast.error("Select a chat first.");
+      return;
+    }
+
+    if (typeof window === "undefined" || !window.navigator.mediaDevices?.getUserMedia) {
+      toast.error("Audio recording is not supported in this browser.");
+      return;
+    }
+
+    try {
+      const stream = await window.navigator.mediaDevices.getUserMedia({ audio: true });
+      const recorder = new MediaRecorder(stream);
+      recordingStreamRef.current = stream;
+      mediaRecorderRef.current = recorder;
+      audioChunksRef.current = [];
+      recordingStartRef.current = Date.now();
+      setVoiceDraftSeconds(0);
+      setVoiceDraftAudioUrl("");
+
+      recorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          audioChunksRef.current.push(event.data);
+        }
+      };
+
+      recorder.onstop = async () => {
+        try {
+          const blob = new Blob(audioChunksRef.current, {
+            type: recorder.mimeType || "audio/webm",
+          });
+          const duration = Math.max(1, Math.round((Date.now() - recordingStartRef.current) / 1000));
+          const dataUrl = await blobToDataUrl(blob);
+          setVoiceDraftSeconds(duration);
+          setVoiceDraftAudioUrl(dataUrl);
+        } catch {
+          toast.error("Could not process voice note.");
+          setVoiceDraftSeconds(0);
+          setVoiceDraftAudioUrl("");
+        } finally {
+          setIsPreparingVoice(false);
+          if (recordingStreamRef.current) {
+            recordingStreamRef.current.getTracks().forEach((track) => track.stop());
+            recordingStreamRef.current = null;
+          }
+          mediaRecorderRef.current = null;
+        }
+      };
+
+      recorder.start();
+      setIsRecordingVoice(true);
+    } catch {
+      toast.error("Microphone permission denied. Please allow microphone access.");
+    }
+  };
+
+  const stopVoiceRecording = () => {
+    const recorder = mediaRecorderRef.current;
+    if (!recorder || recorder.state === "inactive") return;
+    setIsRecordingVoice(false);
+    setIsPreparingVoice(true);
+    recorder.stop();
+  };
+
+  const clearVoiceDraft = () => {
+    setVoiceDraftSeconds(0);
+    setVoiceDraftAudioUrl("");
+  };
+
+  const sendMessage = () => {
+    if (!activeContact) return;
+    if (!messageText.trim() && !selectedReelId && !voiceDraftAudioUrl) return;
+
+    sendChatMessage({
+      recipientId: activeContact.id,
+      text: messageText,
+      reelPostId: selectedReelId || undefined,
+      voiceSeconds: voiceDraftAudioUrl ? voiceDraftSeconds : undefined,
+      voiceAudioUrl: voiceDraftAudioUrl || undefined,
+    });
+
+    setMessageText("");
+    setSelectedReelId("");
+    clearVoiceDraft();
+  };
+
+  const activePeerRoleLabel =
+    activeContact?.role === "trainer" ? "trainer" : activeContact?.role === "student" ? "student" : "user";
+
+  const roleHeader = isTrainer ? "Trainer Inbox" : "Community DM";
+  const roleSubheader = isTrainer
+    ? "Reply to student check-ins and keep 1:1 coaching conversations live."
+    : "Trainer notes, 1:1 student chats, and reel sharing in one place.";
+
+  return (
+    <div className="mx-auto max-w-6xl p-4 sm:p-6 lg:p-8 pb-24">
       <motion.div
-        initial={{ opacity: 0, y: 12 }}
+        initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={LUXURY_TWEEN_MEDIUM}
-        className="rounded-[32px] border border-white/10 bg-[#121212] p-6 sm:p-8 shadow-[0_20px_60px_rgba(0,0,0,0.4)] relative overflow-hidden"
+        className="rounded-[32px] border border-white/10 bg-[#121212] p-6 shadow-[0_20px_60px_rgba(0,0,0,0.45)] relative overflow-hidden"
       >
-        {/* BG glow */}
-        <div className="absolute top-0 right-0 w-64 h-64 rounded-full bg-[#C9F85A]/4 translate-x-16 -translate-y-16 blur-3xl pointer-events-none" />
+        <div className="absolute -top-10 -right-10 h-56 w-56 rounded-full bg-[#4DD2FF]/10 blur-3xl pointer-events-none" />
+        <div className="absolute -bottom-16 -left-10 h-56 w-56 rounded-full bg-[#C9F85A]/8 blur-3xl pointer-events-none" />
 
-        <div className="flex flex-wrap items-start justify-between gap-4 relative z-10">
-          <div className="space-y-2">
-            <div className="inline-flex items-center gap-2 rounded-full bg-[#C9F85A]/10 border border-[#C9F85A]/20 px-3 py-1.5">
-              <Users className="h-3.5 w-3.5 text-[#C9F85A]" />
-              <span className="text-xs font-bold text-[#C9F85A] uppercase tracking-wider">Community</span>
+        <div className="relative mb-6 flex items-center justify-between gap-4">
+          <div>
+            <div className="inline-flex items-center gap-2 rounded-full border border-[#C9F85A]/25 bg-[#C9F85A]/10 px-3 py-1.5">
+              <MessageCircle className="h-3.5 w-3.5 text-[#C9F85A]" />
+              <span className="text-[11px] font-bold uppercase tracking-wider text-[#C9F85A]">{roleHeader}</span>
             </div>
-            <h1 className="text-4xl font-bold text-white tracking-tight">The Grind Network</h1>
-            <p className="text-sm text-white/40 flex items-center gap-2">
-              <Activity className="h-3.5 w-3.5 text-[#C9F85A]" />
-              <span className="text-[#C9F85A] font-bold">{suggestedUsers.length}</span>
-              <span>athletes detected</span>
-            </p>
+            <h1 className="mt-3 text-3xl font-semibold tracking-tight text-white">Messages</h1>
+            <p className="mt-1 text-sm text-white/45">{roleSubheader}</p>
           </div>
-
-          {/* KPI strip */}
-          <div className="flex flex-wrap gap-3">
-            {[
-              { label: "Total Members", value: String(suggestedUsers.length), color: "#C9F85A" },
-              { label: "Avg Streak", value: "21d", color: "#FF4D00" },
-              { label: "Completion", value: "88%", color: "#4DD2FF" },
-            ].map((k) => (
-              <div key={k.label} className="rounded-2xl bg-[#1A1A1A] border border-white/5 px-4 py-3 text-center min-w-[80px]">
-                <p className="text-xl font-bold" style={{ color: k.color }}>{k.value}</p>
-                <p className="text-[10px] text-white/30 uppercase tracking-wider mt-0.5">{k.label}</p>
-              </div>
-            ))}
+          <div className="rounded-2xl border border-white/10 bg-[#1A1A1A] px-4 py-3 text-right">
+            <p className="text-[10px] uppercase tracking-wider text-white/30">Private Threads</p>
+            <p className="text-xl font-semibold text-white">{myThreads.length}</p>
           </div>
         </div>
-      </motion.div>
 
-      {/* ── Search bar ──────────────────────────────────── */}
-      <motion.div
-        initial={{ opacity: 0, y: 12 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ ...LUXURY_TWEEN_MEDIUM, delay: 0.08 }}
-        className="relative"
-      >
-        <div className="absolute inset-y-0 left-5 flex items-center pointer-events-none">
-          <Search className="h-4 w-4 text-white/30" />
-        </div>
-        <input
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder="Search athletes by name…"
-          className="w-full bg-[#121212] border border-white/10 rounded-2xl pl-12 pr-12 py-4 text-sm text-white placeholder:text-white/30 focus:outline-none focus:border-[#C9F85A]/40 focus:ring-2 focus:ring-[#C9F85A]/10 transition-all"
-        />
-        <AnimatePresence>
-          {query && (
-            <motion.button
-              initial={{ opacity: 0, scale: 0.8 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.8 }}
-              onClick={() => setQuery("")}
-              className="absolute right-4 top-1/2 -translate-y-1/2 w-6 h-6 rounded-full bg-white/10 flex items-center justify-center text-white/50 hover:bg-white/20 hover:text-white transition-all"
-            >
-              <X className="h-3 w-3" />
-            </motion.button>
-          )}
-        </AnimatePresence>
-      </motion.div>
+        <div className="grid gap-4 lg:grid-cols-[320px_minmax(0,1fr)]">
+          <div className="rounded-3xl border border-white/10 bg-[#0E0E0E] p-4">
+            <div className="relative mb-3">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/30" />
+              <input
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder="Search trainer or student"
+                className="h-11 w-full rounded-xl border border-white/10 bg-[#161616] pl-10 pr-3 text-sm text-white placeholder:text-white/35 focus:border-[#C9F85A]/40 focus:outline-none"
+              />
+            </div>
 
-      {/* ── Top Podium (no search active) ──────────────── */}
-      {!query && (
-        <motion.div
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ ...LUXURY_TWEEN_MEDIUM, delay: 0.12 }}
-          className="rounded-[32px] border border-white/10 bg-[#121212] p-6 sm:p-8 shadow-[0_20px_60px_rgba(0,0,0,0.4)]"
-        >
-          <div className="flex items-center gap-2 mb-6">
-            <TrendingUp className="h-4 w-4 text-[#C9F85A]" />
-            <h2 className="text-base font-semibold text-white">Top Performers</h2>
-          </div>
+            <div className="space-y-2 max-h-[540px] overflow-y-auto pr-1">
+              {contacts.map((contact) => {
+                const thread = myThreads.find((item) => item.participantIds.includes(contact.id));
+                const lastMessage = thread?.messages[thread.messages.length - 1];
+                const isUnread = Boolean(thread?.unreadBy.includes(currentUser.id));
 
-          <div className="grid sm:grid-cols-3 gap-4">
-            {[
-              { name: "Karan Singh", stat: "21 day streak", icon: Flame, badge: "🥇", rank: 1, color: "#FFD36E", accent: "from-[#FFD36E]/10" },
-              { name: "Priya Sharma", stat: "98% efficiency", icon: Star, badge: "🥈", rank: 2, color: "#C9F85A", accent: "from-[#C9F85A]/10" },
-              { name: "Rohit Patel", stat: "165k steps", icon: TrendingUp, badge: "🥉", rank: 3, color: "#4DD2FF", accent: "from-[#4DD2FF]/10" },
-            ].map((a, i) => (
-              <motion.div
-                key={a.name}
-                initial={{ opacity: 0, y: 16 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ ...LUXURY_TWEEN_MEDIUM, delay: i * 0.07 }}
-                className={`rounded-[24px] border border-white/8 bg-gradient-to-b ${a.accent} to-transparent p-6 text-center relative overflow-hidden group hover:border-white/15 transition-all`}
-              >
-                {/* rank bg watermark */}
-                <div className="absolute top-2 right-3 text-5xl font-black text-white/4 group-hover:text-white/6 transition-colors select-none">{a.rank}</div>
-
-                {/* avatar */}
-                <div className="relative mx-auto w-16 h-16 mb-4">
-                  <div className={`w-16 h-16 rounded-2xl bg-[#1A1A1A] flex items-center justify-center text-sm font-bold text-white border border-white/10 group-hover:scale-105 transition-transform`}>
-                    {getInitials(a.name)}
-                  </div>
-                  <div className="absolute -top-2 -right-2 text-lg">{a.badge}</div>
-                </div>
-
-                <p className="text-sm font-semibold text-white">{a.name}</p>
-                <div className="inline-flex items-center gap-1.5 mt-2 rounded-full px-3 py-1 bg-[#1A1A1A] border border-white/5">
-                  <a.icon className="h-3 w-3" style={{ color: a.color }} />
-                  <span className="text-[10px] font-semibold text-white/50">{a.stat}</span>
-                </div>
-              </motion.div>
-            ))}
-          </div>
-        </motion.div>
-      )}
-
-      {/* ── Athletes Grid ───────────────────────────────── */}
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ ...LUXURY_TWEEN_MEDIUM, delay: 0.18 }}
-      >
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-2">
-            <div className="w-2 h-2 rounded-full bg-[#C9F85A]" />
-            <h2 className="text-sm font-semibold text-white">
-              {query ? `Results for "${query}"` : "Athletes"}
-            </h2>
-          </div>
-          <span className="rounded-full bg-[#1D1D1D] border border-white/8 px-3 py-1.5 text-xs text-white/50">
-            {filtered.length} found
-          </span>
-        </div>
-
-        {filtered.length === 0 ? (
-          <div className="rounded-[32px] border border-dashed border-white/10 bg-[#0D0D0D] p-16 text-center">
-            <Target className="h-10 w-10 text-white/15 mx-auto mb-3" />
-            <p className="text-sm text-white/30">No athletes match your search.</p>
-          </div>
-        ) : (
-          <div className="grid sm:grid-cols-2 gap-3">
-            {filtered.map((u, i) => {
-              const grad = AVATAR_GRADIENTS[i % AVATAR_GRADIENTS.length];
-              const isFollowing = followed.has(u.id);
-              return (
-                <motion.div
-                  key={u.id}
-                  initial={{ opacity: 0, scale: 0.96 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  transition={{ ...LUXURY_TWEEN_MEDIUM, delay: i * 0.04 }}
-                  className="rounded-[24px] border border-white/8 bg-[#121212] p-4 flex items-center gap-4 hover:border-white/15 transition-all group"
-                >
-                  {/* Avatar with gradient ring */}
-                  <div className={`w-12 h-12 rounded-2xl bg-gradient-to-br ${grad} p-[2px] flex-shrink-0`}>
-                    <div className="w-full h-full rounded-[14px] bg-[#1A1A1A] flex items-center justify-center text-xs font-bold text-white">
-                      {getInitials(u.name)}
-                    </div>
-                  </div>
-
-                  {/* Info */}
-                  <div className="flex-1 min-w-0">
-                    <Link to={`/student/profile/${u.id}`}>
-                      <p className="text-sm font-semibold text-white truncate group-hover:text-[#C9F85A] transition-colors">{u.name}</p>
-                    </Link>
-                    <div className="flex flex-wrap items-center gap-2 mt-1">
-                      {u.streak > 0 && (
-                        <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-[#FF4D00]">
-                          <Flame className="h-3 w-3" />{u.streak}d streak
-                        </span>
-                      )}
-                      <span className="text-[10px] text-white/30">{u.mutualFriends} mutual</span>
-                    </div>
-                  </div>
-
-                  {/* Follow button */}
-                  <motion.button
-                    whileTap={{ scale: 0.92 }}
-                    onClick={() => toggleFollow(u.id)}
-                    className={`flex items-center gap-1.5 rounded-full px-3.5 py-2 text-xs font-semibold transition-all flex-shrink-0 ${
-                      isFollowing
-                        ? "bg-[#C9F85A] text-black"
-                        : "bg-[#1D1D1D] border border-white/10 text-white/60 hover:border-[#C9F85A]/40 hover:text-[#C9F85A]"
+                return (
+                  <button
+                    key={contact.id}
+                    onClick={() => setActiveContactId(contact.id)}
+                    className={`w-full rounded-2xl border p-3 text-left transition-all ${
+                      activeContactId === contact.id
+                        ? "border-[#C9F85A]/45 bg-[#1E2214]"
+                        : "border-white/8 bg-[#151515] hover:border-white/20"
                     }`}
                   >
-                    {isFollowing ? (
-                      <><UserCheck className="h-3.5 w-3.5" />Following</>
-                    ) : (
-                      <><UserPlus className="h-3.5 w-3.5" />Follow</>
-                    )}
-                  </motion.button>
-                </motion.div>
-              );
-            })}
+                    <div className="flex items-center gap-3">
+                      <div className="h-10 w-10 rounded-xl bg-[#1F1F1F] border border-white/10 text-xs font-bold text-white flex items-center justify-center">
+                        {initials(contact.name)}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-semibold text-white">{contact.name}</p>
+                        <p className="truncate text-xs text-white/40">
+                          {lastMessage ? lastMessage.text : contact.role === "trainer" ? "Start your coach check-in" : "Start a chat"}
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        {lastMessage && <p className="text-[10px] text-white/30">{relativeTime(lastMessage.createdAt)}</p>}
+                        {isUnread && <span className="mt-1 inline-flex h-2.5 w-2.5 rounded-full bg-[#C9F85A]" />}
+                      </div>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
           </div>
-        )}
-      </motion.div>
 
+          <div className="rounded-3xl border border-white/10 bg-[#0F0F0F] flex flex-col min-h-[640px]">
+            <div className="border-b border-white/8 p-4 sm:p-5 flex items-center gap-3">
+              {activeContact ? (
+                <>
+                  <div className="h-11 w-11 rounded-xl bg-[#1B1B1B] border border-white/10 text-sm font-bold text-white flex items-center justify-center">
+                    {initials(activeContact.name)}
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-white">{activeContact.name}</p>
+                    <p className="text-xs text-white/40 capitalize">
+                      {activeContact.role === "trainer" ? "Gym Trainer" : "Student"}
+                    </p>
+                  </div>
+                </>
+              ) : (
+                <p className="text-sm text-white/40">Select a conversation to start chatting.</p>
+              )}
+            </div>
+
+            <div className="flex-1 space-y-3 overflow-y-auto p-4 sm:p-5">
+              {activeThread?.messages.length ? (
+                activeThread.messages.map((message) => {
+                  const isMe = message.senderId === currentUser.id;
+                  return (
+                    <div
+                      key={message.id}
+                      className={`flex ${isMe ? "justify-end" : "justify-start"}`}
+                    >
+                      <div
+                        className={`max-w-[78%] rounded-2xl border px-3.5 py-2.5 ${
+                          isMe
+                            ? "bg-[#C9F85A] text-black border-[#C9F85A]"
+                            : "bg-[#1A1A1A] text-white border-white/10"
+                        }`}
+                      >
+                        <p className="text-sm leading-relaxed">{message.text}</p>
+                        {message.type === "voice-note" && (
+                          <div className="mt-2 space-y-2 rounded-xl border border-black/10 bg-black/15 px-2.5 py-2">
+                            <div className="flex items-center gap-2 text-[11px]">
+                              <Mic className="h-4 w-4" />
+                              <span className="font-semibold">Voice note • {formatSeconds(Math.max(1, message.voiceSeconds ?? 0))}</span>
+                            </div>
+                            {message.voiceAudioUrl ? (
+                              <audio controls preload="metadata" className="w-full" src={message.voiceAudioUrl} />
+                            ) : (
+                              <p className="text-[11px] opacity-70">Audio unavailable.</p>
+                            )}
+                          </div>
+                        )}
+                        {message.type === "reel-share" && message.reelPreviewUrl && (
+                          <div className="mt-2 overflow-hidden rounded-xl border border-black/10 bg-black/15">
+                            <img
+                              src={message.reelPreviewUrl}
+                              alt="Shared reel"
+                              className="h-36 w-full object-cover"
+                            />
+                            <p className={`px-2.5 py-2 text-xs ${isMe ? "text-black/80" : "text-white/60"}`}>
+                              <Video className="mr-1.5 inline h-3.5 w-3.5" />
+                              {message.reelCaption || "Shared reel"}
+                            </p>
+                          </div>
+                        )}
+                        <p className={`mt-1 text-[10px] ${isMe ? "text-black/60" : "text-white/35"}`}>
+                          {relativeTime(message.createdAt)}
+                        </p>
+                        {isMe && (
+                          <p className={`mt-0.5 text-[10px] ${isMe ? "text-black/65" : "text-white/35"}`}>
+                            {message.seenBy.includes(activeContact?.id ?? "")
+                              ? `Seen by ${activePeerRoleLabel}`
+                              : "Sent"}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })
+              ) : (
+                <div className="h-full flex items-center justify-center text-center">
+                  <div>
+                    <Sparkles className="mx-auto h-6 w-6 text-[#C9F85A]/70" />
+                    <p className="mt-2 text-sm text-white/45">No messages yet. Start the conversation.</p>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="border-t border-white/8 p-4 sm:p-5 space-y-3">
+              <div className="grid gap-2 sm:grid-cols-[1fr_170px]">
+                <input
+                  value={messageText}
+                  onChange={(event) => setMessageText(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") {
+                      event.preventDefault();
+                      sendMessage();
+                    }
+                  }}
+                  placeholder={activeContact ? `Message ${activeContact.name}` : "Select a chat first"}
+                  disabled={!activeContact}
+                  className="h-11 rounded-xl border border-white/10 bg-[#171717] px-3 text-sm text-white placeholder:text-white/35 focus:border-[#C9F85A]/45 focus:outline-none disabled:opacity-50"
+                />
+                <select
+                  value={selectedReelId}
+                  onChange={(event) => setSelectedReelId(event.target.value)}
+                  disabled={!activeContact}
+                  className="h-11 rounded-xl border border-white/10 bg-[#171717] px-3 text-sm text-white focus:border-[#4DD2FF]/45 focus:outline-none disabled:opacity-50"
+                >
+                  <option value="">Share a reel (optional)</option>
+                  {reelPosts.map((reel) => (
+                    <option key={reel.id} value={reel.id}>
+                      {reel.userName}: {reel.caption.slice(0, 26)}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="flex items-center justify-between rounded-xl border border-white/10 bg-[#171717] px-3 py-2.5">
+                <div className="flex items-center gap-2 text-xs text-white/55">
+                  <Mic className={`h-4 w-4 ${isRecordingVoice ? "text-red-400" : "text-[#C9F85A]"}`} />
+                  {isRecordingVoice
+                    ? `Recording voice note... ${voiceDraftSeconds}s`
+                    : isPreparingVoice
+                      ? "Processing voice note..."
+                      : voiceDraftAudioUrl
+                        ? `Voice note ready (${formatSeconds(voiceDraftSeconds)})`
+                      : "Tap record to attach a voice note"}
+                </div>
+                <div className="flex items-center gap-2">
+                  {isRecordingVoice ? (
+                    <button
+                      onClick={stopVoiceRecording}
+                      className="rounded-lg border border-red-400/30 bg-red-500/10 px-3 py-1.5 text-xs font-semibold text-red-300"
+                    >
+                      Stop
+                    </button>
+                  ) : (
+                    <button
+                      onClick={startVoiceRecording}
+                      disabled={!activeContact || isPreparingVoice}
+                      className="rounded-lg border border-[#C9F85A]/30 bg-[#C9F85A]/10 px-3 py-1.5 text-xs font-semibold text-[#C9F85A] disabled:opacity-50"
+                    >
+                      Record
+                    </button>
+                  )}
+                  {voiceDraftAudioUrl && !isRecordingVoice && (
+                    <button
+                      onClick={clearVoiceDraft}
+                      className="rounded-lg border border-white/15 bg-white/5 px-3 py-1.5 text-xs font-semibold text-white/70"
+                    >
+                      Clear
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {voiceDraftAudioUrl && (
+                <div className="rounded-xl border border-white/10 bg-[#151515] p-3">
+                  <p className="mb-2 text-[11px] uppercase tracking-wider text-white/40">Voice Note Preview</p>
+                  <audio controls preload="metadata" className="w-full" src={voiceDraftAudioUrl} />
+                </div>
+              )}
+
+              <button
+                onClick={() => {
+                  if (!activeContact) {
+                    toast.error("Select a conversation first.");
+                    return;
+                  }
+                  sendMessage();
+                }}
+                className="h-11 w-full rounded-xl bg-[#C9F85A] text-sm font-semibold text-black hover:bg-[#d4ff60] transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                disabled={!activeContact || (!messageText.trim() && !selectedReelId && !voiceDraftAudioUrl)}
+              >
+                <Send className="h-4 w-4" /> Send message
+              </button>
+            </div>
+          </div>
+        </div>
+      </motion.div>
     </div>
   );
 }

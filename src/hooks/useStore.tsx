@@ -2,6 +2,8 @@ import { create } from 'zustand';
 import {
   Admin,
   AHGEvent,
+  ChatMessage,
+  ChatThread,
   EventEntry,
   FitnessQuestionnaire,
   PlanDay,
@@ -584,6 +586,7 @@ interface AppState {
     legacyNotifications: NotificationItem[];
     planUpdateNotifications: PlanUpdateNotification[];
     events: AHGEvent[];
+    chatThreads: ChatThread[];
   };
 
   // Session State
@@ -648,6 +651,16 @@ interface AppActions {
   }) => void;
   notifyStudentPlanUpdated: (studentId: string, planId: string, message: string) => void;
   markPlanNotificationRead: (notificationId: string) => void;
+  createOrGetChatThread: (targetUserId: string) => string | null;
+  sendChatMessage: (payload: {
+    threadId?: string;
+    recipientId?: string;
+    text?: string;
+    reelPostId?: string;
+    voiceSeconds?: number;
+    voiceAudioUrl?: string;
+  }) => void;
+  markChatThreadRead: (threadId: string) => void;
 
   // Events CRUD
   createEvent: (event: Omit<AHGEvent, 'id' | 'createdAt' | 'entries'>) => void;
@@ -700,10 +713,97 @@ const fullAdminPermissions: Record<PermissionKey, boolean> = {
 const PERMISSIONS_STORAGE_KEY = 'ah_permissions_v1';
 const USERS_STORAGE_KEY = 'ah_users_v1';
 const SESSION_STORAGE_KEY = 'ah_session_v1';
+const CHAT_STORAGE_KEY = 'ah_chats_v1';
 
 type PersistedSession = {
   currentUserId: string | null;
   isAuthenticated: boolean;
+};
+
+const buildDirectThreadId = (a: string, b: string) =>
+  `thread-${[a, b].sort().join('--')}`;
+
+const createDefaultChatThreads = (users: Record<string, User>): ChatThread[] => {
+  const now = new Date().toISOString();
+  const threads: ChatThread[] = [];
+
+  Object.values(users).forEach((user) => {
+    if (user.role !== 'student') return;
+    const student = user as Student;
+    if (!student.trainerId) return;
+
+    const trainer = users[student.trainerId];
+    if (!trainer || trainer.role !== 'trainer') return;
+
+    const id = buildDirectThreadId(student.id, trainer.id);
+    const message: ChatMessage = {
+      id: `msg-init-${student.id}`,
+      senderId: trainer.id,
+      text: `Daily metrics check: send bodyweight, sleep hours, and energy score (1-10) before 9 PM.`,
+      createdAt: now,
+      type: 'text',
+      seenBy: [trainer.id],
+    };
+
+    threads.push({
+      id,
+      participantIds: [student.id, trainer.id],
+      messages: [message],
+      updatedAt: now,
+      unreadBy: [student.id],
+    });
+  });
+
+  return threads;
+};
+
+const readPersistedChats = (
+  users: Record<string, User>,
+  fallback: ChatThread[]
+): ChatThread[] => {
+  if (typeof window === 'undefined') return fallback;
+  try {
+    const raw = window.localStorage.getItem(CHAT_STORAGE_KEY);
+    if (!raw) return fallback;
+    const parsed = JSON.parse(raw) as ChatThread[];
+    if (!Array.isArray(parsed)) return fallback;
+
+    const cleaned = parsed
+      .map((thread) => {
+        const participants = (thread.participantIds ?? []).filter((id) => Boolean(users[id]));
+        if (participants.length < 2) return null;
+        return {
+          ...thread,
+          participantIds: Array.from(new Set(participants)).sort(),
+          messages: Array.isArray(thread.messages)
+            ? thread.messages.map((message) => ({
+                ...message,
+                seenBy: Array.isArray(message.seenBy)
+                  ? message.seenBy.filter((id) => participants.includes(id))
+                  : [message.senderId].filter((id) => participants.includes(id)),
+              }))
+            : [],
+          unreadBy: Array.isArray(thread.unreadBy)
+            ? thread.unreadBy.filter((id) => participants.includes(id))
+            : [],
+          updatedAt: thread.updatedAt ?? new Date().toISOString(),
+        } as ChatThread;
+      })
+      .filter((thread): thread is ChatThread => Boolean(thread));
+
+    return cleaned.length > 0 ? cleaned : fallback;
+  } catch {
+    return fallback;
+  }
+};
+
+const persistChats = (threads: ChatThread[]) => {
+  if (typeof window === 'undefined') return;
+  try {
+    window.localStorage.setItem(CHAT_STORAGE_KEY, JSON.stringify(threads));
+  } catch {
+    // Ignore localStorage write failures in restricted environments.
+  }
 };
 
 const hardcodedRoleCredentials: Record<
@@ -916,6 +1016,7 @@ const initialState: AppState = {
     legacySubmissions: defaultSubmissions.map((submission) => ({ ...submission })),
     legacyNotifications: defaultAppNotifications.map((notification) => ({ ...notification })),
     planUpdateNotifications: [],
+    chatThreads: readPersistedChats(initialUsers, createDefaultChatThreads(initialUsers)),
     events: [
       {
         id: 'evt-1',
@@ -1722,6 +1823,171 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
       };
     }),
 
+  createOrGetChatThread: (targetUserId) => {
+    let threadId: string | null = null;
+    set((state) => {
+      const actor = state.session.currentUser;
+      if (!actor) return state;
+      if (!state.users[targetUserId] || targetUserId === actor.id) return state;
+
+      const participants = [actor.id, targetUserId].sort();
+      const existing = state.system.chatThreads.find(
+        (thread) =>
+          thread.participantIds.length === 2 &&
+          thread.participantIds[0] === participants[0] &&
+          thread.participantIds[1] === participants[1]
+      );
+
+      if (existing) {
+        threadId = existing.id;
+        return state;
+      }
+
+      const now = new Date().toISOString();
+      threadId = buildDirectThreadId(participants[0], participants[1]);
+      const newThread: ChatThread = {
+        id: threadId,
+        participantIds: participants,
+        messages: [],
+        updatedAt: now,
+        unreadBy: [],
+      };
+
+      return {
+        ...state,
+        system: {
+          ...state.system,
+          chatThreads: [newThread, ...state.system.chatThreads],
+        },
+      };
+    });
+
+    return threadId;
+  },
+
+  sendChatMessage: ({ threadId, recipientId, text, reelPostId, voiceSeconds, voiceAudioUrl }) =>
+    set((state) => {
+      const actor = state.session.currentUser;
+      if (!actor) return state;
+
+      let targetThread = threadId
+        ? state.system.chatThreads.find((thread) => thread.id === threadId)
+        : undefined;
+
+      if (!targetThread && recipientId) {
+        const participants = [actor.id, recipientId].sort();
+        targetThread = state.system.chatThreads.find(
+          (thread) =>
+            thread.participantIds.length === 2 &&
+            thread.participantIds[0] === participants[0] &&
+            thread.participantIds[1] === participants[1]
+        );
+      }
+
+      if (!targetThread && recipientId && state.users[recipientId]) {
+        targetThread = {
+          id: buildDirectThreadId(actor.id, recipientId),
+          participantIds: [actor.id, recipientId].sort(),
+          messages: [],
+          updatedAt: new Date().toISOString(),
+          unreadBy: [],
+        };
+      }
+
+      if (!targetThread || !targetThread.participantIds.includes(actor.id)) {
+        return state;
+      }
+
+      const normalizedText = text?.trim() ?? '';
+      const reel = reelPostId ? state.posts[reelPostId] : null;
+      const hasValidReel = Boolean(reel && reel.type === 'reel');
+      const normalizedVoiceSeconds = Math.max(0, Math.floor(voiceSeconds ?? 0));
+      const normalizedVoiceAudioUrl = voiceAudioUrl?.trim();
+      const hasVoiceNote = normalizedVoiceSeconds > 0 && Boolean(normalizedVoiceAudioUrl);
+
+      if (!normalizedText && !hasValidReel && !hasVoiceNote) {
+        return state;
+      }
+
+      const now = new Date().toISOString();
+      const message: ChatMessage = {
+        id: `chat-msg-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+        senderId: actor.id,
+        text: hasVoiceNote ? normalizedText || 'Voice note' : normalizedText || 'Shared a reel',
+        createdAt: now,
+        type: hasVoiceNote ? 'voice-note' : hasValidReel ? 'reel-share' : 'text',
+        seenBy: [actor.id],
+        voiceSeconds: hasVoiceNote ? normalizedVoiceSeconds : undefined,
+        voiceAudioUrl: hasVoiceNote ? normalizedVoiceAudioUrl : undefined,
+        reelPostId: hasValidReel ? reelPostId : undefined,
+        reelPreviewUrl: hasValidReel ? reel?.mediaUrl : undefined,
+        reelCaption: hasValidReel ? reel?.caption : undefined,
+      };
+
+      const nextThread: ChatThread = {
+        ...targetThread,
+        messages: [...targetThread.messages, message],
+        updatedAt: now,
+        unreadBy: targetThread.participantIds.filter((id) => id !== actor.id),
+      };
+
+      const existingIndex = state.system.chatThreads.findIndex((thread) => thread.id === targetThread.id);
+      const nextThreads = [...state.system.chatThreads];
+      if (existingIndex >= 0) {
+        nextThreads.splice(existingIndex, 1);
+      }
+      nextThreads.unshift(nextThread);
+
+      return {
+        ...state,
+        system: {
+          ...state.system,
+          chatThreads: nextThreads,
+        },
+      };
+    }),
+
+  markChatThreadRead: (threadId) =>
+    set((state) => {
+      const actorId = state.session.currentUser?.id;
+      if (!actorId) return state;
+
+      const targetIndex = state.system.chatThreads.findIndex((thread) => thread.id === threadId);
+      if (targetIndex < 0) return state;
+
+      const targetThread = state.system.chatThreads[targetIndex];
+      const hasUnread = targetThread.unreadBy.includes(actorId);
+      const hasUnseenMessages = targetThread.messages.some(
+        (message) => !message.seenBy.includes(actorId)
+      );
+
+      // No-op if this thread is already fully marked read for the active user.
+      if (!hasUnread && !hasUnseenMessages) {
+        return state;
+      }
+
+      const updatedThread: ChatThread = {
+        ...targetThread,
+        unreadBy: targetThread.unreadBy.filter((id) => id !== actorId),
+        messages: targetThread.messages.map((message) =>
+          message.seenBy.includes(actorId)
+            ? message
+            : { ...message, seenBy: [...message.seenBy, actorId] }
+        ),
+      };
+
+      const nextThreads = [...state.system.chatThreads];
+      nextThreads[targetIndex] = updatedThread;
+
+      return {
+        ...state,
+        system: {
+          ...state.system,
+          chatThreads: nextThreads,
+        },
+      };
+    }),
+
   markPlanNotificationRead: (notificationId) =>
     set((state) => ({
       ...state,
@@ -1863,7 +2129,56 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
 useAppStore.subscribe((state) => {
   persistUsers(state.users);
   persistSession(state.session);
+  persistChats(state.system.chatThreads);
 });
+
+if (typeof window !== 'undefined') {
+  window.addEventListener('storage', (event) => {
+    if (event.key !== CHAT_STORAGE_KEY || !event.newValue) return;
+
+    try {
+      const parsed = JSON.parse(event.newValue) as ChatThread[];
+      if (!Array.isArray(parsed)) return;
+
+      useAppStore.setState((state) => {
+        const cleaned = parsed
+          .map((thread) => {
+            const participants = (thread.participantIds ?? []).filter((id) => Boolean(state.users[id]));
+            if (participants.length < 2) return null;
+            return {
+              ...thread,
+              participantIds: Array.from(new Set(participants)).sort(),
+              messages: Array.isArray(thread.messages)
+                ? thread.messages.map((message) => ({
+                    ...message,
+                    seenBy: Array.isArray(message.seenBy)
+                      ? message.seenBy.filter((id) => participants.includes(id))
+                      : [message.senderId].filter((id) => participants.includes(id)),
+                  }))
+                : [],
+              unreadBy: Array.isArray(thread.unreadBy)
+                ? thread.unreadBy.filter((id) => participants.includes(id))
+                : [],
+              updatedAt: thread.updatedAt ?? new Date().toISOString(),
+            } as ChatThread;
+          })
+          .filter((thread): thread is ChatThread => Boolean(thread));
+
+        if (!cleaned.length) return state;
+
+        return {
+          ...state,
+          system: {
+            ...state.system,
+            chatThreads: cleaned,
+          },
+        };
+      });
+    } catch {
+      // Ignore malformed chat sync payloads.
+    }
+  });
+}
 
 // ========= SELECTORS (for convenience) =========
 export const useCurrentUser = () => useAppStore((state) => state.session.currentUser);

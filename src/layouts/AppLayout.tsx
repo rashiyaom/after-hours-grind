@@ -31,6 +31,7 @@ const mobileStudentBottomNav = [
 const mobileTrainerBottomNav = [
   { label: "Home", path: "/trainer/dashboard", icon: LayoutDashboard },
   { label: "Students", path: "/trainer/students", icon: Users },
+  { label: "Chats", path: "/trainer/community", icon: Search },
   { label: "Verify", path: "/trainer/auto-plans", icon: Zap, isAction: true },
   { label: "Builder", path: "/trainer/plan-builder", icon: ClipboardList },
   { label: "Stats", path: "/trainer/dashboard", icon: Activity },
@@ -39,6 +40,7 @@ const mobileTrainerBottomNav = [
 const trainerNav = [
   { label: "Dashboard", path: "/trainer/dashboard", icon: LayoutDashboard },
   { label: "Students", path: "/trainer/students", icon: Users },
+  { label: "Community", path: "/trainer/community", icon: Rss },
   { label: "Auto Plans Queue", path: "/trainer/auto-plans", icon: Zap },
   { label: "Plan Builder", path: "/trainer/plan-builder", icon: ClipboardList },
 ];

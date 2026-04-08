@@ -97,6 +97,7 @@ const App = () => (
               <Route path="auto-plans" element={<AutoPlansQueuePage />} />
               <Route path="students" element={<StudentRoster />} />
               <Route path="students/:studentId" element={<StudentDetail />} />
+              <Route path="community" element={<Community />} />
               <Route element={<ProtectedRoute allowedRoles={["trainer"]} requiredPermission="build_plans" />}>
                 <Route path="plan-builder" element={<PlanBuilder />} />
               </Route>

@@ -229,6 +229,28 @@ export interface Post {
   status: "visible" | "hidden" | "under-review";
 }
 
+export interface ChatMessage {
+  id: string;
+  senderId: string;
+  text: string;
+  createdAt: string;
+  type: "text" | "reel-share" | "voice-note";
+  seenBy: string[];
+  voiceSeconds?: number;
+  voiceAudioUrl?: string;
+  reelPostId?: string;
+  reelPreviewUrl?: string;
+  reelCaption?: string;
+}
+
+export interface ChatThread {
+  id: string;
+  participantIds: string[];
+  messages: ChatMessage[];
+  updatedAt: string;
+  unreadBy: string[];
+}
+
 export interface LeaderboardEntry {
   rank: number;
   userId: string;
