@@ -996,8 +996,15 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
     set((state) => {
       const user = state.users[userId];
       if (!user) return state;
-      const newUsers = { ...state.users, [userId]: { ...user, ...data } };
-      return { ...state, users: newUsers };
+      const updatedUser = { ...user, ...data };
+      const newUsers = { ...state.users, [userId]: updatedUser };
+      
+      let nextSessionUser = state.session.currentUser;
+      if (nextSessionUser?.id === userId) {
+        nextSessionUser = updatedUser as User;
+      }
+      
+      return { ...state, users: newUsers, session: { ...state.session, currentUser: nextSessionUser } };
     }),
 
   banUser: (userId) =>
@@ -1251,35 +1258,46 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
 
       let nextUsers = state.users;
       let nextSessionUser = state.session.currentUser;
+      let newNotif: NotificationItem | undefined;
 
-      if (decision === 'approve' && nextSessionUser?.role === 'trainer') {
+      // Find the student whose currentPlanId is planId
+      const student = Object.values(nextUsers).find((u) => u.role === 'student' && (u as Student).currentPlanId === planId) as Student | undefined;
+
+      if (decision === 'approve' && nextSessionUser?.role === 'trainer' && student) {
         const trainer = nextSessionUser as Trainer;
-        
-        // Find the student whose currentPlanId is planId
-        const student = Object.values(nextUsers).find((u) => u.role === 'student' && (u as Student).currentPlanId === planId) as Student | undefined;
-
-        if (student) {
-          const isNewStudent = student.trainerId !== trainer.id;
+        const isNewStudent = student.trainerId !== trainer.id;
           
-          const updatedStudent: Student = {
-            ...student,
-            trainerId: trainer.id,
-            onboardingStatus: 'completed',
-          };
+        const updatedStudent: Student = {
+          ...student,
+          trainerId: trainer.id,
+          onboardingStatus: 'completed',
+        };
           
-          const updatedTrainer: Trainer = {
-            ...trainer,
-            activePlans: trainer.activePlans + 1,
-            totalStudents: isNewStudent ? trainer.totalStudents + 1 : trainer.totalStudents,
-          };
+        const updatedTrainer: Trainer = {
+          ...trainer,
+          activePlans: trainer.activePlans + 1,
+          totalStudents: isNewStudent ? trainer.totalStudents + 1 : trainer.totalStudents,
+        };
 
-          nextUsers = {
-            ...nextUsers,
-            [student.id]: updatedStudent,
-            [trainer.id]: updatedTrainer,
-          };
-          nextSessionUser = updatedTrainer;
-        }
+        nextUsers = {
+          ...nextUsers,
+          [student.id]: updatedStudent,
+          [trainer.id]: updatedTrainer,
+        };
+        nextSessionUser = updatedTrainer;
+      }
+
+      if (student) {
+        newNotif = {
+          id: `notif-plan-${Date.now()}`,
+          message: decision === 'approve' ? `Your plan was approved and is now active!` : `Your plan was rejected. Feedback: ${feedback}`,
+          icon: decision === 'approve' ? 'check-circle' : 'x-circle',
+          type: 'plan',
+          userName: 'Trainer',
+          action: decision === 'approve' ? 'approved your plan' : 'rejected your plan',
+          timestamp: 'Just now',
+          read: false,
+        };
       }
 
       return {
@@ -1293,6 +1311,7 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
         system: {
           ...state.system,
           activityLogs: [log, ...state.system.activityLogs],
+          legacyNotifications: newNotif ? [newNotif, ...state.system.legacyNotifications] : state.system.legacyNotifications,
         },
       };
     }),
@@ -1342,6 +1361,7 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
         const updatedStudent: Student = {
           ...student,
           streak: student.streak + (student.streak === 0 ? 1 : 0),
+          totalPoints: (student.totalPoints ?? 0) + pointsAwarded,
         };
         nextUsers = { ...nextUsers, [student.id]: updatedStudent };
       }

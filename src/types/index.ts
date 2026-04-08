@@ -43,6 +43,7 @@ export interface Student extends User {
   onboardingStep?: number;
   onboardingDraft?: FitnessQuestionnaire;
   taskCompletions?: Record<string, string[]>;
+  totalPoints?: number;
 }
 
 export interface Trainer extends User {
