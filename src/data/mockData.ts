@@ -8,6 +8,7 @@ import {
   SystemNotification,
   ActivityLog,
 } from "@/types";
+import { hashPassword } from "@/lib/auth";
 
 // ============================================================================
 // MOCK USERS (STUDENTS, TRAINERS, ADMINS)
@@ -18,7 +19,7 @@ const students: Student[] = [
     id: "s1",
     name: "Arjun Mehta",
     email: "arjun@test.com",
-    password: "student123",
+    passwordHash: hashPassword("student123"),
     avatar: "",
     role: "student",
     collegeId: "COL2024051",
@@ -46,7 +47,7 @@ const students: Student[] = [
     id: "s2",
     name: "Priya Sharma",
     email: "priya@test.com",
-    password: "student123",
+    passwordHash: hashPassword("student123"),
     avatar: "",
     role: "student",
     collegeId: "COL2024052",
@@ -77,7 +78,7 @@ const trainers: Trainer[] = [
     id: "t1",
     name: "Coach Vikram",
     email: "vikram@test.com",
-    password: "trainer123",
+    passwordHash: hashPassword("trainer123"),
     avatar: "",
     role: "trainer",
     specialization: "Strength & Conditioning",
@@ -91,7 +92,7 @@ const trainers: Trainer[] = [
     id: "t2",
     name: "Coach Maya",
     email: "maya@test.com",
-    password: "trainer123",
+    passwordHash: hashPassword("trainer123"),
     avatar: "",
     role: "trainer",
     specialization: "Yoga & Mobility",
@@ -108,7 +109,7 @@ const admins: Admin[] = [
     id: "a1",
     name: "Admin User",
     email: "admin@test.com",
-    password: "admin123",
+    passwordHash: hashPassword("admin123"),
     avatar: "",
     role: "admin",
     permissions: ["manage-users", "view-reports", "moderate-content"],

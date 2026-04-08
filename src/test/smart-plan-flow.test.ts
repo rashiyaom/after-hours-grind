@@ -87,13 +87,13 @@ describe("smart plan generation engine", () => {
 });
 
 describe("store onboarding and trainer review flow", () => {
-  it("activates generated plan immediately after onboarding", () => {
+  it("creates a generated plan pending trainer approval after onboarding", () => {
     const store = useAppStore.getState();
     const student = store.users["s1"] as Student;
 
     const generated = store.completeOnboardingAndGeneratePlan(student.id, baseQuestionnaire);
     const created = useAppStore.getState().plans[generated.id];
-    expect(created.status).toBe("active");
+    expect(created.status).toBe("pending_trainer_approval");
   });
 
   it("preserves student plan linkage after rejection so feedback/status can be viewed", () => {

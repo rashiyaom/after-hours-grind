@@ -117,7 +117,7 @@ const manifesto = [
 ];
 
 /* ─── Pillar card — self-contained for clean stagger ── */
-function PillarCard({ p, idx }: { p: any; idx: number }) {
+function PillarCard({ p, idx }: { p: (typeof pillars)[number]; idx: number }) {
   const cardRef = useRef<HTMLDivElement>(null);
   const inView = useInView(cardRef, { once: true, amount: 0.18 });
 

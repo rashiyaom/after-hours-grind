@@ -29,6 +29,10 @@ const formatSeconds = (seconds: number) => {
   return `${mins}:${String(rem).padStart(2, "0")}`;
 };
 
+const MAX_VOICE_NOTE_SECONDS = 90;
+const MAX_VOICE_NOTE_BYTES = 900 * 1024;
+const MAX_VOICE_DATA_URL_LENGTH = 1_200_000;
+
 const blobToDataUrl = (blob: Blob) =>
   new Promise<string>((resolve, reject) => {
     const reader = new FileReader();
@@ -121,6 +125,8 @@ export default function CommunityPage() {
     );
   }, [activeThread, currentUser]);
 
+  const activeThreadId = activeThread?.id;
+
   const reelPosts = useMemo(
     () =>
       Object.values(posts)
@@ -145,9 +151,9 @@ export default function CommunityPage() {
   }, [activeContactId, createOrGetChatThread, currentUser]);
 
   useEffect(() => {
-    if (!activeThread || !activeThreadNeedsReadSync) return;
-    markChatThreadRead(activeThread.id);
-  }, [activeThread?.id, activeThreadNeedsReadSync, markChatThreadRead]);
+    if (!activeThreadId || !activeThreadNeedsReadSync) return;
+    markChatThreadRead(activeThreadId);
+  }, [activeThreadId, activeThreadNeedsReadSync, markChatThreadRead]);
 
   useEffect(() => {
     if (!isRecordingVoice) return;
@@ -212,7 +218,29 @@ export default function CommunityPage() {
             type: recorder.mimeType || "audio/webm",
           });
           const duration = Math.max(1, Math.round((Date.now() - recordingStartRef.current) / 1000));
+
+          if (duration > MAX_VOICE_NOTE_SECONDS) {
+            toast.error(`Voice note limit is ${MAX_VOICE_NOTE_SECONDS} seconds.`);
+            setVoiceDraftSeconds(0);
+            setVoiceDraftAudioUrl("");
+            return;
+          }
+
+          if (blob.size > MAX_VOICE_NOTE_BYTES) {
+            toast.error("Voice note file is too large. Keep it under 900 KB.");
+            setVoiceDraftSeconds(0);
+            setVoiceDraftAudioUrl("");
+            return;
+          }
+
           const dataUrl = await blobToDataUrl(blob);
+          if (dataUrl.length > MAX_VOICE_DATA_URL_LENGTH) {
+            toast.error("Voice note is too large to store. Please record a shorter note.");
+            setVoiceDraftSeconds(0);
+            setVoiceDraftAudioUrl("");
+            return;
+          }
+
           setVoiceDraftSeconds(duration);
           setVoiceDraftAudioUrl(dataUrl);
         } catch {
@@ -252,6 +280,11 @@ export default function CommunityPage() {
   const sendMessage = () => {
     if (!activeContact) return;
     if (!messageText.trim() && !selectedReelId && !voiceDraftAudioUrl) return;
+
+    if (voiceDraftAudioUrl && voiceDraftAudioUrl.length > MAX_VOICE_DATA_URL_LENGTH) {
+      toast.error("Voice note exceeds safe storage limit. Please re-record shorter audio.");
+      return;
+    }
 
     sendChatMessage({
       recipientId: activeContact.id,

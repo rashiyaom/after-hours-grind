@@ -56,6 +56,7 @@ export default function DailyPlanPage() {
   } | null>(null);
   const [proofFile, setProofFile] = useState<File | null>(null);
   const [proofPreview, setProofPreview] = useState<string | null>(null);
+  const [proofMediaDataUrl, setProofMediaDataUrl] = useState<string | null>(null);
   const [proofCaption, setProofCaption] = useState("");
   const [submittingProof, setSubmittingProof] = useState(false);
 
@@ -70,6 +71,7 @@ export default function DailyPlanPage() {
     setProofModal({ taskId, taskType, taskName });
     setProofFile(null);
     setProofPreview(null);
+    setProofMediaDataUrl(null);
     setProofCaption("");
   };
 
@@ -80,6 +82,7 @@ export default function DailyPlanPage() {
       URL.revokeObjectURL(proofPreview);
     }
     setProofPreview(null);
+    setProofMediaDataUrl(null);
     setProofCaption("");
     setSubmittingProof(false);
   };
@@ -98,11 +101,26 @@ export default function DailyPlanPage() {
 
     setProofFile(selected);
     setProofPreview(URL.createObjectURL(selected));
+
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      if (typeof reader.result === "string") {
+        setProofMediaDataUrl(reader.result);
+      } else {
+        setProofMediaDataUrl(null);
+        toast.error("Could not process image file. Please try another photo.");
+      }
+    };
+    reader.onerror = () => {
+      setProofMediaDataUrl(null);
+      toast.error("Could not process image file. Please try another photo.");
+    };
+    reader.readAsDataURL(selected);
   };
 
   const submitProof = async () => {
     if (!proofModal) return;
-    if (!proofFile || !proofPreview) {
+    if (!proofFile || !proofPreview || !proofMediaDataUrl) {
       toast.error("Proof photo is required to complete this task.");
       return;
     }
@@ -114,7 +132,7 @@ export default function DailyPlanPage() {
       taskType: proofModal.taskType,
       dayNumber: selectedDay,
       taskName: proofModal.taskName,
-      mediaUrl: proofPreview,
+      mediaUrl: proofMediaDataUrl,
       caption:
         proofCaption.trim() ||
         `${proofModal.taskType === "workout" ? "Workout" : "Meal"} proof · Day ${selectedDay} · ${proofModal.taskName}`,

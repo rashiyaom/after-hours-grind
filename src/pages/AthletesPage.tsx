@@ -84,7 +84,7 @@ export default function AthletesPage() {
   const selectedSport = useMemo(() => SPORTS_LIST.find(s => s.id === selectedSportId), [selectedSportId]);
   
   const filteredAthletes = useMemo(() => {
-    let base = selectedSport ? ATHLETES.filter(a => a.sport === (selectedSport.slug as any)) : [];
+    let base = selectedSport ? ATHLETES.filter(a => a.sport === selectedSport.slug) : [];
     if (searchQuery) {
       base = base.filter(a => a.name.toLowerCase().includes(searchQuery.toLowerCase()) || a.role.toLowerCase().includes(searchQuery.toLowerCase()));
     }
@@ -271,11 +271,13 @@ export default function AthletesPage() {
                            
                            {/* STAT BAR MOCK */}
                            <div className="flex items-center gap-1.5 pt-4 opacity-0 group-hover:opacity-100 transition-all duration-500 transform translate-y-4 group-hover:translate-y-0">
-                              {[1,2,3,4,5].map(i => (
+                              {[1,2,3,4,5].map(i => {
+                                const widthPct = ((idx + i) * 19) % 100;
+                                return (
                                 <div key={i} className="h-1 flex-1 bg-white/10 rounded-full overflow-hidden">
-                                   <div className={`h-full bg-[#4DD2FF] w-[${Math.random()*100}%] animate-pulse`} />
+                                  <div className="h-full bg-[#4DD2FF] animate-pulse" style={{ width: `${widthPct}%` }} />
                                 </div>
-                              ))}
+                              )})}
                            </div>
 
                            <div className="flex items-center justify-between pt-6 border-t border-white/5 opacity-0 group-hover:opacity-100 transition-all delay-100">

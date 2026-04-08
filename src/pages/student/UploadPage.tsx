@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { motion } from "framer-motion";
 import {
   Upload as UploadIcon, Camera, Video, MapPin, Footprints,
@@ -23,7 +23,14 @@ export default function UploadPage() {
   const [uploadType, setUploadType] = useState<"workout" | "meal" | null>(null);
   const [file, setFile] = useState<File | null>(null);
   const [filePreview, setFilePreview] = useState<string | null>(null);
+  const [mediaDataUrl, setMediaDataUrl] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    return () => {
+      if (filePreview) URL.revokeObjectURL(filePreview);
+    };
+  }, [filePreview]);
 
   const toggleTag = (tag: string) => {
     setActiveTags((prev) => {
@@ -46,15 +53,34 @@ export default function UploadPage() {
     const selected = e.target.files?.[0];
     if (!selected) return;
     
-    // Validate file size (max 50MB for frontend mock)
-    if (selected.size > 50 * 1024 * 1024) {
-      toast.error("File too large. Max 50MB.");
+    // Data URLs are persisted in localStorage; keep payload bounded to avoid quota issues.
+    if (selected.size > 12 * 1024 * 1024) {
+      toast.error("File too large for durable upload. Max 12MB.");
       return;
     }
 
     setFile(selected);
+    setMediaDataUrl(null);
+    if (filePreview) URL.revokeObjectURL(filePreview);
     const url = URL.createObjectURL(selected);
     setFilePreview(url);
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = typeof reader.result === "string" ? reader.result : null;
+      if (!result) {
+        toast.error("Unable to process file for upload.");
+        return;
+      }
+      setMediaDataUrl(result);
+    };
+    reader.onerror = () => {
+      setFile(null);
+      clearFile();
+      toast.error("Failed to read file. Please try again.");
+    };
+    reader.readAsDataURL(selected);
+
     toast.success(`${selected.name} selected`);
   };
 
@@ -62,6 +88,7 @@ export default function UploadPage() {
     if (filePreview) URL.revokeObjectURL(filePreview);
     setFile(null);
     setFilePreview(null);
+    setMediaDataUrl(null);
     setUploadType(null);
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
@@ -75,12 +102,16 @@ export default function UploadPage() {
       toast.error("Please select a file to upload");
       return;
     }
+    if (!mediaDataUrl) {
+      toast.error("Preparing media. Please try again in a moment.");
+      return;
+    }
     
     setSubmitting(true);
     await new Promise((r) => setTimeout(r, 2200));
     
     const mediaType = uploadType === "workout" ? "video" : "image";
-    const mediaUrl = filePreview || "";
+    const mediaUrl = mediaDataUrl;
     const parsedSteps = Number.parseInt(steps, 10);
     const validSteps = Number.isFinite(parsedSteps) && parsedSteps > 0 ? parsedSteps : null;
 

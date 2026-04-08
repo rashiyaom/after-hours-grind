@@ -29,6 +29,7 @@ import {
   mockNotifications,
   mockActivityLogs,
 } from '@/data/mockData';
+import { hashPassword, looksHashedPassword } from '@/lib/auth';
 
 type LegacyTodayTask = {
   stepTarget: number;
@@ -714,14 +715,45 @@ const PERMISSIONS_STORAGE_KEY = 'ah_permissions_v1';
 const USERS_STORAGE_KEY = 'ah_users_v1';
 const SESSION_STORAGE_KEY = 'ah_session_v1';
 const CHAT_STORAGE_KEY = 'ah_chats_v1';
+const MAX_CHAT_THREADS = 120;
+const MAX_MESSAGES_PER_THREAD = 80;
+const MAX_VOICE_DATA_URL_LENGTH = 1_200_000;
 
 type PersistedSession = {
   currentUserId: string | null;
   isAuthenticated: boolean;
 };
 
+const migrateUserPasswordShape = (users: Record<string, User>): Record<string, User> => {
+  return Object.fromEntries(
+    Object.entries(users).map(([id, user]) => {
+      const candidate = user as User & { password?: string };
+      const legacyPassword = candidate.password;
+      const migratedHash = looksHashedPassword(candidate.passwordHash)
+        ? candidate.passwordHash
+        : hashPassword(candidate.passwordHash || legacyPassword || 'changeme');
+
+      const { password: _legacyPassword, ...safeUser } = candidate;
+      return [id, { ...safeUser, passwordHash: migratedHash } as User];
+    })
+  );
+};
+
 const buildDirectThreadId = (a: string, b: string) =>
   `thread-${[a, b].sort().join('--')}`;
+
+const createId = (prefix: string): string => {
+  const hasCrypto =
+    typeof globalThis !== 'undefined' &&
+    'crypto' in globalThis &&
+    Boolean((globalThis as { crypto?: { randomUUID?: () => string } }).crypto?.randomUUID);
+
+  if (hasCrypto) {
+    return `${prefix}-${(globalThis as { crypto: { randomUUID: () => string } }).crypto.randomUUID()}`;
+  }
+
+  return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+};
 
 const createDefaultChatThreads = (users: Record<string, User>): ChatThread[] => {
   const now = new Date().toISOString();
@@ -755,6 +787,34 @@ const createDefaultChatThreads = (users: Record<string, User>): ChatThread[] => 
   });
 
   return threads;
+};
+
+const sanitizeChatThreads = (threads: ChatThread[]): ChatThread[] => {
+  return [...threads]
+    .sort((a, b) => +new Date(b.updatedAt) - +new Date(a.updatedAt))
+    .slice(0, MAX_CHAT_THREADS)
+    .map((thread) => ({
+      ...thread,
+      messages: thread.messages
+        .slice(-MAX_MESSAGES_PER_THREAD)
+        .map((message) => {
+          if (
+            message.type === 'voice-note' &&
+            message.voiceAudioUrl &&
+            message.voiceAudioUrl.length > MAX_VOICE_DATA_URL_LENGTH
+          ) {
+            return {
+              ...message,
+              type: 'text' as const,
+              text: '[Voice note omitted: size limit exceeded]',
+              voiceAudioUrl: undefined,
+              voiceSeconds: undefined,
+            };
+          }
+
+          return message;
+        }),
+    }));
 };
 
 const readPersistedChats = (
@@ -791,102 +851,21 @@ const readPersistedChats = (
       })
       .filter((thread): thread is ChatThread => Boolean(thread));
 
-    return cleaned.length > 0 ? cleaned : fallback;
+    const sanitized = sanitizeChatThreads(cleaned);
+    return sanitized.length > 0 ? sanitized : sanitizeChatThreads(fallback);
   } catch {
-    return fallback;
+    return sanitizeChatThreads(fallback);
   }
 };
 
 const persistChats = (threads: ChatThread[]) => {
   if (typeof window === 'undefined') return;
   try {
-    window.localStorage.setItem(CHAT_STORAGE_KEY, JSON.stringify(threads));
+    window.localStorage.setItem(CHAT_STORAGE_KEY, JSON.stringify(sanitizeChatThreads(threads)));
   } catch {
     // Ignore localStorage write failures in restricted environments.
   }
 };
-
-const hardcodedRoleCredentials: Record<
-  UserRole,
-  { email: string; password: string; defaultUserId: string }
-> = {
-  student: {
-    email: 's@g.com',
-    password: 'student1234',
-    defaultUserId: 'hc-student',
-  },
-  trainer: {
-    email: 't@g.com',
-    password: 'trainer1234',
-    defaultUserId: 'hc-trainer',
-  },
-  admin: {
-    email: 'a@g.com',
-    password: 'admin@1234',
-    defaultUserId: 'hc-admin',
-  },
-};
-
-function buildCredentialUser(role: UserRole): Student | Trainer | Admin {
-  if (role === 'student') {
-    return {
-      id: hardcodedRoleCredentials.student.defaultUserId,
-      name: 'Student Demo',
-      email: hardcodedRoleCredentials.student.email,
-      password: hardcodedRoleCredentials.student.password,
-      avatar: '',
-      role: 'student',
-      collegeId: 'COL-DEMO-001',
-      height: 170,
-      weight: 70,
-      fitnessGoal: 'General fitness',
-      streak: 0,
-      totalPlansCompleted: 0,
-      followers: 0,
-      following: 0,
-      trainerId: 'hc-trainer',
-      currentPlanId: null,
-      currentDay: 1,
-      totalDays: 30,
-      completionPercentage: 0,
-      todaySteps: 0,
-      rank: 999,
-      badges: [],
-      isBanned: false,
-      warnings: 0,
-      onboardingStatus: 'not_started',
-      onboardingStep: 1,
-      taskCompletions: {},
-    };
-  }
-
-  if (role === 'trainer') {
-    return {
-      id: hardcodedRoleCredentials.trainer.defaultUserId,
-      name: 'Trainer Demo',
-      email: hardcodedRoleCredentials.trainer.email,
-      password: hardcodedRoleCredentials.trainer.password,
-      avatar: '',
-      role: 'trainer',
-      specialization: 'Strength & Conditioning',
-      experience: 6,
-      certifications: ['ACE-CPT'],
-      totalStudents: 1,
-      activePlans: 0,
-      isVerified: true,
-    };
-  }
-
-  return {
-    id: hardcodedRoleCredentials.admin.defaultUserId,
-    name: 'Admin Demo',
-    email: hardcodedRoleCredentials.admin.email,
-    password: hardcodedRoleCredentials.admin.password,
-    avatar: '',
-    role: 'admin',
-    permissions: ['manage-users', 'view-reports', 'moderate-content'],
-  };
-}
 
 const clonePermissions = (source: PermissionMatrix): PermissionMatrix => ({
   student: { ...source.student },
@@ -901,31 +880,12 @@ const enforceAdminFullAccess = (permissions: PermissionMatrix): PermissionMatrix
 });
 
 const readPersistedPermissions = (): PermissionMatrix => {
-  if (typeof window === 'undefined') return clonePermissions(defaultPermissions);
-  try {
-    const raw = window.localStorage.getItem(PERMISSIONS_STORAGE_KEY);
-    if (!raw) return clonePermissions(defaultPermissions);
-    const parsed = JSON.parse(raw) as Partial<PermissionMatrix>;
-    return enforceAdminFullAccess({
-      student: { ...defaultPermissions.student, ...(parsed.student ?? {}) },
-      trainer: { ...defaultPermissions.trainer, ...(parsed.trainer ?? {}) },
-      admin: { ...defaultPermissions.admin, ...(parsed.admin ?? {}) },
-    });
-  } catch {
-    return clonePermissions(defaultPermissions);
-  }
+  return clonePermissions(defaultPermissions);
 };
 
 const persistPermissions = (permissions: PermissionMatrix) => {
-  if (typeof window === 'undefined') return;
-  try {
-    window.localStorage.setItem(
-      PERMISSIONS_STORAGE_KEY,
-      JSON.stringify(enforceAdminFullAccess(permissions))
-    );
-  } catch {
-    // Ignore localStorage write failures in restricted environments.
-  }
+  // Disabled intentionally: permissions should not be treated as client-persisted trust state.
+  void permissions;
 };
 
 const readPersistedUsers = (baseUsers: Record<string, User>): Record<string, User> => {
@@ -934,19 +894,23 @@ const readPersistedUsers = (baseUsers: Record<string, User>): Record<string, Use
     const raw = window.localStorage.getItem(USERS_STORAGE_KEY);
     if (!raw) return baseUsers;
     const parsed = JSON.parse(raw) as Record<string, User>;
-    return {
+    const mergedUsers = {
       ...baseUsers,
       ...(parsed ?? {}),
     };
+    return migrateUserPasswordShape(mergedUsers);
   } catch {
-    return baseUsers;
+    return migrateUserPasswordShape(baseUsers);
   }
 };
 
 const persistUsers = (users: Record<string, User>) => {
   if (typeof window === 'undefined') return;
   try {
-    window.localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(users));
+    window.localStorage.setItem(
+      USERS_STORAGE_KEY,
+      JSON.stringify(migrateUserPasswordShape(users))
+    );
   } catch {
     // Ignore localStorage write failures in restricted environments.
   }
@@ -991,8 +955,18 @@ const persistSession = (session: AppState['session']) => {
   }
 };
 
+const clearPersistedSecurityState = () => {
+  if (typeof window === 'undefined') return;
+  try {
+    window.localStorage.removeItem(SESSION_STORAGE_KEY);
+    window.localStorage.removeItem(PERMISSIONS_STORAGE_KEY);
+  } catch {
+    // Ignore cleanup failures in restricted environments.
+  }
+};
+
 const initialUsers = readPersistedUsers(
-  mockUsers.reduce((acc, user) => ({ ...acc, [user.id]: user }), {})
+  migrateUserPasswordShape(mockUsers.reduce((acc, user) => ({ ...acc, [user.id]: user }), {}))
 );
 
 const initialSession = readPersistedSession(initialUsers);
@@ -1074,7 +1048,7 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
   // Session
   login: (email, password, role) => {
     const normalizedEmail = email.trim().toLowerCase();
-    const normalizedPassword = password;
+    const normalizedPasswordHash = hashPassword(password);
 
     let isAuthenticated = false;
     set((state) => {
@@ -1082,19 +1056,14 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
         (candidate) =>
           candidate.role === role &&
           candidate.email.trim().toLowerCase() === normalizedEmail &&
-          candidate.password === normalizedPassword
+          candidate.passwordHash === normalizedPasswordHash
       ) as Student | Trainer | Admin | undefined;
 
-      const credential = hardcodedRoleCredentials[role];
-      const matchesHardcodedCredential =
-        normalizedEmail === credential.email && normalizedPassword === credential.password;
-
-      if (!matchedUser && !matchesHardcodedCredential) {
+      if (!matchedUser) {
         return state;
       }
 
-      const existingCredentialUser = state.users[credential.defaultUserId];
-      const user = matchedUser ?? existingCredentialUser ?? buildCredentialUser(role);
+      const user = matchedUser;
       let nextPlans = state.plans;
 
       if (role === 'student') {
@@ -1134,15 +1103,19 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
     return isAuthenticated;
   },
   logout: () =>
-    set({
-      session: { currentUser: null, isAuthenticated: false },
+    set((state) => {
+      clearPersistedSecurityState();
+      return {
+        ...state,
+        session: { currentUser: null, isAuthenticated: false },
+      };
     }),
   signup: async (userData) => {
     const baseUser = {
-      id: `u${Date.now()}`,
+      id: createId('u'),
       name: userData.name,
       email: userData.email,
-      password: userData.password,
+      passwordHash: hashPassword(userData.password),
       avatar: '',
     };
 
@@ -1538,7 +1511,7 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
 
       if (student) {
         newNotif = {
-          id: `notif-plan-${Date.now()}`,
+          id: createId('notif-plan'),
           message: decision === 'approve' ? `Your plan was approved and is now active!` : `Your plan was rejected. Feedback: ${feedback}`,
           icon: decision === 'approve' ? 'check-circle' : 'x-circle',
           type: 'plan',
@@ -1548,6 +1521,20 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
           read: false,
         };
       }
+
+      const systemPlanNotif: SystemNotification | null = student
+        ? {
+            id: createId('sys-plan-review'),
+            title: decision === 'approve' ? 'Plan Approved' : 'Plan Rejected',
+            message:
+              decision === 'approve'
+                ? `Your trainer approved your plan and it is now active.`
+                : `Your trainer rejected your plan. ${feedback ? `Feedback: ${feedback}` : 'Review feedback is available.'}`,
+            type: decision === 'approve' ? 'info' : 'warning',
+            timestamp: new Date().toISOString(),
+            read: false,
+          }
+        : null;
 
       return {
         ...state,
@@ -1560,6 +1547,9 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
         system: {
           ...state.system,
           activityLogs: [log, ...state.system.activityLogs],
+          notifications: systemPlanNotif
+            ? [systemPlanNotif, ...state.system.notifications]
+            : state.system.notifications,
           legacyNotifications: newNotif ? [newNotif, ...state.system.legacyNotifications] : state.system.legacyNotifications,
         },
       };
@@ -1599,12 +1589,28 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
   // Task submission approval flow
   approveTaskSubmission: (submissionId, note) =>
     set((state) => {
-      const actorRole = state.session.currentUser?.role;
+      const actor = state.session.currentUser;
+      const actorRole = actor?.role;
       if (actorRole !== 'trainer' && actorRole !== 'admin') return state;
-      const actorName = state.session.currentUser?.name ?? (actorRole === 'admin' ? 'Admin' : 'Trainer');
+      const actorName = actor?.name ?? (actorRole === 'admin' ? 'Admin' : 'Trainer');
 
       const submission = state.system.legacySubmissions.find((s) => s.id === submissionId);
       if (!submission) return state;
+      if (submission.status !== 'pending') return state;
+
+      if (actorRole === 'trainer') {
+        const studentRecord = submission.studentId ? state.users[submission.studentId] : null;
+        const isStudentOwnedByTrainer =
+          Boolean(studentRecord) &&
+          studentRecord?.role === 'student' &&
+          (studentRecord as Student).trainerId === actor?.id;
+        const isTrainerExplicitlyAssigned = !submission.trainerId || submission.trainerId === actor?.id;
+
+        if (!isStudentOwnedByTrainer || !isTrainerExplicitlyAssigned) {
+          return state;
+        }
+      }
+
       const pointsAwarded = submission.points ?? 50;
 
       // Award points to student
@@ -1636,7 +1642,7 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
 
       // Add approval notification to student
       const newNotif: NotificationItem = {
-        id: `notif-approval-${Date.now()}`,
+        id: createId('notif-approval'),
         message: `${actorName} approved your proof for "${submission.taskName}". +${pointsAwarded} pts awarded.`,
         icon: 'check-circle',
         type: 'trainer',
@@ -1647,7 +1653,7 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
       };
 
       const systemNotif: SystemNotification = {
-        id: `sys-approval-${Date.now()}`,
+        id: createId('sys-approval'),
         title: 'Task Proof Approved',
         message: `${actorName} accepted your ${submission.taskType ?? 'task'} proof for ${submission.taskName}.`,
         type: 'info',
@@ -1673,14 +1679,30 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
 
   rejectTaskSubmission: (submissionId, note) =>
     set((state) => {
-      const actorRole = state.session.currentUser?.role;
+      const actor = state.session.currentUser;
+      const actorRole = actor?.role;
       if (actorRole !== 'trainer' && actorRole !== 'admin') return state;
-      const actorName = state.session.currentUser?.name ?? (actorRole === 'admin' ? 'Admin' : 'Trainer');
+      const actorName = actor?.name ?? (actorRole === 'admin' ? 'Admin' : 'Trainer');
 
       const submission = state.system.legacySubmissions.find((s) => s.id === submissionId);
       if (!submission) return state;
+      if (submission.status !== 'pending') return state;
+
+      if (actorRole === 'trainer') {
+        const studentRecord = submission.studentId ? state.users[submission.studentId] : null;
+        const isStudentOwnedByTrainer =
+          Boolean(studentRecord) &&
+          studentRecord?.role === 'student' &&
+          (studentRecord as Student).trainerId === actor?.id;
+        const isTrainerExplicitlyAssigned = !submission.trainerId || submission.trainerId === actor?.id;
+
+        if (!isStudentOwnedByTrainer || !isTrainerExplicitlyAssigned) {
+          return state;
+        }
+      }
+
       const newNotif: NotificationItem = {
-        id: `notif-reject-${Date.now()}`,
+        id: createId('notif-reject'),
         message: `${actorName} requested changes for "${submission.taskName}": ${note}`,
         icon: 'x-circle',
         type: 'trainer',
@@ -1691,7 +1713,7 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
       };
 
       const systemNotif: SystemNotification = {
-        id: `sys-reject-${Date.now()}`,
+        id: createId('sys-reject'),
         title: 'Task Proof Needs Changes',
         message: `${actorName} asked for changes on your proof for ${submission.taskName}.`,
         type: 'warning',
@@ -1732,8 +1754,8 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
       if (!actorUser || actorUser.role !== 'student') return state;
       const student = actorUser as Student;
 
-      const postId = `post-proof-${Date.now()}`;
-      const submissionId = `sub-proof-${Date.now()}`;
+      const postId = createId('post-proof');
+      const submissionId = createId('sub-proof');
       const timeStamp = new Date().toISOString();
 
       const postCaption =
@@ -1793,7 +1815,7 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
       const trainerUser = state.session.currentUser;
       const trainerName = trainerUser?.name ?? 'Your Trainer';
       const notif: PlanUpdateNotification = {
-        id: `plan-notif-${Date.now()}`,
+        id: createId('plan-notif'),
         studentId,
         trainerId: trainerUser?.id ?? '',
         trainerName,
@@ -1813,10 +1835,20 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
         timestamp: 'Just now',
         read: false,
       };
+
+      const systemNotif: SystemNotification = {
+        id: createId('sys-plan-update'),
+        title: 'Plan Updated',
+        message: `${trainerName} updated your plan. ${message}`,
+        type: 'info',
+        timestamp: new Date().toISOString(),
+        read: false,
+      };
       return {
         ...state,
         system: {
           ...state.system,
+          notifications: [systemNotif, ...state.system.notifications],
           planUpdateNotifications: [notif, ...state.system.planUpdateNotifications],
           legacyNotifications: [legacyNotif, ...state.system.legacyNotifications],
         },
@@ -1903,7 +1935,10 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
       const hasValidReel = Boolean(reel && reel.type === 'reel');
       const normalizedVoiceSeconds = Math.max(0, Math.floor(voiceSeconds ?? 0));
       const normalizedVoiceAudioUrl = voiceAudioUrl?.trim();
-      const hasVoiceNote = normalizedVoiceSeconds > 0 && Boolean(normalizedVoiceAudioUrl);
+      const hasVoiceNote =
+        normalizedVoiceSeconds > 0 &&
+        Boolean(normalizedVoiceAudioUrl) &&
+        normalizedVoiceAudioUrl.length <= MAX_VOICE_DATA_URL_LENGTH;
 
       if (!normalizedText && !hasValidReel && !hasVoiceNote) {
         return state;
@@ -1911,7 +1946,7 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
 
       const now = new Date().toISOString();
       const message: ChatMessage = {
-        id: `chat-msg-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+        id: createId('chat-msg'),
         senderId: actor.id,
         text: hasVoiceNote ? normalizedText || 'Voice note' : normalizedText || 'Shared a reel',
         createdAt: now,
@@ -1938,11 +1973,13 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
       }
       nextThreads.unshift(nextThread);
 
+      const sanitizedThreads = sanitizeChatThreads(nextThreads);
+
       return {
         ...state,
         system: {
           ...state.system,
-          chatThreads: nextThreads,
+          chatThreads: sanitizedThreads,
         },
       };
     }),
@@ -2164,13 +2201,14 @@ if (typeof window !== 'undefined') {
           })
           .filter((thread): thread is ChatThread => Boolean(thread));
 
-        if (!cleaned.length) return state;
+        const sanitized = sanitizeChatThreads(cleaned);
+        if (!sanitized.length) return state;
 
         return {
           ...state,
           system: {
             ...state.system,
-            chatThreads: cleaned,
+            chatThreads: sanitized,
           },
         };
       });
@@ -2195,11 +2233,11 @@ export const usePermissions = () => useAppStore((state) => state.system.permissi
 // ========= LEGACY COMPAT LAYER =========
 // Keeps existing student/trainer pages working while the app is migrated to normalized state.
 
-const normalizeStudent = (candidate: Partial<Student> & Pick<User, 'id' | 'name' | 'email' | 'password' | 'avatar'>): Student => ({
+const normalizeStudent = (candidate: Partial<Student> & Pick<User, 'id' | 'name' | 'email' | 'passwordHash' | 'avatar'>): Student => ({
   id: candidate.id,
   name: candidate.name,
   email: candidate.email,
-  password: candidate.password ?? '',
+  passwordHash: candidate.passwordHash ?? hashPassword('changeme'),
   avatar: candidate.avatar ?? '',
   role: 'student',
   collegeId: candidate.collegeId ?? 'COL000',
@@ -2226,11 +2264,11 @@ const normalizeStudent = (candidate: Partial<Student> & Pick<User, 'id' | 'name'
   taskCompletions: candidate.taskCompletions ?? {},
 });
 
-const normalizeTrainer = (candidate: Partial<Trainer> & Pick<User, 'id' | 'name' | 'email' | 'password' | 'avatar'>): Trainer => ({
+const normalizeTrainer = (candidate: Partial<Trainer> & Pick<User, 'id' | 'name' | 'email' | 'passwordHash' | 'avatar'>): Trainer => ({
   id: candidate.id,
   name: candidate.name,
   email: candidate.email,
-  password: candidate.password ?? '',
+  passwordHash: candidate.passwordHash ?? hashPassword('changeme'),
   avatar: candidate.avatar ?? '',
   role: 'trainer',
   specialization: candidate.specialization ?? 'General',
@@ -2258,7 +2296,7 @@ export const useStore = () => {
       id: 's-fallback',
       name: 'Student',
       email: 'student@test.com',
-      password: 'student123',
+      passwordHash: hashPassword('student123'),
       avatar: '',
     });
 
@@ -2270,7 +2308,7 @@ export const useStore = () => {
       id: 't-fallback',
       name: 'Coach',
       email: 'trainer@test.com',
-      password: 'trainer123',
+      passwordHash: hashPassword('trainer123'),
       avatar: '',
       totalStudents: normalizedStudents.length,
       isVerified: true,

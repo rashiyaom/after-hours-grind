@@ -14,7 +14,7 @@ export interface User {
   id: string;
   name: string;
   email: string;
-  password: string;
+  passwordHash: string;
   avatar: string;
   role: UserRole;
 }
