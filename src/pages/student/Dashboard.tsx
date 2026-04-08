@@ -140,7 +140,7 @@ export default function StudentDashboard() {
 
   const handleDownloadSummary = () => {
     const lines = [
-      `After Hours Grind Dashboard Summary`,
+      `The After Hours Socials Dashboard Summary`,
       `Student: ${s.name}`,
       `Generated At: ${new Date().toLocaleString()}`,
       `Tab: ${activeTab}`,

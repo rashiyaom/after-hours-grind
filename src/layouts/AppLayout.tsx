@@ -113,15 +113,15 @@ export default function AppLayout() {
         <div className="flex items-center justify-between h-20 px-6 border-b border-white/5">
           {!collapsed && (
             <Link to="/" className="flex items-center gap-3 group">
-              <div className="w-8 h-8 rounded-lg bg-[#C9F85A]/15 flex items-center justify-center border border-[#C9F85A]/25 transition-transform group-hover:scale-105">
-                 <Flame className="h-5 w-5 text-[#C9F85A]" />
+              <div className="w-8 h-8 rounded-lg bg-[#C9F85A]/15 flex items-center justify-center border border-[#C9F85A]/25 transition-transform group-hover:scale-105 overflow-hidden">
+                 <img src="/logo.jpg" alt="Logo" className="w-full h-full object-cover" />
               </div>
-              <span className="font-display font-bold text-sm tracking-widest text-foreground uppercase">After Hours</span>
+              <span className="font-display font-bold text-sm tracking-widest text-foreground uppercase">After Hours Socials</span>
             </Link>
           )}
           {collapsed && (
-             <div className="mx-auto w-10 h-10 rounded-xl bg-[#C9F85A]/15 flex items-center justify-center border border-[#C9F85A]/25">
-                <Flame className="h-6 w-6 text-[#C9F85A]" />
+             <div className="mx-auto w-10 h-10 rounded-xl bg-[#C9F85A]/15 flex items-center justify-center border border-[#C9F85A]/25 overflow-hidden">
+                <img src="/logo.jpg" alt="Logo" className="w-full h-full object-cover" />
              </div>
           )}
         </div>
@@ -175,10 +175,10 @@ export default function AppLayout() {
       {/* Mobile Header */}
       <div className="lg:hidden fixed top-0 left-0 right-0 h-16 bg-[#0D0D0D]/90 backdrop-blur-2xl border-b border-white/5 z-40 flex items-center justify-between px-6">
         <Link to="/" className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-[#C9F85A]/15 flex items-center justify-center border border-[#C9F85A]/25">
-             <Flame className="h-5 w-5 text-[#C9F85A]" />
+          <div className="w-8 h-8 rounded-lg bg-[#C9F85A]/15 flex items-center justify-center border border-[#C9F85A]/25 overflow-hidden">
+             <img src="/logo.jpg" alt="Logo" className="w-full h-full object-cover" />
           </div>
-          <span className="font-bold text-xs tracking-widest text-white uppercase">After Hours</span>
+          <span className="font-bold text-xs tracking-widest text-white uppercase">After Hours Socials</span>
         </Link>
         <div className="flex items-center gap-4">
           {!isTrainer && (

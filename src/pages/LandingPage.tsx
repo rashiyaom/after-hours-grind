@@ -8,7 +8,7 @@ import {
   useInView,
   animate,
 } from "framer-motion";
-import { ArrowRight, ArrowUpRight, Zap, Lock, BarChart3, Clock, ChevronDown, Calendar, Trophy, MapPin } from "lucide-react";
+import { ArrowRight, ArrowUpRight, Zap, Lock, BarChart3, Clock, ChevronDown, Calendar, Trophy, MapPin, Instagram } from "lucide-react";
 import { useRef, useEffect, useState } from "react";
 import { useAppStore } from "@/hooks/useStore";
 
@@ -252,7 +252,7 @@ export default function LandingPage() {
         <div style={{ position: "relative", zIndex: 2, padding: "calc(64px + clamp(1.8rem,5vw,1.9rem)) clamp(1.5rem,5vw,6vw) clamp(2.5rem,6vh,3rem)", maxWidth: 1400, width: "100%", flex: 1 }}>
           <motion.div {...heroUp(0.1)} className="hidden sm:block" style={{ marginBottom: "1.6rem" }}>
             <span style={{ display: "inline-block", fontSize: "clamp(0.58rem,1.9vw,0.7rem)", fontWeight: 700, letterSpacing: "0.18em", color: "#4DD2FF", padding: "5px 10px", border: "1px solid rgba(77,210,255,0.3)" }}>
-              AFTER HOURS GRIND — EST. THE GRIND NEVER STOPS
+              THE AFTER HOURS SOCIALS — EST. THE GRIND NEVER STOPS
             </span>
           </motion.div>
 
@@ -380,7 +380,7 @@ export default function LandingPage() {
       {/* ── IDENTITY SECTION ─────────────────────────────── */}
       <section style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", minHeight: "60vh", borderTop: "1px solid rgba(255,255,255,0.06)" }}>
         <motion.div {...revealUp(0, 40)} style={{ background: "#4DD2FF", padding: "clamp(2.5rem,7vw,5rem) clamp(1.5rem,6vw,4rem)", display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
-          <motion.span {...fadeIn(0.2)} style={{ fontSize: "0.65rem", fontWeight: 700, letterSpacing: "0.25em", color: "rgba(0,0,0,0.5)", textTransform: "uppercase" }}>After Hours Grind</motion.span>
+          <motion.span {...fadeIn(0.2)} style={{ fontSize: "0.65rem", fontWeight: 700, letterSpacing: "0.25em", color: "rgba(0,0,0,0.5)", textTransform: "uppercase" }}>The After Hours Socials</motion.span>
           <div>
             <motion.div {...revealUp(0.15, 24)} style={{ fontSize: "clamp(2.2rem,5vw,4.5rem)", fontWeight: 800, lineHeight: 0.9, letterSpacing: "-0.03em", color: "#000", textTransform: "uppercase" }}>BUILT FOR THOSE WHO SHOW UP.</motion.div>
             <motion.div {...revealUp(0.3)}>
@@ -450,9 +450,15 @@ export default function LandingPage() {
 
       {/* ── FOOTER ───────────────────────────────────────── */}
       <motion.footer {...fadeIn(0)} style={{ borderTop: "1px solid rgba(255,255,255,0.06)", padding: "2rem clamp(1rem,6vw,6vw)", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "1rem" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <span style={{ width: 20, height: 20, background: "linear-gradient(135deg, #4DD2FF, #A78BFA)", display: "inline-block" }} />
-          <span style={{ fontSize: "0.7rem", fontWeight: 700, letterSpacing: "0.18em", color: "rgba(255,255,255,0.3)" }}>AFTER HOURS GRIND</span>
+        <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <img src="/logo.jpg" alt="The After Hours Socials Logo" className="w-6 h-6 object-cover rounded shadow-[0_0_12px_rgba(255,255,255,0.1)]" />
+            <span style={{ fontSize: "0.7rem", fontWeight: 700, letterSpacing: "0.18em", color: "rgba(255,255,255,0.3)", textTransform: "uppercase" }}>The After Hours Socials</span>
+          </div>
+          <div style={{ width: 1, height: 16, background: "rgba(255,255,255,0.1)" }} />
+          <a href="https://www.instagram.com/the.afterhoursocials/" target="_blank" rel="noopener noreferrer" style={{ display: "flex", alignItems: "center", gap: 6, color: "rgba(255,255,255,0.4)", textDecoration: "none", fontSize: "0.7rem", fontWeight: 600, transition: "color 0.2s" }} onMouseEnter={(e) => (e.currentTarget.style.color = "#4DD2FF")} onMouseLeave={(e) => (e.currentTarget.style.color = "rgba(255,255,255,0.4)")}>
+            <Instagram size={14} /> Instagram
+          </a>
         </div>
         <span style={{ fontSize: "0.65rem", color: "rgba(255,255,255,0.15)", letterSpacing: "0.1em" }}>© 2026 — GRIND NEVER STOPS</span>
       </motion.footer>

@@ -24,8 +24,8 @@ export default function PublicLayout() {
       <nav className="fixed top-0 left-0 right-0 z-[100] border-b border-white/10 bg-[linear-gradient(180deg,rgba(0,0,0,0.72)_0%,rgba(0,0,0,0.46)_100%)] backdrop-blur-2xl">
         <div className="max-w-[1400px] mx-auto flex items-center justify-between h-16 px-4 sm:px-6">
           <Link to="/" className="flex items-center gap-2 relative z-[101]">
-            <span style={{ width: 16, height: 16, background: "linear-gradient(135deg, #4DD2FF, #A78BFA)", display: "inline-block" }} />
-            <span className="font-bold text-[0.8rem] tracking-[0.18em] text-white">AFTER HOURS GRIND</span>
+            <img src="/logo.jpg" alt="Logo" className="w-5 h-5 object-cover rounded shadow-[0_0_12px_rgba(255,255,255,0.1)]" />
+            <span className="font-bold text-[0.75rem] tracking-[0.18em] text-white uppercase">The After Hours Socials</span>
           </Link>
           
           <div className="hidden md:flex items-center gap-8">

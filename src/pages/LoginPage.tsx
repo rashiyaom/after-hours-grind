@@ -67,11 +67,11 @@ export default function LoginPage() {
       
       <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={LUXURY_TWEEN_SLOW} className="w-full max-w-md relative z-10">
         <div className="text-center mb-12">
-          <div className="inline-flex items-center justify-center p-4 rounded-2xl bg-primary/10 mb-6 group transition-all">
-             <Flame className="h-10 w-10 text-primary drop-shadow-[0_0_15px_rgba(255,165,0,0.4)]" />
+          <div className="inline-flex items-center justify-center p-2 rounded-2xl bg-[#4DD2FF]/10 mb-6 group transition-all overflow-hidden border border-[#4DD2FF]/20 shadow-[0_0_15px_rgba(77,210,255,0.15)]">
+             <img src="/logo.jpg" alt="The After Hours Socials" className="h-14 w-14 object-cover rounded-xl" />
           </div>
           <h1 className="text-4xl font-display font-semibold text-foreground tracking-tight">Sign In</h1>
-          <p className="text-xs text-muted-foreground mt-4">Welcome back to After Hours</p>
+          <p className="text-xs text-muted-foreground mt-4">Welcome back to The After Hours Socials</p>
         </div>
 
         <form onSubmit={handleSubmit} className="glass-card p-8 space-y-6 relative border border-white/5">
