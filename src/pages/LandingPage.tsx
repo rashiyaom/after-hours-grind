@@ -256,18 +256,18 @@ export default function LandingPage() {
             </span>
           </motion.div>
 
-          <div style={{ overflow: "hidden", paddingBottom: "0.2em" }}>
-            <motion.h1 {...heroUp(0.18)} style={{ fontSize: "clamp(2.6rem,9.6vw,9rem)", fontWeight: 800, lineHeight: 0.98, letterSpacing: "-0.03em", color: "#EFEFEF", margin: 0, textTransform: "uppercase" }}>
+          <div style={{ paddingBottom: "0.2em" }}>
+            <motion.h1 {...heroUp(0.18)} style={{ fontSize: "clamp(2.6rem,9.6vw,9rem)", fontWeight: 800, lineHeight: 1.2, letterSpacing: "-0.03em", color: "#EFEFEF", margin: 0, textTransform: "uppercase" }}>
               NO FLUFF.
             </motion.h1>
           </div>
-          <div className="hidden sm:block" style={{ overflow: "hidden", paddingBottom: "0.2em" }}>
-            <motion.h1 {...heroUp(0.24)} style={{ fontSize: "clamp(3.5rem,10vw,9rem)", fontWeight: 800, lineHeight: 0.98, letterSpacing: "-0.03em", margin: 0, textTransform: "uppercase", WebkitTextStroke: "1px rgba(255,255,255,0.2)", color: "transparent" }}>
+          <div className="hidden sm:block" style={{ paddingBottom: "0.2em" }}>
+            <motion.h1 {...heroUp(0.24)} style={{ fontSize: "clamp(3.5rem,10vw,9rem)", fontWeight: 800, lineHeight: 1.2, letterSpacing: "-0.03em", margin: 0, textTransform: "uppercase", WebkitTextStroke: "1px rgba(255,255,255,0.2)", color: "transparent" }}>
               JUST EXECUTION.
             </motion.h1>
           </div>
-          <div style={{ overflow: "hidden", paddingBottom: "0.2em" }}>
-            <motion.h1 {...heroUp(0.30)} style={{ fontSize: "clamp(2.9rem,10vw,9rem)", fontWeight: 800, lineHeight: 0.98, letterSpacing: "-0.03em", color: "#4DD2FF", margin: 0, textTransform: "uppercase" }}>
+          <div style={{ paddingBottom: "0.2em" }}>
+            <motion.h1 {...heroUp(0.30)} style={{ fontSize: "clamp(2.9rem,10vw,9rem)", fontWeight: 800, lineHeight: 1.2, letterSpacing: "-0.03em", color: "#4DD2FF", margin: 0, textTransform: "uppercase" }}>
               AFTER HOURS.
             </motion.h1>
           </div>
@@ -448,8 +448,9 @@ export default function LandingPage() {
                  <div className="w-2 h-2 rounded-full bg-[#4DD2FF] animate-pulse" />
                  <span className="text-[10px] font-black uppercase tracking-[0.4em] text-white/30">Registry Module v2.0</span>
               </motion.div>
-              <motion.h2 {...revealUp(0.1)} className="text-6xl sm:text-8xl font-black tracking-[-0.04em] uppercase leading-tight italic pb-4">
-                CHARUSAT <br /> <span className="bg-gradient-to-r from-[#4DD2FF] to-[#A78BFA] bg-clip-text text-transparent">ELITE</span>
+              <motion.h2 {...revealUp(0.1)} className="text-5xl sm:text-7xl font-black tracking-[-0.04em] uppercase leading-normal italic mb-2">
+                CHARUSAT <br /> 
+                <span className="bg-gradient-to-r from-[#4DD2FF] to-[#A78BFA] bg-clip-text text-transparent pb-12 inline-block" style={{ height: 'auto', minHeight: '1.2em' }}>ELITE</span>
               </motion.h2>
               <motion.p {...revealUp(0.2)} className="text-lg text-white/40 font-light leading-relaxed max-w-lg">
                 The definitive visual archive for CHARUSAT athletics. From inter-university tournaments to national medals, we document the grit and glory of our student-athletes.
