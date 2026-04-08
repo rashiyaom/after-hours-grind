@@ -30,14 +30,15 @@ const mobileStudentBottomNav = [
 
 const mobileTrainerBottomNav = [
   { label: "Home", path: "/trainer/dashboard", icon: LayoutDashboard },
-  { label: "Builder", path: "/trainer/plan-builder", icon: ClipboardList },
+  { label: "Students", path: "/trainer/students", icon: Users },
   { label: "Verify", path: "/trainer/auto-plans", icon: Zap, isAction: true },
-  { label: "Roster", path: "/trainer/dashboard", icon: Users },
+  { label: "Builder", path: "/trainer/plan-builder", icon: ClipboardList },
   { label: "Stats", path: "/trainer/dashboard", icon: Activity },
 ];
 
 const trainerNav = [
   { label: "Dashboard", path: "/trainer/dashboard", icon: LayoutDashboard },
+  { label: "Students", path: "/trainer/students", icon: Users },
   { label: "Auto Plans Queue", path: "/trainer/auto-plans", icon: Zap },
   { label: "Plan Builder", path: "/trainer/plan-builder", icon: ClipboardList },
 ];

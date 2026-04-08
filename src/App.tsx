@@ -33,6 +33,8 @@ import PlanApprovalStatusPage from "@/pages/student/PlanApprovalStatus";
 import TrainerDashboard from "@/pages/trainer/Dashboard";
 import PlanBuilder from "@/pages/trainer/PlanBuilder";
 import AutoPlansQueuePage from "@/pages/trainer/AutoPlansQueue";
+import StudentRoster from "@/pages/trainer/StudentRoster";
+import StudentDetail from "@/pages/trainer/StudentDetail";
 
 // Admin Pages
 import AdminDashboard from "@/pages/admin/Dashboard";
@@ -86,6 +88,8 @@ const App = () => (
               <Route index element={<Navigate to="dashboard" replace />} />
               <Route path="dashboard" element={<TrainerDashboard />} />
               <Route path="auto-plans" element={<AutoPlansQueuePage />} />
+              <Route path="students" element={<StudentRoster />} />
+              <Route path="students/:studentId" element={<StudentDetail />} />
               <Route element={<ProtectedRoute allowedRoles={["trainer"]} requiredPermission="build_plans" />}>
                 <Route path="plan-builder" element={<PlanBuilder />} />
               </Route>

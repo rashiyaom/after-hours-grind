@@ -90,7 +90,6 @@ export default function UploadPage() {
       studentName: student.name,
       taskName,
       mediaUrl,
-      type: mediaType,
     });
 
     addPost({
