@@ -56,7 +56,7 @@ const AdminDashboard = () => {
 
   const exportAuditCsv = () => {
     const rows = activityLogs.map((log) => {
-      const detail = JSON.stringify(log.details).replaceAll('"', '""');
+      const detail = JSON.stringify(log.details).replace(/"/g, '""');
       return `"${log.id}","${log.timestamp}","${log.userId}","${log.action}","${detail}"`;
     });
     const csv = ["id,timestamp,userId,action,details", ...rows].join("\n");
