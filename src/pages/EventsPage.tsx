@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { useState, useRef } from "react";
+import { motion, AnimatePresence, useSpring, useMotionValue } from "framer-motion";
 import { Calendar, MapPin, ArrowRight, X, CheckCircle2, Zap, Users, Trophy, Clock, ChevronRight, Tag } from "lucide-react";
 import { useAppStore } from "@/hooks/useStore";
 import { AHGEvent, EventFormField } from "@/types";
@@ -36,7 +36,7 @@ function RegModal({ event, onClose }: { event: AHGEvent; onClose: () => void }) 
   const [done, setDone] = useState(false);
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose} style={{ position: "fixed", inset: 0, zIndex: 100, background: "rgba(0,0,0,0.85)", backdropFilter: "blur(12px)", display: "flex", alignItems: "center", justifyContent: "center", padding: "1rem" }}>
-      <motion.div initial={{ opacity: 0, scale: 0.94, y: 24 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.94 }} transition={{ duration: 0.4, ease }} onClick={(e) => e.stopPropagation()} style={{ background: "#0A0A0A", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 20, width: "100%", maxWidth: 560, maxHeight: "90vh", overflowY: "auto", padding: "clamp(1.5rem,5vw,2.5rem)" }}>
+      <motion.div initial={{ opacity: 0, scale: 0.94, y: 24, rotateX: -10 }} animate={{ opacity: 1, scale: 1, y: 0, rotateX: 0 }} exit={{ opacity: 0, scale: 0.94, y: -24, rotateX: 10 }} transition={{ type: "spring", damping: 25, stiffness: 300 }} onClick={(e) => e.stopPropagation()} style={{ background: "#0A0A0A", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 20, width: "100%", maxWidth: 560, maxHeight: "90vh", overflowY: "auto", padding: "clamp(1.5rem,5vw,2.5rem)", boxShadow: "0 20px 40px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.1)", perspective: 1000 }}>
         {done ? (
           <div style={{ textAlign: "center", padding: "2rem 0" }}>
             <div style={{ width: 72, height: 72, borderRadius: "50%", background: "rgba(77,210,255,0.1)", border: "1px solid rgba(77,210,255,0.3)", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 1.5rem" }}><CheckCircle2 size={32} color="#4DD2FF" /></div>
@@ -69,16 +69,20 @@ function RegModal({ event, onClose }: { event: AHGEvent; onClose: () => void }) 
 function EventCard({ event, idx, onRegister }: { event: AHGEvent; idx: number; onRegister: () => void }) {
   const d = new Date(event.date);
   return (
-    <motion.div initial={{ opacity: 0, y: 40 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, amount: 0.1 }} transition={{ duration: 0.65, ease, delay: idx * 0.1 }} whileHover={{ y: -4 }} style={{ background: "#080808", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 20, overflow: "hidden", display: "flex", flexDirection: "column" }} onMouseEnter={(e) => (e.currentTarget.style.borderColor = "rgba(77,210,255,0.2)")} onMouseLeave={(e) => (e.currentTarget.style.borderColor = "rgba(255,255,255,0.07)")}>
-      <div style={{ position: "relative", height: 220, overflow: "hidden" }}>
-        <img src={event.mediaUrl} alt={event.title} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+    <motion.div initial={{ opacity: 0, y: 40 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, amount: 0.1 }} transition={{ duration: 0.65, ease, delay: idx * 0.1 }} whileHover={{ y: -8, boxShadow: "0 24px 48px rgba(77,210,255,0.1)" }} style={{ background: "#080808", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 20, overflow: "hidden", display: "flex", flexDirection: "column", transition: "all 0.3s ease" }} onMouseEnter={(e) => (e.currentTarget.style.borderColor = "rgba(77,210,255,0.3)")} onMouseLeave={(e) => (e.currentTarget.style.borderColor = "rgba(255,255,255,0.07)")}>
+      <motion.div whileHover="hover" style={{ position: "relative", height: 220, overflow: "hidden" }}>
+        <motion.img 
+          variants={{ hover: { scale: 1.08 } }}
+          transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+          src={event.mediaUrl} alt={event.title} style={{ width: "100%", height: "100%", objectFit: "cover", transformOrigin: "center" }} 
+        />
         <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to top, #080808 0%, transparent 55%)" }} />
         <div style={{ position: "absolute", top: 14, left: 14, right: 14, display: "flex", justifyContent: "space-between" }}><StatusBadge status={event.status} /><span style={{ fontSize: "0.6rem", fontWeight: 700, letterSpacing: "0.14em", color: "rgba(255,255,255,0.5)", background: "rgba(0,0,0,0.6)", backdropFilter: "blur(8px)", border: "1px solid rgba(255,255,255,0.08)", padding: "4px 10px", borderRadius: 999, textTransform: "uppercase" }}>{event.category}</span></div>
         <div style={{ position: "absolute", bottom: 14, left: 14, background: "rgba(0,0,0,0.7)", backdropFilter: "blur(12px)", border: "1px solid rgba(77,210,255,0.2)", borderRadius: 12, padding: "8px 12px", textAlign: "center" }}>
           <div style={{ fontSize: "1.3rem", fontWeight: 800, color: "#4DD2FF", lineHeight: 1 }}>{d.getDate()}</div>
           <div style={{ fontSize: "0.55rem", fontWeight: 700, letterSpacing: "0.18em", color: "rgba(77,210,255,0.7)" }}>{d.toLocaleString("en", { month: "short" }).toUpperCase()}</div>
         </div>
-      </div>
+      </motion.div>
       <div style={{ padding: "1.5rem", flex: 1, display: "flex", flexDirection: "column", gap: "0.75rem" }}>
         <h3 style={{ fontSize: "1.1rem", fontWeight: 700, color: "#EFEFEF", margin: 0, lineHeight: 1.3 }}>{event.title}</h3>
         <p style={{ fontSize: "0.85rem", fontWeight: 300, color: "rgba(239,239,239,0.45)", lineHeight: 1.7, margin: 0 }}>{event.description.length > 120 ? event.description.slice(0, 120) + "…" : event.description}</p>
@@ -104,10 +108,37 @@ export default function EventsPage() {
   const [filter, setFilter] = useState<"all" | "upcoming" | "live" | "completed">("all");
   const filtered = events.filter((e) => filter === "all" || e.status === filter);
 
+  // Mouse Glow
+  const mouseX = useMotionValue(-300);
+  const mouseY = useMotionValue(-300);
+  const smoothMouseX = useSpring(mouseX, { stiffness: 140, damping: 24, mass: 0.35 });
+  const smoothMouseY = useSpring(mouseY, { stiffness: 140, damping: 24, mass: 0.35 });
+
+  const handlePointerMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    mouseX.set(e.clientX - 300);
+    mouseY.set(e.clientY - 300);
+  };
+
   return (
-    <div style={{ minHeight: "100vh", background: "#000", color: "#EFEFEF", fontFamily: "'Outfit','Inter',system-ui,sans-serif", overflowX: "hidden" }}>
+    <div onMouseMove={handlePointerMove} style={{ minHeight: "100vh", background: "#000", color: "#EFEFEF", fontFamily: "'Outfit','Inter',system-ui,sans-serif", overflowX: "hidden", position: "relative" }}>
+      {/* PERSISTENT MOUSE GLOW */}
+      <motion.div
+        className="hidden md:block pointer-events-none fixed"
+        style={{
+          x: smoothMouseX,
+          y: smoothMouseY,
+          width: 600,
+          height: 600,
+          borderRadius: "50%",
+          background: "radial-gradient(circle, rgba(77,210,255,0.12) 0%, rgba(77,210,255,0.04) 35%, rgba(77,210,255,0) 70%)",
+          filter: "blur(24px)",
+          mixBlendMode: "screen",
+          zIndex: 5,
+        }}
+      />
+
       {/* HERO */}
-      <section style={{ position: "relative", padding: "clamp(5rem,14vw,10rem) clamp(1.5rem,6vw,7vw) clamp(3rem,8vw,6rem)", overflow: "hidden" }}>
+      <section style={{ position: "relative", padding: "clamp(5rem,14vw,10rem) clamp(1.5rem,6vw,7vw) clamp(3rem,8vw,6rem)", overflow: "hidden", zIndex: 10 }}>
         <div style={{ position: "absolute", inset: 0, backgroundImage: "linear-gradient(rgba(255,255,255,0.02) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,0.02) 1px,transparent 1px)", backgroundSize: "80px 80px" }} />
         <div style={{ position: "absolute", top: "-10%", right: "-5%", width: "45vw", height: "45vw", borderRadius: "50%", background: "radial-gradient(circle,rgba(77,210,255,0.09) 0%,transparent 70%)", filter: "blur(60px)" }} />
         <div style={{ position: "relative", zIndex: 1, maxWidth: 1300, margin: "0 auto" }}>
