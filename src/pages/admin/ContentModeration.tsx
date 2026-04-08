@@ -12,7 +12,11 @@ const ContentModeration = () => {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const posts = usePosts();
   const updatePostStatus = useAppStore((state) => state.updatePostStatus);
+  const submissions = useAppStore((state) => state.system.legacySubmissions);
+  const approveTaskSubmission = useAppStore((state) => state.approveTaskSubmission);
+  const rejectTaskSubmission = useAppStore((state) => state.rejectTaskSubmission);
   const postList = Object.values(posts);
+  const pendingProofSubmissions = submissions.filter((submission) => submission.status === "pending" && submission.requiresApproval);
 
   const filteredPosts = useMemo(() => {
     return postList.filter((post) => {
@@ -70,6 +74,51 @@ const ContentModeration = () => {
   return (
     <div className="p-4 md:p-8">
       <h1 className="text-3xl font-bold mb-6">Content Moderation</h1>
+      <Card className="mb-6">
+        <CardHeader>
+          <CardTitle>Pending Task Proof Approvals ({pendingProofSubmissions.length})</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {pendingProofSubmissions.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No pending task proof submissions.</p>
+          ) : (
+            <div className="flex flex-col gap-3">
+              {pendingProofSubmissions.map((submission) => (
+                <div key={submission.id} className="rounded-lg border p-3">
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <p className="font-semibold">{submission.studentName}</p>
+                      <p className="text-sm text-muted-foreground">{submission.taskName} · {submission.taskType} · Day {submission.dayNumber ?? "-"}</p>
+                      <p className="text-xs text-muted-foreground mt-1">Submitted: {submission.timestamp}</p>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button
+                        size="sm"
+                        onClick={() => {
+                          approveTaskSubmission(submission.id, "Approved by admin");
+                          toast.success("Submission approved.");
+                        }}
+                      >
+                        Approve
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="destructive"
+                        onClick={() => {
+                          rejectTaskSubmission(submission.id, "Rejected by admin. Please re-upload clearer proof.");
+                          toast.warning("Submission rejected.");
+                        }}
+                      >
+                        Reject
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
       <Card>
         <CardHeader>
           <CardTitle>All Posts ({filteredPosts.length})</CardTitle>

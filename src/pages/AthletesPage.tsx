@@ -98,20 +98,20 @@ export default function AthletesPage() {
   };
 
   return (
-    <div className="min-h-screen bg-black text-white selection:bg-[#4DD2FF] selection:text-black font-display overflow-x-hidden pb-40">
+    <div className="min-h-screen bg-[#03070B] text-white selection:bg-[#4DD2FF] selection:text-black font-display overflow-x-hidden pb-40">
       {/* ── BACKGROUND ── */}
-      <div className="fixed inset-0 z-0 opacity-10 pointer-events-none" style={{ backgroundImage: "radial-gradient(#ffffff 1px, transparent 0)", backgroundSize: "40px 40px" }} />
-      <div className="fixed inset-0 z-0 bg-gradient-to-b from-black via-[#050505] to-black pointer-events-none" />
+      <div className="fixed inset-0 z-0 opacity-15 pointer-events-none" style={{ backgroundImage: "radial-gradient(rgba(77,210,255,0.28) 1px, transparent 0)", backgroundSize: "40px 40px" }} />
+      <div className="fixed inset-0 z-0 pointer-events-none" style={{ background: "radial-gradient(1100px 420px at 12% 0%, rgba(77,210,255,0.2) 0%, transparent 55%), radial-gradient(900px 500px at 85% 10%, rgba(167,139,250,0.18) 0%, transparent 60%), linear-gradient(180deg, #02060A 0%, #05070D 40%, #020406 100%)" }} />
 
       {/* ── HEADER (Archival View) ── */}
       {view === "sports" && (
-        <header className="relative z-10 pt-48 pb-12 px-6 sm:px-12 max-w-7xl mx-auto overflow-visible">
-          <Link to="/" className="inline-flex items-center gap-3 text-[10px] font-black text-white/20 hover:text-white transition-all uppercase tracking-[0.4em] group mb-20 bg-white/5 px-4 py-2 rounded-full border border-white/10 backdrop-blur-md">
+        <header className="relative z-10 pt-6 sm:pt-8 pb-10 px-6 sm:px-12 max-w-7xl mx-auto overflow-visible">
+          <Link to="/" className="inline-flex items-center gap-3 text-[10px] font-black text-white/20 hover:text-white transition-all uppercase tracking-[0.4em] group mb-10 sm:mb-12 bg-white/5 px-4 py-2 rounded-full border border-white/10 backdrop-blur-md">
             <ArrowLeft className="h-3 w-3 group-hover:-translate-x-1 transition-transform" />
             Terminal Base
           </Link>
           
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-20 items-start">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-10 md:gap-14 items-start">
             <div className="space-y-10">
               <div className="flex items-center gap-4">
                  <Command className="h-4 w-4 text-[#4DD2FF]" />
@@ -138,7 +138,7 @@ export default function AthletesPage() {
       )}
 
       {/* ── MAIN CONTENT ── */}
-      <main className={`relative z-10 max-w-[1400px] mx-auto px-6 sm:px-12 ${view === "sports" ? "mt-20" : "pt-40"}`}>
+      <main className={`relative z-10 max-w-[1400px] mx-auto px-6 sm:px-12 ${view === "sports" ? "mt-4 sm:mt-6" : "pt-6 sm:pt-8"}`}>
         <AnimatePresence mode="wait">
           {view === "sports" ? (
             <motion.div 
@@ -161,8 +161,8 @@ export default function AthletesPage() {
                   className="group relative h-[360px] overflow-hidden rounded-[40px] cursor-pointer bg-[#0A0A0A] border border-white/5 hover:border-[#4DD2FF]/30 transition-all shadow-2xl"
                 >
                   <div className="absolute inset-0">
-                     <img src={sport.img} alt={sport.name} className="w-full h-full object-cover grayscale opacity-20 group-hover:grayscale-0 group-hover:opacity-80 transition-all duration-1000 scale-110 group-hover:scale-100" />
-                     <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent" />
+                     <img src={sport.img} alt={sport.name} className="w-full h-full object-cover saturate-125 contrast-110 opacity-55 group-hover:opacity-90 transition-all duration-1000 scale-110 group-hover:scale-100" />
+                     <div className="absolute inset-0 bg-gradient-to-t from-[#010203]/95 via-[#030811]/45 to-transparent" />
                   </div>
                   <div className="relative z-10 h-full p-10 flex flex-col justify-end">
                     <div className="space-y-4">
@@ -216,7 +216,7 @@ export default function AthletesPage() {
               {selectedSportId && TEAMS[selectedSportId] && (
                 <section>
                   <div className="relative h-48 rounded-[40px] overflow-hidden border border-white/5 bg-[#080808] flex items-center px-12 gap-12 group transition-all hover:border-[#4DD2FF]/20 overflow-visible">
-                    <img src={TEAMS[selectedSportId].photo} className="absolute inset-0 w-full h-full object-cover grayscale opacity-10 group-hover:opacity-20 transition-all duration-1000" />
+                    <img src={TEAMS[selectedSportId].photo} className="absolute inset-0 w-full h-full object-cover saturate-125 contrast-110 opacity-30 group-hover:opacity-45 transition-all duration-1000" />
                     <div className="relative flex items-center gap-8 pb-4">
                        <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-white/10 to-transparent flex items-center justify-center border border-white/10">
                           <ShieldCheck size={40} className="text-[#4DD2FF]" />
@@ -254,8 +254,8 @@ export default function AthletesPage() {
                       className="group relative h-[420px] rounded-[48px] overflow-hidden cursor-pointer border border-white/5 bg-[#080808] transition-all hover:-translate-y-2 hover:border-[#4DD2FF]/40 shadow-2xl"
                     >
                        <div className="absolute inset-0">
-                         <img src={athlete.photo} className="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-1000 opacity-60 group-hover:opacity-100" />
-                         <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent" />
+                         <img src={athlete.photo} className="w-full h-full object-cover saturate-125 contrast-110 transition-all duration-1000 opacity-70 group-hover:opacity-100" />
+                         <div className="absolute inset-0 bg-gradient-to-t from-[#020306] via-[#050A14]/35 to-transparent" />
                        </div>
                        
                        <div className="absolute inset-x-8 bottom-10">
@@ -306,7 +306,7 @@ export default function AthletesPage() {
                 className="relative w-full max-w-6xl h-[85vh] bg-[#050505] rounded-[64px] overflow-hidden border border-white/10 flex flex-col md:flex-row shadow-3xl"
               >
                  <div className="w-full md:w-1/2 h-1/2 md:h-full relative overflow-hidden bg-[#111]">
-                    <img src={selectedAthlete.photo} className="w-full h-full object-cover grayscale contrast-125 opacity-70" />
+                    <img src={selectedAthlete.photo} className="w-full h-full object-cover saturate-125 contrast-115 opacity-80" />
                     <div className="absolute inset-0 bg-gradient-to-t from-[#050505] via-transparent to-transparent md:bg-gradient-to-r" />
                     <button onClick={() => setSelectedAthlete(null)} className="absolute top-10 left-10 p-4 rounded-full bg-black/50 border border-white/10 text-white hover:bg-white hover:text-black transition-all">
                        <ArrowLeft className="h-6 w-6" />

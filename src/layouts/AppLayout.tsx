@@ -4,7 +4,7 @@ import { useState } from "react";
 import {
   LayoutDashboard, Calendar, BarChart3, Rss, Trophy, User, Users,
   Bell, Settings, Flame, Menu, X, ChevronLeft,
-  ClipboardList, Award, LogOut, Plus, Search, Zap, Activity, Shield, Star
+  ClipboardList, Award, LogOut, Plus, Search, Zap, Activity, Shield
 } from "lucide-react";
 import { useAppStore } from "@/hooks/useStore";
 import { LUXURY_SPRING, LUXURY_TWEEN_MEDIUM } from "@/lib/motionTokens";
@@ -15,7 +15,6 @@ const studentNav = [
   { label: "Progress", path: "/student/progress", icon: BarChart3 },
   { label: "Feed", path: "/student/feed", icon: Rss },
   { label: "Community", path: "/student/community", icon: Users },
-  { label: "ELITE", path: "/athletes", icon: Star, isElite: true },
   { label: "Leaderboard", path: "/student/leaderboard", icon: Trophy },
   { label: "Profile", path: "/student/profile", icon: User },
   { label: "Achievements", path: "/student/achievements", icon: Award },
@@ -40,7 +39,6 @@ const mobileTrainerBottomNav = [
 const trainerNav = [
   { label: "Dashboard", path: "/trainer/dashboard", icon: LayoutDashboard },
   { label: "Students", path: "/trainer/students", icon: Users },
-  { label: "ELITE", path: "/athletes", icon: Star, isElite: true },
   { label: "Auto Plans Queue", path: "/trainer/auto-plans", icon: Zap },
   { label: "Plan Builder", path: "/trainer/plan-builder", icon: ClipboardList },
 ];
@@ -48,7 +46,6 @@ const trainerNav = [
 const adminNav = [
   { label: "Dashboard", path: "/admin/dashboard", icon: LayoutDashboard },
   { label: "Users", path: "/admin/users", icon: Users },
-  { label: "ELITE", path: "/athletes", icon: Star, isElite: true },
   { label: "Events", path: "/admin/events", icon: Calendar },
   { label: "Content", path: "/admin/content", icon: Rss },
   { label: "Permissions", path: "/admin/permissions", icon: Shield },

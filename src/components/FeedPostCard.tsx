@@ -80,6 +80,19 @@ export default function FeedPostCard({ post, onClick }: { post: Post; onClick?: 
         </Link>
 
         <div className="flex items-center gap-2" onClick={stop}>
+          {post.source === "task-proof" && (
+            <span
+              className={`text-[10px] px-2.5 py-1 rounded-full border font-semibold uppercase tracking-wider ${
+                post.status === "visible"
+                  ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
+                  : post.status === "hidden"
+                  ? "bg-red-500/10 text-red-400 border-red-500/20"
+                  : "bg-[#FFD36E]/12 text-[#FFD36E] border-[#FFD36E]/25"
+              }`}
+            >
+              {post.status === "visible" ? "Approved" : post.status === "hidden" ? "Rejected" : "Pending Review"}
+            </span>
+          )}
           {post.userRole === "trainer" && (
             <span className="text-[10px] px-2.5 py-1 rounded-full bg-[#FFD36E]/10 text-[#FFD36E] border border-[#FFD36E]/20 font-semibold uppercase tracking-wider">
               Trainer

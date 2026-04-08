@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type ChangeEvent } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Check, Flame, Dumbbell, Utensils, Footprints, Droplets,
@@ -40,7 +40,7 @@ const macroBarVariants = {
 };
 
 export default function DailyPlanPage() {
-  const { student: s, getDayTask, completeTask, canStartCurrentPlan, currentStudentPlan } = useStore();
+  const { student: s, getDayTask, submitTaskProof, canStartCurrentPlan, currentStudentPlan } = useStore();
   const currentUser = useCurrentUser();
   const permissions = usePermissions();
   const canPostFeed = Boolean(currentUser && permissions[currentUser.role].post_feed);
@@ -49,22 +49,93 @@ export default function DailyPlanPage() {
   const [selectedExercise, setSelectedExercise] = useState<typeof todayTask.workout[0] | null>(null);
   const [expandedMeal, setExpandedMeal] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<"workout" | "diet">("workout");
+  const [proofModal, setProofModal] = useState<{
+    taskId: string;
+    taskType: "workout" | "diet";
+    taskName: string;
+  } | null>(null);
+  const [proofFile, setProofFile] = useState<File | null>(null);
+  const [proofPreview, setProofPreview] = useState<string | null>(null);
+  const [proofCaption, setProofCaption] = useState("");
+  const [submittingProof, setSubmittingProof] = useState(false);
 
   const workouts = todayTask.workout;
   const meals = todayTask.diet;
 
-  const toggleWorkout = (id: string) => {
-    if (!workouts.find((w) => w.id === id)?.completed) {
-      completeTask("workout", id, selectedDay);
-      toast.success("Workout logged.");
+  const openProofModal = (taskId: string, taskType: "workout" | "diet", taskName: string) => {
+    if (!isToday) {
+      toast.info("Proof can only be submitted for today's tasks.");
+      return;
     }
+    setProofModal({ taskId, taskType, taskName });
+    setProofFile(null);
+    setProofPreview(null);
+    setProofCaption("");
+  };
+
+  const closeProofModal = () => {
+    setProofModal(null);
+    setProofFile(null);
+    if (proofPreview) {
+      URL.revokeObjectURL(proofPreview);
+    }
+    setProofPreview(null);
+    setProofCaption("");
+    setSubmittingProof(false);
+  };
+
+  const handleProofFileChange = (event: ChangeEvent<HTMLInputElement>) => {
+    const selected = event.target.files?.[0];
+    if (!selected) return;
+    if (!selected.type.startsWith("image/")) {
+      toast.error("Please upload an image as proof.");
+      return;
+    }
+
+    if (proofPreview) {
+      URL.revokeObjectURL(proofPreview);
+    }
+
+    setProofFile(selected);
+    setProofPreview(URL.createObjectURL(selected));
+  };
+
+  const submitProof = async () => {
+    if (!proofModal) return;
+    if (!proofFile || !proofPreview) {
+      toast.error("Proof photo is required to complete this task.");
+      return;
+    }
+
+    setSubmittingProof(true);
+
+    submitTaskProof({
+      taskId: proofModal.taskId,
+      taskType: proofModal.taskType,
+      dayNumber: selectedDay,
+      taskName: proofModal.taskName,
+      mediaUrl: proofPreview,
+      caption:
+        proofCaption.trim() ||
+        `${proofModal.taskType === "workout" ? "Workout" : "Meal"} proof · Day ${selectedDay} · ${proofModal.taskName}`,
+      location: "Campus",
+    });
+
+    setSubmittingProof(false);
+    closeProofModal();
+    toast.success("Proof uploaded. Waiting for trainer/admin approval before completion.");
+  };
+
+  const toggleWorkout = (id: string) => {
+    const task = workouts.find((w) => w.id === id);
+    if (!task || task.completed) return;
+    openProofModal(id, "workout", task.name);
   };
 
   const toggleMeal = (id: string) => {
-    if (!meals.find((m) => m.id === id)?.completed) {
-      completeTask("diet", id, selectedDay);
-      toast.success("Meal logged.");
-    }
+    const task = meals.find((m) => m.id === id);
+    if (!task || task.completed) return;
+    openProofModal(id, "diet", task.meal);
   };
 
   const totalTasks = workouts.length + meals.length;
@@ -190,8 +261,81 @@ export default function DailyPlanPage() {
                   onClick={() => { setSelectedExercise(null); toggleWorkout(selectedExercise.id); }}
                   className="w-full bg-[#C9F85A] text-[#0F0F0F] py-4 rounded-2xl font-bold text-sm tracking-wide transition-all shadow-[0_8px_32px_rgba(201,248,90,0.25)] hover:shadow-[0_8px_40px_rgba(201,248,90,0.35)] hover:bg-[#d4ff60]"
                 >
-                  ✓ Mark as Complete
+                  Submit Proof for Approval
                 </motion.button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {proofModal && (
+          <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={closeProofModal}
+              className="absolute inset-0 bg-black/85 backdrop-blur-md"
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.96, y: 18 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.96, y: 18 }}
+              transition={LUXURY_TWEEN_MEDIUM}
+              className="relative z-10 w-full max-w-lg rounded-[28px] border border-white/10 bg-[#111111] p-6 shadow-[0_40px_120px_rgba(0,0,0,0.7)]"
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[#4DD2FF]">Proof Required</p>
+                  <h3 className="mt-1 text-xl font-semibold text-white tracking-tight">Submit task proof photo</h3>
+                  <p className="mt-1 text-xs text-white/45">
+                    {proofModal.taskType === "workout" ? "Workout" : "Meal"} will be marked complete only after trainer/admin approval.
+                  </p>
+                </div>
+                <button onClick={closeProofModal} className="rounded-xl bg-white/5 p-2 text-white/60 hover:bg-white/10 hover:text-white transition-all">
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+
+              <div className="mt-5 space-y-4">
+                <label className="block rounded-2xl border border-dashed border-[#4DD2FF]/35 bg-[#4DD2FF]/5 p-5 text-center cursor-pointer hover:bg-[#4DD2FF]/10 transition-all">
+                  <Upload className="mx-auto h-5 w-5 text-[#4DD2FF]" />
+                  <p className="mt-2 text-xs font-semibold text-[#4DD2FF]">Upload Photo Proof</p>
+                  <p className="text-[11px] text-white/35 mt-1">Image is mandatory for completion request.</p>
+                  <input type="file" accept="image/*" className="hidden" onChange={handleProofFileChange} />
+                </label>
+
+                {proofPreview && (
+                  <div className="rounded-2xl overflow-hidden border border-white/10 bg-[#0D0D0D]">
+                    <img src={proofPreview} alt="Task proof preview" className="w-full h-52 object-cover" />
+                  </div>
+                )}
+
+                <textarea
+                  value={proofCaption}
+                  onChange={(e) => setProofCaption(e.target.value)}
+                  rows={3}
+                  placeholder="Optional caption for this proof..."
+                  className="w-full rounded-xl border border-white/10 bg-[#1A1A1A] px-4 py-3 text-sm text-white placeholder:text-white/30 focus:outline-none focus:border-[#4DD2FF]/40"
+                />
+              </div>
+
+              <div className="mt-5 grid grid-cols-2 gap-2">
+                <button
+                  onClick={closeProofModal}
+                  className="rounded-xl border border-white/10 bg-white/5 py-3 text-xs font-semibold text-white/70 hover:bg-white/10 transition-all"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={submitProof}
+                  disabled={!proofFile || submittingProof}
+                  className="rounded-xl bg-[#4DD2FF] py-3 text-xs font-bold text-black hover:bg-[#61d9ff] transition-all disabled:opacity-50"
+                >
+                  {submittingProof ? "Submitting..." : "Submit For Approval"}
+                </button>
               </div>
             </motion.div>
           </div>
@@ -643,7 +787,7 @@ export default function DailyPlanPage() {
                               onClick={() => toggleMeal(m.id)}
                               className="w-full py-3 rounded-xl text-xs font-bold border border-emerald-500/30 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 transition-all tracking-wide"
                             >
-                              ✓ Log This Meal
+                              Submit Meal Proof
                             </motion.button>
                           )}
                         </div>

@@ -61,6 +61,10 @@ type LegacySubmission = {
   trainerId?: string;
   taskName: string;
   taskType?: 'workout' | 'diet' | 'checkin';
+  taskId?: string;
+  dayNumber?: number;
+  postId?: string;
+  requiresApproval?: boolean;
   timestamp: string;
   status: 'pending' | 'approved' | 'rejected';
   mediaUrl: string;
@@ -512,6 +516,60 @@ const buildTodayTaskFromPlan = (student: Student, plan: Plan | null, dayNumber: 
   };
 };
 
+const completeStudentTaskByApproval = (
+  student: Student,
+  plans: Record<string, Plan>,
+  payload: { taskId?: string; dayNumber?: number }
+): Student => {
+  if (!payload.taskId || !payload.dayNumber) {
+    return {
+      ...student,
+      streak: student.streak + 1,
+    };
+  }
+
+  const plan = student.currentPlanId ? plans[student.currentPlanId] : null;
+  const targetDay = payload.dayNumber;
+  const key = plan?.id ? getRecordKey(plan.id, targetDay) : `legacy:day:${targetDay}`;
+  const existingKeys = student.taskCompletions?.[key] ?? [];
+
+  if (existingKeys.includes(payload.taskId)) {
+    return {
+      ...student,
+      streak: student.streak + 1,
+    };
+  }
+
+  const updatedTaskCompletions: Record<string, string[]> = {
+    ...(student.taskCompletions ?? {}),
+    [key]: [...existingKeys, payload.taskId],
+  };
+
+  let completionPercentage = student.completionPercentage;
+  if (plan?.id) {
+    let totalTasks = 0;
+    let completedTasks = 0;
+    const maxDays = plan.duration ?? student.totalDays;
+
+    for (let day = 1; day <= maxDays; day += 1) {
+      const taskForDay = buildTodayTaskFromPlan({ ...student, taskCompletions: updatedTaskCompletions }, plan, day);
+      totalTasks += taskForDay.workout.length + taskForDay.diet.length;
+      completedTasks +=
+        taskForDay.workout.filter((task) => task.completed).length +
+        taskForDay.diet.filter((task) => task.completed).length;
+    }
+
+    completionPercentage = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
+  }
+
+  return {
+    ...student,
+    taskCompletions: updatedTaskCompletions,
+    completionPercentage,
+    streak: student.streak + 1,
+  };
+};
+
 // ========= STORE STATE =========
 interface AppState {
   // Core Data - Normalized
@@ -584,6 +642,15 @@ interface AppActions {
   // Task approval flow
   approveTaskSubmission: (submissionId: string, note?: string) => void;
   rejectTaskSubmission: (submissionId: string, note: string) => void;
+  submitTaskProof: (payload: {
+    taskId: string;
+    taskType: 'workout' | 'diet';
+    dayNumber: number;
+    taskName: string;
+    mediaUrl: string;
+    caption?: string;
+    location?: string;
+  }) => void;
   notifyStudentPlanUpdated: (studentId: string, planId: string, message: string) => void;
   markPlanNotificationRead: (notificationId: string) => void;
 
@@ -636,6 +703,13 @@ const fullAdminPermissions: Record<PermissionKey, boolean> = {
 };
 
 const PERMISSIONS_STORAGE_KEY = 'ah_permissions_v1';
+const USERS_STORAGE_KEY = 'ah_users_v1';
+const SESSION_STORAGE_KEY = 'ah_session_v1';
+
+type PersistedSession = {
+  currentUserId: string | null;
+  isAuthenticated: boolean;
+};
 
 const hardcodedRoleCredentials: Record<
   UserRole,
@@ -759,9 +833,78 @@ const persistPermissions = (permissions: PermissionMatrix) => {
   }
 };
 
+const readPersistedUsers = (baseUsers: Record<string, User>): Record<string, User> => {
+  if (typeof window === 'undefined') return baseUsers;
+  try {
+    const raw = window.localStorage.getItem(USERS_STORAGE_KEY);
+    if (!raw) return baseUsers;
+    const parsed = JSON.parse(raw) as Record<string, User>;
+    return {
+      ...baseUsers,
+      ...(parsed ?? {}),
+    };
+  } catch {
+    return baseUsers;
+  }
+};
+
+const persistUsers = (users: Record<string, User>) => {
+  if (typeof window === 'undefined') return;
+  try {
+    window.localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(users));
+  } catch {
+    // Ignore localStorage write failures in restricted environments.
+  }
+};
+
+const readPersistedSession = (users: Record<string, User>): AppState['session'] => {
+  if (typeof window === 'undefined') {
+    return { currentUser: null, isAuthenticated: false };
+  }
+
+  try {
+    const raw = window.localStorage.getItem(SESSION_STORAGE_KEY);
+    if (!raw) return { currentUser: null, isAuthenticated: false };
+
+    const parsed = JSON.parse(raw) as PersistedSession;
+    if (!parsed.isAuthenticated || !parsed.currentUserId) {
+      return { currentUser: null, isAuthenticated: false };
+    }
+
+    const user = users[parsed.currentUserId] ?? null;
+    if (!user) return { currentUser: null, isAuthenticated: false };
+
+    return {
+      currentUser: user,
+      isAuthenticated: true,
+    };
+  } catch {
+    return { currentUser: null, isAuthenticated: false };
+  }
+};
+
+const persistSession = (session: AppState['session']) => {
+  if (typeof window === 'undefined') return;
+  try {
+    const payload: PersistedSession = {
+      currentUserId: session.currentUser?.id ?? null,
+      isAuthenticated: session.isAuthenticated && Boolean(session.currentUser),
+    };
+    window.localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(payload));
+  } catch {
+    // Ignore localStorage write failures in restricted environments.
+  }
+};
+
+const initialUsers = readPersistedUsers(
+  mockUsers.reduce((acc, user) => ({ ...acc, [user.id]: user }), {})
+);
+
+const initialSession = readPersistedSession(initialUsers);
+
 // ========= INITIAL STATE =========
 const initialState: AppState = {
-  users: mockUsers.reduce((acc, user) => ({ ...acc, [user.id]: user }), {}),
+  users: initialUsers,
   posts: mockPosts.reduce((acc, post) => ({ ...acc, [post.id]: post }), {}),
   plans: mockPlans.reduce((acc, plan) => ({ ...acc, [plan.id]: plan }), {}),
   system: {
@@ -823,10 +966,7 @@ const initialState: AppState = {
       },
     ],
   },
-  session: {
-    currentUser: null,
-    isAuthenticated: false,
-  },
+  session: initialSession,
 };
 
 // ========= ZUSTAND STORE CREATION =========
@@ -837,15 +977,28 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
 
   // Session
   login: (email, password, role) => {
-    const credential = hardcodedRoleCredentials[role];
-    const emailMatches = email.trim().toLowerCase() === credential.email;
-    const passwordMatches = password === credential.password;
-    if (!emailMatches || !passwordMatches) return false;
+    const normalizedEmail = email.trim().toLowerCase();
+    const normalizedPassword = password;
 
     let isAuthenticated = false;
     set((state) => {
-      const existingUser = state.users[credential.defaultUserId];
-      const user = existingUser ?? buildCredentialUser(role);
+      const matchedUser = Object.values(state.users).find(
+        (candidate) =>
+          candidate.role === role &&
+          candidate.email.trim().toLowerCase() === normalizedEmail &&
+          candidate.password === normalizedPassword
+      ) as Student | Trainer | Admin | undefined;
+
+      const credential = hardcodedRoleCredentials[role];
+      const matchesHardcodedCredential =
+        normalizedEmail === credential.email && normalizedPassword === credential.password;
+
+      if (!matchedUser && !matchesHardcodedCredential) {
+        return state;
+      }
+
+      const existingCredentialUser = state.users[credential.defaultUserId];
+      const user = matchedUser ?? existingCredentialUser ?? buildCredentialUser(role);
       let nextPlans = state.plans;
 
       if (role === 'student') {
@@ -871,7 +1024,7 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
 
       return {
         ...state,
-        users: existingUser
+        users: state.users[user.id]
           ? state.users
           : {
               ...state.users,
@@ -1350,21 +1503,40 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
   // Task submission approval flow
   approveTaskSubmission: (submissionId, note) =>
     set((state) => {
+      const actorRole = state.session.currentUser?.role;
+      if (actorRole !== 'trainer' && actorRole !== 'admin') return state;
+
       const submission = state.system.legacySubmissions.find((s) => s.id === submissionId);
       if (!submission) return state;
       const pointsAwarded = submission.points ?? 50;
+
       // Award points to student
       let nextUsers = state.users;
       const studentUser = state.users[submission.studentId];
       if (studentUser && studentUser.role === 'student') {
         const student = studentUser as Student;
+        const completionUpdatedStudent = completeStudentTaskByApproval(student, state.plans, {
+          taskId: submission.taskId,
+          dayNumber: submission.dayNumber,
+        });
         const updatedStudent: Student = {
-          ...student,
-          streak: student.streak + (student.streak === 0 ? 1 : 0),
-          totalPoints: (student.totalPoints ?? 0) + pointsAwarded,
+          ...completionUpdatedStudent,
+          totalPoints: (completionUpdatedStudent.totalPoints ?? 0) + pointsAwarded,
         };
         nextUsers = { ...nextUsers, [student.id]: updatedStudent };
       }
+
+      let nextPosts = state.posts;
+      if (submission.postId && state.posts[submission.postId]) {
+        nextPosts = {
+          ...state.posts,
+          [submission.postId]: {
+            ...state.posts[submission.postId],
+            status: 'visible',
+          },
+        };
+      }
+
       // Add approval notification to student
       const newNotif: NotificationItem = {
         id: `notif-approval-${Date.now()}`,
@@ -1379,6 +1551,7 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
       return {
         ...state,
         users: nextUsers,
+        posts: nextPosts,
         system: {
           ...state.system,
           legacySubmissions: state.system.legacySubmissions.map((s) =>
@@ -1393,6 +1566,9 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
 
   rejectTaskSubmission: (submissionId, note) =>
     set((state) => {
+      const actorRole = state.session.currentUser?.role;
+      if (actorRole !== 'trainer' && actorRole !== 'admin') return state;
+
       const submission = state.system.legacySubmissions.find((s) => s.id === submissionId);
       if (!submission) return state;
       const newNotif: NotificationItem = {
@@ -1407,6 +1583,16 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
       };
       return {
         ...state,
+        posts:
+          submission.postId && state.posts[submission.postId]
+            ? {
+                ...state.posts,
+                [submission.postId]: {
+                  ...state.posts[submission.postId],
+                  status: 'under-review',
+                },
+              }
+            : state.posts,
         system: {
           ...state.system,
           legacySubmissions: state.system.legacySubmissions.map((s) =>
@@ -1415,6 +1601,71 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
               : s
           ),
           legacyNotifications: [newNotif, ...state.system.legacyNotifications],
+        },
+      };
+    }),
+
+  submitTaskProof: ({ taskId, taskType, dayNumber, taskName, mediaUrl, caption, location }) =>
+    set((state) => {
+      const actor = state.session.currentUser;
+      if (!actor || actor.role !== 'student') return state;
+
+      const actorUser = state.users[actor.id];
+      if (!actorUser || actorUser.role !== 'student') return state;
+      const student = actorUser as Student;
+
+      const postId = `post-proof-${Date.now()}`;
+      const submissionId = `sub-proof-${Date.now()}`;
+      const timeStamp = new Date().toISOString();
+
+      const postCaption =
+        caption?.trim() ||
+        `Proof submission: ${taskType === 'workout' ? 'Workout' : 'Nutrition'} task · Day ${dayNumber}`;
+
+      const proofPost: Post = {
+        id: postId,
+        userId: student.id,
+        userName: student.name,
+        userAvatar: student.avatar,
+        userRole: 'student',
+        type: 'image',
+        mediaUrl,
+        caption: postCaption,
+        likes: 0,
+        comments: 0,
+        location: location?.trim() || 'Campus',
+        timestamp: timeStamp,
+        liked: false,
+        status: 'under-review',
+      };
+
+      const proofSubmission: LegacySubmission = {
+        id: submissionId,
+        studentId: student.id,
+        studentName: student.name,
+        trainerId: student.trainerId ?? undefined,
+        taskName,
+        taskType,
+        taskId,
+        dayNumber,
+        postId,
+        requiresApproval: true,
+        timestamp: new Date().toLocaleString(),
+        status: 'pending',
+        mediaUrl,
+        trainerNote: '',
+        points: taskType === 'workout' ? 60 : 45,
+      };
+
+      return {
+        ...state,
+        posts: {
+          ...state.posts,
+          [postId]: proofPost,
+        },
+        system: {
+          ...state.system,
+          legacySubmissions: [proofSubmission, ...state.system.legacySubmissions],
         },
       };
     }),
@@ -1592,6 +1843,11 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
     }),
 }));
 
+useAppStore.subscribe((state) => {
+  persistUsers(state.users);
+  persistSession(state.session);
+});
+
 // ========= SELECTORS (for convenience) =========
 export const useCurrentUser = () => useAppStore((state) => state.session.currentUser);
 export const useIsAuthenticated = () => useAppStore((state) => state.session.isAuthenticated);
@@ -1757,6 +2013,7 @@ export const useStore = () => {
     suggestedUsers,
     setLoading: state.setLoading,
     likePost: state.likePost,
+    submitTaskProof: state.submitTaskProof,
     updateProfile: (data: Partial<Student>) => state.updateUser(student.id, data),
     followUser: (targetUserId: string) => {
       useAppStore.setState((prev) => {
@@ -1913,9 +2170,13 @@ export const useStore = () => {
             userName: post.userName ?? student.name,
             userAvatar: post.userAvatar ?? student.avatar,
             userRole: post.userRole ?? 'student',
+            source: post.source ?? 'general',
             type: (post.type as Post['type']) ?? 'image',
             mediaUrl: post.mediaUrl ?? '',
             caption: post.caption ?? '',
+            relatedTaskId: post.relatedTaskId,
+            relatedTaskType: post.relatedTaskType,
+            relatedDayNumber: post.relatedDayNumber,
             likes: 0,
             comments: 0,
             location: post.location ?? 'Campus',

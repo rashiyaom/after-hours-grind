@@ -107,6 +107,9 @@ export default function EventsPage() {
   const [activeEvent, setActiveEvent] = useState<AHGEvent | null>(null);
   const [filter, setFilter] = useState<"all" | "upcoming" | "live" | "completed">("all");
   const filtered = events.filter((e) => filter === "all" || e.status === filter);
+  const liveEventsCount = events.filter((e) => e.status === "live").length;
+  const upcomingEventsCount = events.filter((e) => e.status === "upcoming").length;
+  const categoriesCount = [...new Set(events.map((e) => e.category))].length;
 
   // Mouse Glow
   const mouseX = useMotionValue(-300);
@@ -120,7 +123,9 @@ export default function EventsPage() {
   };
 
   return (
-    <div onMouseMove={handlePointerMove} style={{ minHeight: "100vh", background: "#000", color: "#EFEFEF", fontFamily: "'Outfit','Inter',system-ui,sans-serif", overflowX: "hidden", position: "relative" }}>
+    <div onMouseMove={handlePointerMove} style={{ minHeight: "100vh", background: "linear-gradient(180deg, #02060A 0%, #02050A 35%, #010307 100%)", color: "#EFEFEF", fontFamily: "'Outfit','Inter',system-ui,sans-serif", overflowX: "hidden", position: "relative" }}>
+      <div style={{ position: "fixed", inset: 0, pointerEvents: "none", zIndex: 0, background: "radial-gradient(900px 420px at 55% 8%, rgba(77,210,255,0.18) 0%, transparent 60%), radial-gradient(700px 420px at 82% 20%, rgba(111,92,255,0.16) 0%, transparent 62%)" }} />
+
       {/* PERSISTENT MOUSE GLOW */}
       <motion.div
         className="hidden md:block pointer-events-none fixed"
@@ -138,22 +143,61 @@ export default function EventsPage() {
       />
 
       {/* HERO */}
-      <section style={{ position: "relative", padding: "clamp(5rem,14vw,10rem) clamp(1.5rem,6vw,7vw) clamp(3rem,8vw,6rem)", overflow: "hidden", zIndex: 10 }}>
+      <section style={{ position: "relative", padding: "calc(64px + clamp(1.1rem,3.5vw,2.3rem)) clamp(1.5rem,6vw,7vw) clamp(2.8rem,7vw,5rem)", overflow: "hidden", zIndex: 10 }}>
         <div style={{ position: "absolute", inset: 0, backgroundImage: "linear-gradient(rgba(255,255,255,0.02) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,0.02) 1px,transparent 1px)", backgroundSize: "80px 80px" }} />
-        <div style={{ position: "absolute", top: "-10%", right: "-5%", width: "45vw", height: "45vw", borderRadius: "50%", background: "radial-gradient(circle,rgba(77,210,255,0.09) 0%,transparent 70%)", filter: "blur(60px)" }} />
-        <div style={{ position: "relative", zIndex: 1, maxWidth: 1300, margin: "0 auto" }}>
-          <motion.div {...revealUp(0)} style={{ marginBottom: "1.5rem" }}>
-            <span style={{ display: "inline-flex", alignItems: "center", gap: 8, fontSize: "0.65rem", fontWeight: 700, letterSpacing: "0.22em", color: "#4DD2FF", padding: "6px 14px", border: "1px solid rgba(77,210,255,0.25)", borderRadius: 999, textTransform: "uppercase" }}><Zap size={10} /> After Hours Events</span>
-          </motion.div>
-          <motion.h1 {...revealUp(0.1)} style={{ fontSize: "clamp(2.5rem,7vw,6.5rem)", fontWeight: 800, lineHeight: 0.92, letterSpacing: "-0.03em", textTransform: "uppercase", margin: 0 }}>
-            <span style={{ color: "#EFEFEF" }}>WHERE THE</span><br /><span style={{ color: "#4DD2FF" }}>GRIND MEETS</span><br /><span style={{ WebkitTextStroke: "1px rgba(255,255,255,0.2)", WebkitTextFillColor: "transparent" }}>THE SPOTLIGHT.</span>
-          </motion.h1>
-          <motion.p {...revealUp(0.2)} style={{ maxWidth: 500, fontSize: "clamp(0.9rem,2.2vw,1.05rem)", fontWeight: 300, lineHeight: 1.75, color: "rgba(239,239,239,0.45)", margin: "2rem 0 0", borderLeft: "2px solid rgba(77,210,255,0.4)", paddingLeft: "1rem" }}>Competitions, workshops, masterclasses. Real events for real athletes. Show up, compete, and earn your place.</motion.p>
-          <motion.div {...revealUp(0.3)} style={{ display: "flex", flexWrap: "wrap", gap: "2rem", marginTop: "3rem" }}>
-            {[{ icon: Trophy, label: "Events", value: events.length }, { icon: Clock, label: "Upcoming", value: events.filter((e) => e.status === "upcoming").length }, { icon: Zap, label: "Categories", value: [...new Set(events.map((e) => e.category))].length }].map(({ icon: Icon, label, value }) => (
-              <div key={label} style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                <div style={{ width: 36, height: 36, borderRadius: 10, background: "rgba(77,210,255,0.08)", border: "1px solid rgba(77,210,255,0.15)", display: "flex", alignItems: "center", justifyContent: "center" }}><Icon size={15} color="#4DD2FF" /></div>
-                <div><div style={{ fontSize: "1.3rem", fontWeight: 800, color: "#EFEFEF", lineHeight: 1 }}>{value}</div><div style={{ fontSize: "0.65rem", fontWeight: 500, letterSpacing: "0.14em", color: "rgba(239,239,239,0.35)", textTransform: "uppercase" }}>{label}</div></div>
+        <div style={{ position: "relative", zIndex: 1, maxWidth: 1300, margin: "0 auto", display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: "clamp(1.4rem,3vw,3.25rem)", alignItems: "end" }}>
+          <div>
+            <motion.div {...revealUp(0)} style={{ marginBottom: "1.25rem" }}>
+              <span style={{ display: "inline-flex", alignItems: "center", gap: 8, fontSize: "0.65rem", fontWeight: 700, letterSpacing: "0.22em", color: "#4DD2FF", padding: "6px 14px", border: "1px solid rgba(77,210,255,0.25)", borderRadius: 999, textTransform: "uppercase" }}><Zap size={10} /> Events & Competitions</span>
+            </motion.div>
+            <motion.h1 {...revealUp(0.1)} style={{ fontSize: "clamp(2.45rem,6.5vw,5.8rem)", fontWeight: 800, lineHeight: 0.98, letterSpacing: "-0.03em", textTransform: "uppercase", margin: 0 }}>
+              <span style={{ color: "#EFEFEF" }}>Events Where</span><br /><span style={{ color: "#4DD2FF" }}>Athletes Rise.</span>
+            </motion.h1>
+            <motion.p {...revealUp(0.2)} style={{ maxWidth: 540, fontSize: "clamp(0.92rem,2.1vw,1.05rem)", fontWeight: 300, lineHeight: 1.7, color: "rgba(239,239,239,0.5)", margin: "1.45rem 0 0", borderLeft: "2px solid rgba(77,210,255,0.45)", paddingLeft: "1rem" }}>Competitions, workshops, and masterclasses in one place. Register fast, compete hard, and build your track record.</motion.p>
+            <motion.div {...revealUp(0.27)} style={{ display: "flex", flexWrap: "wrap", gap: "0.55rem", marginTop: "1.8rem" }}>
+              {["Competition", "Workshop", "Masterclass", "Challenge"].map((item) => (
+                <span key={item} style={{ fontSize: "0.7rem", fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", padding: "0.45rem 0.8rem", borderRadius: 999, border: "1px solid rgba(77,210,255,0.23)", color: "rgba(77,210,255,0.88)", background: "rgba(77,210,255,0.08)" }}>{item}</span>
+              ))}
+            </motion.div>
+            <motion.div {...revealUp(0.35)} style={{ marginTop: "1.7rem", display: "flex", alignItems: "center", gap: "0.95rem", flexWrap: "wrap" }}>
+              <a href="#events-grid" style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 10, padding: "0.9rem 1.45rem", borderRadius: 12, background: "#4DD2FF", color: "#001018", textDecoration: "none", fontSize: "0.78rem", fontWeight: 800, letterSpacing: "0.12em", textTransform: "uppercase" }}>
+                View All Events <ArrowRight size={15} />
+              </a>
+              <button style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8, padding: "0.84rem 1.2rem", borderRadius: 12, border: "1px solid rgba(255,255,255,0.16)", background: "rgba(255,255,255,0.03)", color: "rgba(239,239,239,0.86)", fontSize: "0.74rem", fontWeight: 700, letterSpacing: "0.11em", textTransform: "uppercase", cursor: "pointer" }}>
+                Browse Categories
+              </button>
+              <span style={{ fontSize: "0.72rem", color: "rgba(239,239,239,0.42)", letterSpacing: "0.08em", textTransform: "uppercase" }}>{liveEventsCount} live now</span>
+            </motion.div>
+
+            <motion.div {...revealUp(0.42)} style={{ marginTop: "1.35rem", display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))", gap: "0.65rem", maxWidth: 560 }}>
+              {[
+                { label: "Total Events", value: events.length, icon: Trophy },
+                { label: "Upcoming", value: upcomingEventsCount, icon: Clock },
+                { label: "Categories", value: categoriesCount, icon: Tag },
+              ].map(({ label, value, icon: Icon }) => (
+                <div key={label} style={{ border: "1px solid rgba(255,255,255,0.1)", borderRadius: 14, padding: "0.72rem 0.8rem", background: "linear-gradient(180deg, rgba(255,255,255,0.03) 0%, rgba(255,255,255,0.015) 100%)" }}>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "0.35rem" }}>
+                    <span style={{ fontSize: "0.64rem", color: "rgba(239,239,239,0.45)", letterSpacing: "0.08em", textTransform: "uppercase" }}>{label}</span>
+                    <Icon size={12} color="rgba(77,210,255,0.9)" />
+                  </div>
+                  <div style={{ fontSize: "1.28rem", lineHeight: 1, fontWeight: 800, color: "#EAF8FF" }}>{value}</div>
+                </div>
+              ))}
+            </motion.div>
+          </div>
+
+          <motion.div {...revealUp(0.2)} style={{ display: "grid", gap: "0.85rem", alignSelf: "center", maxWidth: 420, justifySelf: "end" }}>
+            {[
+              { icon: Trophy, title: "Live Events", sub: "Compete in real-time" },
+              { icon: Calendar, title: "Upcoming", sub: "Plan ahead" },
+              { icon: MapPin, title: "Nationwide", sub: "Multiple cities" },
+            ].map(({ icon: Icon, title, sub }) => (
+              <div key={title} style={{ border: "1px solid rgba(255,255,255,0.09)", background: "linear-gradient(180deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.015) 100%)", borderRadius: 16, padding: "0.85rem 1rem", display: "flex", alignItems: "center", gap: "0.85rem", backdropFilter: "blur(10px)", boxShadow: "0 16px 34px rgba(0,0,0,0.26), inset 0 1px 0 rgba(255,255,255,0.08)" }}>
+                <div style={{ width: 42, height: 42, borderRadius: 12, background: "rgba(77,210,255,0.13)", border: "1px solid rgba(77,210,255,0.2)", display: "flex", alignItems: "center", justifyContent: "center" }}><Icon size={16} color="#4DD2FF" /></div>
+                <div>
+                  <p style={{ margin: 0, fontSize: "1rem", fontWeight: 650, color: "rgba(239,239,239,0.96)" }}>{title}</p>
+                  <p style={{ margin: "0.22rem 0 0", fontSize: "0.78rem", color: "rgba(239,239,239,0.44)" }}>{sub}</p>
+                </div>
               </div>
             ))}
           </motion.div>
@@ -171,7 +215,7 @@ export default function EventsPage() {
       </div>
 
       {/* GRID */}
-      <section style={{ padding: "clamp(2.5rem,7vw,5rem) clamp(1.5rem,6vw,7vw)" }}>
+      <section id="events-grid" style={{ padding: "clamp(2.5rem,7vw,5rem) clamp(1.5rem,6vw,7vw)" }}>
         <div style={{ maxWidth: 1300, margin: "0 auto" }}>
           {filtered.length === 0 ? (
             <div style={{ textAlign: "center", padding: "5rem 0" }}><p style={{ fontSize: "1.1rem", color: "rgba(239,239,239,0.3)", fontWeight: 300 }}>No events found.</p></div>

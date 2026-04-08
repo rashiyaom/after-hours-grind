@@ -13,7 +13,7 @@ const suggestedTags = ["#push", "#pull", "#legs", "#discipline", "#afterhours", 
 
 export default function UploadPage() {
   const navigate = useNavigate();
-  const { student, addSubmission, addPost, updateProfile } = useStore();
+  const { student, addPost, updateProfile } = useStore();
   const [caption, setCaption] = useState("");
   const [location, setLocation] = useState("");
   const [steps, setSteps] = useState("");
@@ -79,24 +79,17 @@ export default function UploadPage() {
     setSubmitting(true);
     await new Promise((r) => setTimeout(r, 2200));
     
-    const taskName = uploadType === "workout" ? "Daily Workout Session" : "Nutrition Log";
     const mediaType = uploadType === "workout" ? "video" : "image";
     const mediaUrl = filePreview || "";
     const parsedSteps = Number.parseInt(steps, 10);
     const validSteps = Number.isFinite(parsedSteps) && parsedSteps > 0 ? parsedSteps : null;
-    
-    addSubmission({
-      studentId: student.id,
-      studentName: student.name,
-      taskName,
-      mediaUrl,
-    });
 
     addPost({
       userId: student.id,
       userName: student.name,
       userAvatar: student.avatar,
       userRole: "student",
+      source: "general",
       type: mediaType,
       mediaUrl,
       caption: `${caption}${validSteps ? `\n\nSteps: ${validSteps.toLocaleString()}` : ""}\n\n${Array.from(activeTags).join(" ")}`,
@@ -109,7 +102,7 @@ export default function UploadPage() {
 
     setSubmitting(false);
     setSubmitted(true);
-    toast.success("Check-in submitted successfully");
+    toast.success("Post shared to feed");
     await new Promise((r) => setTimeout(r, 1500));
     navigate("/student/feed");
   };

@@ -7,7 +7,6 @@ import {
   Check,
   Flame,
   Search,
-  Star,
   Target,
   Trophy,
 } from "lucide-react";
@@ -16,6 +15,7 @@ import { Navigate } from "react-router-dom";
 import { useCurrentUser, usePermissions, useStore } from "@/hooks/useStore";
 import { Skeleton } from "@/components/ui/skeleton";
 import { LUXURY_TWEEN_MEDIUM } from "@/lib/motionTokens";
+import { toast } from "sonner";
 
 type DashboardTab = "Overview" | "Training" | "Nutrition" | "Progress" | "Reports";
 type DashboardPill = "All" | "Workout" | "Nutrition" | "Recovery";
@@ -24,7 +24,7 @@ const DASHBOARD_TABS: DashboardTab[] = ["Overview", "Training", "Nutrition", "Pr
 const DASHBOARD_PILLS: DashboardPill[] = ["All", "Workout", "Nutrition", "Recovery"];
 
 export default function StudentDashboard() {
-  const { student: s, leaderboard, todayTask, completeTask, loading, setLoading, onboardingRequired, notifications } = useStore();
+  const { student: s, leaderboard, todayTask, loading, setLoading, onboardingRequired, notifications } = useStore();
   const currentUser = useCurrentUser();
   const permissions = usePermissions();
   const canPostFeed = Boolean(currentUser && permissions[currentUser.role].post_feed);
@@ -368,7 +368,7 @@ export default function StudentDashboard() {
                 type="button"
                 onClick={() => {
                   if (!task.completed) {
-                    completeTask(task.type, task.id);
+                    toast.info("Upload proof from Daily Plan to complete this task.");
                   }
                 }}
                 className="flex w-full items-center gap-3 rounded-2xl bg-[#1B1B1B] p-3 text-left transition-colors hover:bg-[#252525]"
@@ -583,9 +583,6 @@ export default function StudentDashboard() {
             </Link>
             <Link to="/student/leaderboard" className="rounded-xl bg-[#1D1D1D] border border-white/8 px-3 py-2 text-center text-xs font-semibold text-white/70 hover:text-white hover:bg-[#252525] transition-all">
               Leaderboard
-            </Link>
-            <Link to="/athletes" className="col-span-2 rounded-xl bg-gradient-to-r from-[#C9F85A] to-[#4DD2FF] px-3 py-3 text-center text-[10px] font-black uppercase tracking-[0.2em] text-black hover:opacity-90 transition-all flex items-center justify-center gap-2">
-              <Star className="h-3 w-3 fill-black" /> Open Elite Roster
             </Link>
           </div>
         </motion.div>

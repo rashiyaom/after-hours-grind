@@ -214,9 +214,13 @@ export interface Post {
   userName: string;
   userAvatar: string;
   userRole: UserRole;
+  source?: "general" | "task-proof";
   type: "image" | "video" | "reel";
   mediaUrl: string;
   caption: string;
+  relatedTaskId?: string;
+  relatedTaskType?: "workout" | "diet";
+  relatedDayNumber?: number;
   likes: number;
   comments: number;
   location: string;
@@ -292,6 +296,10 @@ export interface Submission {
   planName?: string;
   taskName?: string;
   taskType?: 'workout' | 'diet' | 'checkin';
+  taskId?: string;
+  dayNumber?: number;
+  postId?: string;
+  requiresApproval?: boolean;
   points?: number;
   timestamp: string;
   status: "pending" | "approved" | "rejected";

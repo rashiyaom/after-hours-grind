@@ -14,6 +14,7 @@ import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
 import { filterPostsByTab } from "@/lib/feedFilters";
 import { LUXURY_TWEEN_MEDIUM } from "@/lib/motionTokens";
+import { createPortal } from "react-dom";
 
 const TABS = ["All", "Videos", "Photos"] as const;
 
@@ -79,7 +80,7 @@ export default function FeedPage() {
 
       {/* ── Post detail modal ────────────────────────────── */}
       <AnimatePresence>
-        {activePost && (
+        {activePost && createPortal(
           <>
             <motion.div
               initial={{ opacity: 0 }}
@@ -93,7 +94,7 @@ export default function FeedPage() {
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 32 }}
               transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
-              className="fixed inset-2 sm:inset-6 md:inset-auto md:top-1/2 md:left-1/2 md:-translate-x-1/2 md:-translate-y-1/2 md:w-[1100px] md:h-[90vh] z-[101] rounded-[32px] overflow-hidden flex flex-col md:flex-row border border-white/10 bg-[#0D0D0D] shadow-[0_0_120px_rgba(0,0,0,0.9)]"
+              className="fixed left-1/2 top-1/2 z-[101] w-[calc(100vw-1.25rem)] max-w-[1120px] h-[min(90vh,900px)] -translate-x-1/2 -translate-y-1/2 rounded-[32px] overflow-hidden flex flex-col md:flex-row border border-white/10 bg-[#0D0D0D] shadow-[0_0_120px_rgba(0,0,0,0.9)]"
             >
               {/* ─ Left: media ─────────────────────────── */}
               <div className="flex-1 relative flex items-center justify-center bg-[#080808] min-h-[320px] md:min-h-0 border-b md:border-b-0 md:border-r border-white/5 overflow-hidden group">
@@ -252,7 +253,8 @@ export default function FeedPage() {
                 </div>
               </div>
             </motion.div>
-          </>
+          </>,
+          document.body
         )}
       </AnimatePresence>
 
