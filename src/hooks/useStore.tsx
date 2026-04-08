@@ -522,22 +522,17 @@ const completeStudentTaskByApproval = (
   payload: { taskId?: string; dayNumber?: number }
 ): Student => {
   if (!payload.taskId || !payload.dayNumber) {
-    return {
-      ...student,
-      streak: student.streak + 1,
-    };
+    return student;
   }
 
   const plan = student.currentPlanId ? plans[student.currentPlanId] : null;
   const targetDay = payload.dayNumber;
   const key = plan?.id ? getRecordKey(plan.id, targetDay) : `legacy:day:${targetDay}`;
   const existingKeys = student.taskCompletions?.[key] ?? [];
+  const hadAnyCompletionForDay = existingKeys.length > 0;
 
   if (existingKeys.includes(payload.taskId)) {
-    return {
-      ...student,
-      streak: student.streak + 1,
-    };
+    return student;
   }
 
   const updatedTaskCompletions: Record<string, string[]> = {
@@ -566,7 +561,7 @@ const completeStudentTaskByApproval = (
     ...student,
     taskCompletions: updatedTaskCompletions,
     completionPercentage,
-    streak: student.streak + 1,
+    streak: hadAnyCompletionForDay ? student.streak : student.streak + 1,
   };
 };
 
@@ -1505,6 +1500,7 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
     set((state) => {
       const actorRole = state.session.currentUser?.role;
       if (actorRole !== 'trainer' && actorRole !== 'admin') return state;
+      const actorName = state.session.currentUser?.name ?? (actorRole === 'admin' ? 'Admin' : 'Trainer');
 
       const submission = state.system.legacySubmissions.find((s) => s.id === submissionId);
       if (!submission) return state;
@@ -1540,12 +1536,21 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
       // Add approval notification to student
       const newNotif: NotificationItem = {
         id: `notif-approval-${Date.now()}`,
-        message: `Your task "${submission.taskName}" was approved! +${pointsAwarded} pts`,
+        message: `${actorName} approved your proof for "${submission.taskName}". +${pointsAwarded} pts awarded.`,
         icon: 'check-circle',
         type: 'trainer',
-        userName: 'Trainer',
-        action: `approved your task "${submission.taskName}"`,
+        userName: actorName,
+        action: `approved your task proof for "${submission.taskName}"`,
         timestamp: 'Just now',
+        read: false,
+      };
+
+      const systemNotif: SystemNotification = {
+        id: `sys-approval-${Date.now()}`,
+        title: 'Task Proof Approved',
+        message: `${actorName} accepted your ${submission.taskType ?? 'task'} proof for ${submission.taskName}.`,
+        type: 'info',
+        timestamp: new Date().toISOString(),
         read: false,
       };
       return {
@@ -1559,6 +1564,7 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
               ? { ...s, status: 'approved' as const, trainerNote: note ?? s.trainerNote }
               : s
           ),
+          notifications: [systemNotif, ...state.system.notifications],
           legacyNotifications: [newNotif, ...state.system.legacyNotifications],
         },
       };
@@ -1568,17 +1574,27 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
     set((state) => {
       const actorRole = state.session.currentUser?.role;
       if (actorRole !== 'trainer' && actorRole !== 'admin') return state;
+      const actorName = state.session.currentUser?.name ?? (actorRole === 'admin' ? 'Admin' : 'Trainer');
 
       const submission = state.system.legacySubmissions.find((s) => s.id === submissionId);
       if (!submission) return state;
       const newNotif: NotificationItem = {
         id: `notif-reject-${Date.now()}`,
-        message: `Your task "${submission.taskName}" needs changes: ${note}`,
+        message: `${actorName} requested changes for "${submission.taskName}": ${note}`,
         icon: 'x-circle',
         type: 'trainer',
-        userName: 'Trainer',
+        userName: actorName,
         action: `requested changes on "${submission.taskName}"`,
         timestamp: 'Just now',
+        read: false,
+      };
+
+      const systemNotif: SystemNotification = {
+        id: `sys-reject-${Date.now()}`,
+        title: 'Task Proof Needs Changes',
+        message: `${actorName} asked for changes on your proof for ${submission.taskName}.`,
+        type: 'warning',
+        timestamp: new Date().toISOString(),
         read: false,
       };
       return {
@@ -1600,6 +1616,7 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
               ? { ...s, status: 'rejected' as const, trainerNote: note }
               : s
           ),
+          notifications: [systemNotif, ...state.system.notifications],
           legacyNotifications: [newNotif, ...state.system.legacyNotifications],
         },
       };

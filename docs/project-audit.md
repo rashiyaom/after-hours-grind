@@ -42,3 +42,40 @@ This document outlines critical issues, vulnerabilities, incomplete parts, and i
     -   Immediately remove these hardcoded credentials from the source code.
     -   Use environment variables for any sensitive information.
     -   For authentication, implement a proper authentication flow using a secure service (e.g., OAuth, JWT with a backend). Never store plaintext passwords.
+
+## Task Proof Flow Findings (Post-Fix)
+
+### 1. Streak Inflation Risk on Multi-Task Approval
+
+- **File:** `src/hooks/useStore.tsx`
+- **Description:** Streak increments on every approved submission. If a student gets multiple task proofs approved in a day, streak can increase multiple times for the same day.
+- **Criticality:** High
+- **Recommendation:** Track streak by calendar day and increment at most once per day.
+
+### 2. Client-Only Media URLs for Proof Posts
+
+- **Files:** `src/pages/student/DailyPlan.tsx`, `src/hooks/useStore.tsx`
+- **Description:** Proof posts use local object URLs (`blob:`) as media source. These are session-scoped and will break after refresh/reload.
+- **Criticality:** High
+- **Recommendation:** Upload proof media to persistent storage and store permanent URLs before creating posts/submissions.
+
+### 3. Approval Path Can Be Bypassed Through Direct Store API Usage
+
+- **File:** `src/hooks/useStore.tsx`
+- **Description:** `completeTask` remains available and can still mark tasks complete without proof/approval if called by future UI code.
+- **Criticality:** Medium
+- **Recommendation:** Gate `completeTask` behind server-side approval state or make it internal/private to approval handlers only.
+
+### 4. Dual Notification Sources Cause Inconsistent Badges
+
+- **Files:** `src/layouts/AppLayout.tsx`, `src/hooks/useStore.tsx`, `src/pages/student/Notifications.tsx`
+- **Description:** Notification count and notification list are sourced from different arrays (`system.notifications` vs `legacyNotifications`), which can drift.
+- **Criticality:** Medium
+- **Recommendation:** Consolidate to one notification model and derive UI badges/lists from a single source of truth.
+
+### 5. Rejected Proof Posts Stay in Under-Review Status
+
+- **File:** `src/hooks/useStore.tsx`
+- **Description:** On rejection, linked proof post remains `under-review` instead of moving to an explicit rejected/hidden state.
+- **Criticality:** Low
+- **Recommendation:** Introduce a dedicated rejected post state (or map rejection to hidden) and surface clear status in the student feed.

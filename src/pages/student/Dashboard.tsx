@@ -97,6 +97,28 @@ export default function StudentDashboard() {
     second: "2-digit",
   });
 
+  useEffect(() => {
+    if (!currentUser || currentUser.role !== "student") return;
+
+    const latestTrainerApproval = notifications.find(
+      (notification) =>
+        !notification.read &&
+        notification.type === "trainer" &&
+        /approved|accepted/i.test(notification.message)
+    );
+
+    if (!latestTrainerApproval) return;
+
+    const storageKey = `ah:last-seen-approval:${currentUser.id}`;
+    const lastSeenId = typeof window !== "undefined" ? window.localStorage.getItem(storageKey) : null;
+    if (lastSeenId === latestTrainerApproval.id) return;
+
+    toast.success(latestTrainerApproval.message);
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem(storageKey, latestTrainerApproval.id);
+    }
+  }, [notifications, currentUser]);
+
   const kpiCards = [
     {
       title: "Workout Completion",
