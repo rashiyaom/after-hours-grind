@@ -297,3 +297,49 @@ export interface WeeklyData {
   name: string;
   uv: number;
 }
+
+// ─── EVENTS SYSTEM ───────────────────────────────────────
+export type EventFormFieldType =
+  | "text"
+  | "email"
+  | "phone"
+  | "number"
+  | "textarea"
+  | "select"
+  | "checkbox"
+  | "radio"
+  | "date";
+
+export interface EventFormField {
+  id: string;
+  type: EventFormFieldType;
+  label: string;
+  placeholder?: string;
+  required: boolean;
+  options?: string[]; // for select / radio / checkbox
+}
+
+export interface EventEntry {
+  id: string;
+  eventId: string;
+  submittedAt: string;
+  responses: Record<string, string | string[]>;
+}
+
+export interface AHGEvent {
+  id: string;
+  title: string;
+  description: string;
+  date: string;           // ISO string
+  location: string;
+  category: string;       // e.g. "Competition", "Workshop", "Seminar"
+  status: "upcoming" | "live" | "completed";
+  mediaType: "image" | "video";
+  mediaUrl: string;       // poster image or video URL
+  registrationOpen: boolean;
+  formFields: EventFormField[];
+  entries: EventEntry[];
+  createdAt: string;
+  createdBy: string;      // admin userId
+}
+

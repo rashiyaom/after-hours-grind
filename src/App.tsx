@@ -41,6 +41,10 @@ import AdminDashboard from "@/pages/admin/Dashboard";
 import UserManagement from "@/pages/admin/UserManagement";
 import ContentModeration from "@/pages/admin/ContentModeration";
 import Permissions from "./pages/admin/Permissions";
+import AdminEventsManager from "@/pages/admin/EventsManager";
+
+// Public pages
+import EventsPage from "@/pages/EventsPage";
 
 const queryClient = new QueryClient();
 
@@ -54,6 +58,7 @@ const App = () => (
           {/* Public Routes */}
           <Route element={<PublicLayout />}>
             <Route path="/" element={<LandingPage />} />
+            <Route path="/events" element={<EventsPage />} />
           </Route>
           <Route path="/login" element={<LoginPage />} />
           <Route path="/signup" element={<SignupPage />} />
@@ -108,6 +113,7 @@ const App = () => (
               <Route element={<ProtectedRoute allowedRoles={["admin"]} requiredPermission="moderate_content" />}>
                 <Route path="content" element={<ContentModeration />} />
               </Route>
+              <Route path="events" element={<AdminEventsManager />} />
             </Route>
           </Route>
 

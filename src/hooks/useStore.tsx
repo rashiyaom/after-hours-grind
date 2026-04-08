@@ -1,6 +1,8 @@
 import { create } from 'zustand';
 import {
   Admin,
+  AHGEvent,
+  EventEntry,
   FitnessQuestionnaire,
   PlanDay,
   Student,
@@ -528,6 +530,7 @@ interface AppState {
     legacySubmissions: LegacySubmission[];
     legacyNotifications: NotificationItem[];
     planUpdateNotifications: PlanUpdateNotification[];
+    events: AHGEvent[];
   };
 
   // Session State
@@ -583,6 +586,12 @@ interface AppActions {
   rejectTaskSubmission: (submissionId: string, note: string) => void;
   notifyStudentPlanUpdated: (studentId: string, planId: string, message: string) => void;
   markPlanNotificationRead: (notificationId: string) => void;
+
+  // Events CRUD
+  createEvent: (event: Omit<AHGEvent, 'id' | 'createdAt' | 'entries'>) => void;
+  updateEvent: (eventId: string, updates: Partial<AHGEvent>) => void;
+  deleteEvent: (eventId: string) => void;
+  submitEventEntry: (eventId: string, responses: Record<string, string | string[]>) => void;
 
   // System Actions
   dismissNotification: (notificationId: string) => void;
@@ -769,6 +778,50 @@ const initialState: AppState = {
     legacySubmissions: defaultSubmissions.map((submission) => ({ ...submission })),
     legacyNotifications: defaultAppNotifications.map((notification) => ({ ...notification })),
     planUpdateNotifications: [],
+    events: [
+      {
+        id: 'evt-1',
+        title: 'AHG Summer Shred Challenge',
+        description: 'Six weeks of structured intensity. Compete against the best in your city. Weekly check-ins, verified leaderboard, and real prizes for the top three finishers.',
+        date: '2026-06-01T06:00:00.000Z',
+        location: 'Mumbai, India',
+        category: 'Competition',
+        status: 'upcoming',
+        mediaType: 'image',
+        mediaUrl: 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=1200&q=80',
+        registrationOpen: true,
+        formFields: [
+          { id: 'ff-1', type: 'text', label: 'Full Name', placeholder: 'Your full name', required: true },
+          { id: 'ff-2', type: 'email', label: 'Email Address', placeholder: 'you@example.com', required: true },
+          { id: 'ff-3', type: 'phone', label: 'Phone Number', placeholder: '+91 XXXXX XXXXX', required: true },
+          { id: 'ff-4', type: 'select', label: 'Experience Level', required: true, options: ['Beginner', 'Intermediate', 'Advanced'] },
+          { id: 'ff-5', type: 'textarea', label: 'Why do you want to join?', placeholder: 'Tell us your motivation...', required: false },
+        ],
+        entries: [],
+        createdAt: new Date().toISOString(),
+        createdBy: 'hc-admin',
+      },
+      {
+        id: 'evt-2',
+        title: 'Nutrition Masterclass with Coach Aryan',
+        description: 'A deep-dive workshop on performance nutrition, meal timing, and supplement science. Limited seats — only serious athletes.',
+        date: '2026-05-15T09:00:00.000Z',
+        location: 'Online (Zoom)',
+        category: 'Workshop',
+        status: 'upcoming',
+        mediaType: 'image',
+        mediaUrl: 'https://images.unsplash.com/photo-1490645935967-10de6ba17061?w=1200&q=80',
+        registrationOpen: true,
+        formFields: [
+          { id: 'ff-1', type: 'text', label: 'Full Name', required: true },
+          { id: 'ff-2', type: 'email', label: 'Email Address', required: true },
+          { id: 'ff-3', type: 'radio', label: 'Diet Type', required: true, options: ['Vegetarian', 'Non-Vegetarian', 'Vegan'] },
+        ],
+        entries: [],
+        createdAt: new Date().toISOString(),
+        createdBy: 'hc-admin',
+      },
+    ],
   },
   session: {
     currentUser: null,
@@ -1422,6 +1475,63 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
           ...state.system,
           permissions: nextPermissions,
           activityLogs: [log, ...state.system.activityLogs],
+        },
+      };
+    }),
+
+  // Events CRUD
+  createEvent: (eventData) =>
+    set((state) => ({
+      ...state,
+      system: {
+        ...state.system,
+        events: [
+          ...state.system.events,
+          {
+            ...eventData,
+            id: `evt-${Date.now()}`,
+            entries: [],
+            createdAt: new Date().toISOString(),
+          },
+        ],
+      },
+    })),
+
+  updateEvent: (eventId, updates) =>
+    set((state) => ({
+      ...state,
+      system: {
+        ...state.system,
+        events: state.system.events.map((e) =>
+          e.id === eventId ? { ...e, ...updates } : e
+        ),
+      },
+    })),
+
+  deleteEvent: (eventId) =>
+    set((state) => ({
+      ...state,
+      system: {
+        ...state.system,
+        events: state.system.events.filter((e) => e.id !== eventId),
+      },
+    })),
+
+  submitEventEntry: (eventId, responses) =>
+    set((state) => {
+      const entry: EventEntry = {
+        id: `entry-${Date.now()}`,
+        eventId,
+        submittedAt: new Date().toISOString(),
+        responses,
+      };
+      return {
+        ...state,
+        system: {
+          ...state.system,
+          events: state.system.events.map((e) =>
+            e.id === eventId ? { ...e, entries: [...e.entries, entry] } : e
+          ),
         },
       };
     }),
