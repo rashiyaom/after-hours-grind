@@ -167,23 +167,21 @@ export default function PlanBuilder() {
           reviewFeedback: "Manually created by trainer.",
         };
 
-        let nextUsers = prev.users;
-        for (const studentId of selectedStudentIds) {
+        let nextUsers = { ...prev.users };
+        for (const studentId of Array.from(selectedStudentIds)) {
           const user = nextUsers[studentId];
           if (!user || user.role !== "student") continue;
           const student = user as Student;
-          nextUsers = {
-            ...nextUsers,
-            [studentId]: {
-              ...student,
-              currentPlanId: planId,
-              currentDay: 1,
-              totalDays: Math.max(1, cycleDuration),
-              completionPercentage: 0,
-              taskCompletions: {},
-              trainerId: trainer?.id ?? student.trainerId,
-            },
+          const updatedStudent: Student = {
+            ...student,
+            currentPlanId: planId,
+            currentDay: 1,
+            totalDays: Math.max(1, cycleDuration),
+            completionPercentage: 0,
+            taskCompletions: {},
+            trainerId: trainer?.id ?? student.trainerId,
           };
+          nextUsers[studentId] = updatedStudent;
         }
 
         // Update trainer stats
