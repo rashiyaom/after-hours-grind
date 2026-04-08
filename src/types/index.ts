@@ -351,7 +351,7 @@ export interface AHGEvent {
 export interface Athlete {
   id: string;
   name: string;
-  sport: "Football" | "Basketball" | "Karate" | "Judo" | "Tennis" | "Badminton" | "Kabaddi" | "Chess" | "Martial Arts" | "Cricket" | "Volleyball";
+  sport: "Football" | "Basketball" | "Karate" | "Judo" | "Tennis" | "Badminton" | "Kabaddi" | "Chess" | "Martial Arts" | "Cricket";
   team: string;
   gender: "Male" | "Female";
   photo: string;

@@ -157,7 +157,7 @@ export default function AppLayout() {
                 } ${collapsed ? "justify-center" : ""}`}
               >
                 <item.icon className={`h-[18px] w-[18px] flex-shrink-0 transition-all ${active ? "text-[#C9F85A]" : item.isElite ? "text-[#4DD2FF]" : "group-hover:text-[#C9F85A]"}`} />
-                {!collapsed && <span className={item.isElite ? "bg-gradient-to-r from-[#D97706] via-[#FDE68A] to-[#D97706] bg-clip-text text-transparent font-black drop-shadow-[0_0_8px_rgba(251,191,36,0.2)]" : ""}>{item.label}</span>}
+                {!collapsed && <span className={item.isElite ? "bg-gradient-to-r from-[#4DD2FF] to-[#A78BFA] bg-clip-text text-transparent" : ""}>{item.label}</span>}
                 {active && (
                    <motion.div layoutId="nav-glow" className="absolute left-[-12px] w-1 h-5 bg-[#C9F85A] rounded-full shadow-[0_0_10px_rgba(201,248,90,0.5)]" />
                 )}
@@ -224,7 +224,7 @@ export default function AppLayout() {
                       >
                         <div className="flex items-center gap-4">
                            <item.icon className={`h-5 w-5 ${active ? "text-[#C9F85A]" : item.isElite ? "text-[#4DD2FF]" : ""}`} />
-                           <span className={item.isElite ? "bg-gradient-to-r from-[#D97706] via-[#FDE68A] to-[#D97706] bg-clip-text text-transparent font-black drop-shadow-[0_0_8px_rgba(251,191,36,0.2)]" : ""}>{item.label}</span>
+                           <span className={item.isElite ? "bg-gradient-to-r from-[#4DD2FF] to-[#A78BFA] bg-clip-text text-transparent font-black" : ""}>{item.label}</span>
                         </div>
                       </Link>
                     );

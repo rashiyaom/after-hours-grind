@@ -31,11 +31,7 @@ export default function PublicLayout() {
           
           <div className="hidden md:flex items-center gap-8">
             {navLinks.map((l) => (
-              <Link 
-                key={l.path} 
-                to={l.path} 
-                className={`text-xs font-bold tracking-widest uppercase transition-colors ${l.label === 'ELITE' ? 'bg-gradient-to-r from-[#D97706] via-[#FDE68A] to-[#D97706] bg-clip-text text-transparent drop-shadow-[0_0_8px_rgba(251,191,36,0.3)]' : 'text-white/70 hover:text-[#4DD2FF]'}`}
-              >
+              <Link key={l.path} to={l.path} className="text-xs font-bold tracking-widest uppercase text-white/70 hover:text-[#4DD2FF] transition-colors">
                 {l.label}
               </Link>
             ))}
@@ -88,9 +84,7 @@ export default function PublicLayout() {
                     className="text-[2.5rem] leading-[1] font-black uppercase text-white/90 hover:text-[#4DD2FF] tracking-tighter block"
                     onClick={() => setMobileMenuOpen(false)}
                   >
-                    <span className={l.label === 'ELITE' ? "bg-gradient-to-r from-[#D97706] via-[#FDE68A] to-[#D97706] bg-clip-text text-transparent drop-shadow-[0_0_15px_rgba(251,191,36,0.4)]" : "text-white/90 hover:text-[#4DD2FF]"}>
-                      {l.label}
-                    </span>
+                    {l.label}
                   </Link>
                 </motion.div>
               ))}

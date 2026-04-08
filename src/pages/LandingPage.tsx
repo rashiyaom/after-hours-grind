@@ -418,61 +418,62 @@ export default function LandingPage() {
       </section>
 
       {/* ── ELITE ATHLETES TEASER ──────────────────────── */}
-      {/* ── ELITE ATHLETES TEASER ──────────────────────── */}
-      <section style={{ borderTop: "1px solid rgba(255,255,255,0.06)", padding: "clamp(5rem,15vw,10rem) 0", overflow: "visible", position: "relative" }}>
-        <div style={{ position: "absolute", top: "50%", left: "50%", transform: "translate(-50%, -50%)", width: "80vw", height: "80vw", background: "radial-gradient(circle, rgba(77,210,255,0.05) 0%, transparent 70%)", filter: "blur(80px)", pointerEvents: "none" }} />
+      <section style={{ borderTop: "1px solid rgba(255,255,255,0.06)", padding: "clamp(3.5rem,10vw,8rem) 0", overflow: "hidden", position: "relative" }}>
+        <div style={{ position: "absolute", top: "50%", left: "50%", transform: "translate(-50%, -50%)", width: "80vw", height: "80vw", background: "radial-gradient(circle, rgba(77,210,255,0.04) 0%, transparent 70%)", filter: "blur(60px)", pointerEvents: "none" }} />
         
         <div className="max-w-[1400px] mx-auto px-6 sm:px-12 grid grid-cols-1 lg:grid-cols-2 gap-24 items-center">
           <motion.div {...revealLeft(0)} className="order-2 lg:order-1 relative">
-            <div className="relative aspect-[1/1] max-w-[650px] mx-auto group">
-              {/* Outer Glow */}
-              <div className="absolute -inset-10 bg-gradient-to-tr from-[#4DD2FF]/20 via-[#A78BFA]/10 to-transparent rounded-full blur-[100px] opacity-40 group-hover:opacity-60 transition-opacity duration-1000" />
+            <div className="relative aspect-[3/4] max-w-[500px] mx-auto group">
+              {/* Magazine Background Decor */}
+              <div className="absolute -inset-4 bg-gradient-to-tr from-[#4DD2FF]/20 to-transparent rounded-[40px] blur-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-1000" />
               
-              <div className="relative h-full w-full rounded-[48px] overflow-hidden border border-white/10 shadow-[0_40px_100px_rgba(0,0,0,0.8)] transition-transform duration-1000 group-hover:scale-[1.02]">
-                <img src="/charusat_sports_poster_indian_1775636165075.png" alt="Charusat Elite Poster" className="w-full h-full object-cover" />
-                <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent opacity-60" />
+              <div className="relative h-full w-full rounded-[32px] overflow-visible border border-white/10 shadow-2xl transition-transform duration-700 group-hover:scale-[1.02]">
+                <img src="/charusat_elite_magazine_cover.png" alt="Elite Magazine Cover" className="w-full h-full object-cover rounded-[32px] grayscale-[0.5] group-hover:grayscale-0 transition-all duration-1000" />
+                <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent opacity-80" />
                 
-                <div className="absolute bottom-12 left-12 right-12">
-                  <div className="inline-flex items-center gap-3 px-4 py-2 rounded-full bg-black/60 border border-white/20 text-white text-[10px] font-black uppercase tracking-[0.3em] mb-6 backdrop-blur-xl">
-                    <ShieldCheck size={14} className="text-[#4DD2FF]" /> OFFICIAL SPOURAL REGISTRY
-                  </div>
-                  <h3 className="text-4xl font-black text-white uppercase tracking-tighter leading-[1.1] mb-2">THE SPIRIT OF <br /> CHAMPIONS</h3>
+                <div className="absolute bottom-8 left-8 right-8">
+                  <motion.div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 border border-white/20 text-white text-[9px] font-black uppercase tracking-widest mb-4 backdrop-blur-md">
+                    <ShieldCheck size={12} className="text-[#4DD2FF]" /> Official Registry
+                  </motion.div>
+                  <h3 className="text-3xl font-black text-white uppercase tracking-tighter leading-tight mb-2 italic">The Archive <br /> of Excellence</h3>
+                  <p className="text-[10px] text-white/40 font-bold uppercase tracking-widest">Charotar University of Science & Technology</p>
                 </div>
               </div>
             </div>
           </motion.div>
 
-          <div className="order-1 lg:order-2 space-y-12">
-            <div className="space-y-8">
-              <motion.div {...revealUp(0)} className="flex items-center gap-4">
-                 <div className="w-3 h-3 rounded-full bg-[#4DD2FF] shadow-[0_0_15px_#4DD2FF]" />
-                 <span className="text-xs font-black uppercase tracking-[0.5em] text-white/40">CHARUSAT ATHLETIC SECTOR</span>
+          <div className="order-1 lg:order-2 space-y-10">
+            <div className="space-y-6">
+              <motion.div {...revealUp(0)} className="flex items-center gap-3">
+                 <div className="w-2 h-2 rounded-full bg-[#4DD2FF] animate-pulse" />
+                 <span className="text-[10px] font-black uppercase tracking-[0.4em] text-white/30">Registry Module v2.0</span>
               </motion.div>
-              <motion.h2 {...revealUp(0.1)} className="text-7xl sm:text-9xl font-black tracking-[-0.05em] uppercase leading-[1] overflow-visible py-4">
-                ELITE <br /> <span className="bg-gradient-to-r from-[#4DD2FF] via-[#A78BFA] to-[#C9F85A] bg-clip-text text-transparent opacity-90">ROSTER</span>
+              <motion.h2 {...revealUp(0.1)} className="text-6xl sm:text-8xl font-black tracking-[-0.04em] uppercase leading-tight italic pb-4">
+                CHARUSAT <br /> <span className="bg-gradient-to-r from-[#4DD2FF] to-[#A78BFA] bg-clip-text text-transparent">ELITE</span>
               </motion.h2>
-              <motion.p {...revealUp(0.2)} className="text-xl text-white/40 font-light leading-relaxed max-w-lg border-l-2 border-[#4DD2FF]/20 pl-8">
-                A celebration of triumph. Documenting the legends of Charotar University—from the cricket pitch to the martial arts dojo. Pure performance architecture.
+              <motion.p {...revealUp(0.2)} className="text-lg text-white/40 font-light leading-relaxed max-w-lg">
+                The definitive visual archive for CHARUSAT athletics. From inter-university tournaments to national medals, we document the grit and glory of our student-athletes.
               </motion.p>
             </div>
 
-            <div className="space-y-6 py-10 border-y border-white/5">
-               {[
-                 { icon: Medal, label: "Spoural Champion Dossiers" },
-                 { icon: Users, label: "Official Unit Personnel Data" }
-               ].map((item, i) => (
-                 <div key={i} className="flex items-center gap-6">
-                    <div className="p-3 rounded-2xl bg-white/5 border border-white/10 text-[#4DD2FF]">
-                       <item.icon className="h-5 w-5" />
-                    </div>
-                    <span className="text-xs font-black uppercase tracking-[0.3em] text-white/60">{item.label}</span>
-                 </div>
-               ))}
+            <div className="space-y-4 py-8 border-y border-white/5">
+               <div className="flex items-center gap-4">
+                  <div className="p-2 rounded-lg bg-white/5 border border-white/10">
+                     <Medal className="h-4 w-4 text-[#4DD2FF]" />
+                  </div>
+                  <span className="text-[10px] font-black uppercase tracking-[0.2em] text-white/60">Verified Athletic Dossiers</span>
+               </div>
+               <div className="flex items-center gap-4">
+                  <div className="p-2 rounded-lg bg-white/5 border border-white/10">
+                     <Users className="h-4 w-4 text-[#4DD2FF]" />
+                  </div>
+                  <span className="text-[10px] font-black uppercase tracking-[0.2em] text-white/60">Squad Unit Historical Data</span>
+               </div>
             </div>
 
             <motion.div {...revealUp(0.5)}>
-              <Link to="/athletes" className="inline-flex items-center gap-10 px-16 py-8 rounded-full bg-white text-black font-black uppercase text-xs tracking-[0.4em] hover:bg-[#4DD2FF] transition-all shadow-[0_30px_60px_rgba(255,255,255,0.1)] group">
-                ENTER ARCHIVES <ArrowRight className="h-6 w-6 group-hover:translate-x-3 transition-transform" />
+              <Link to="/athletes" className="inline-flex items-center gap-6 px-12 py-6 rounded-full bg-white text-black font-black uppercase text-xs tracking-[0.2em] hover:bg-[#4DD2FF] transition-all shadow-2xl group">
+                Enter Archives <ArrowRight className="h-5 w-5 group-hover:translate-x-2 transition-transform" />
               </Link>
             </motion.div>
           </div>
