@@ -8,7 +8,7 @@ import {
   useInView,
   animate,
 } from "framer-motion";
-import { ArrowRight, ArrowUpRight, Zap, Lock, BarChart3, Clock, ChevronDown, Calendar, Trophy, MapPin, Instagram } from "lucide-react";
+import { ArrowRight, ArrowUpRight, Zap, Lock, BarChart3, Clock, ChevronDown, Calendar, Trophy, MapPin, Instagram, ShieldCheck, Medal, Users } from "lucide-react";
 import { useRef, useEffect, useState } from "react";
 import { useAppStore } from "@/hooks/useStore";
 
@@ -252,22 +252,22 @@ export default function LandingPage() {
         <div style={{ position: "relative", zIndex: 2, padding: "calc(64px + clamp(1.8rem,5vw,1.9rem)) clamp(1.5rem,5vw,6vw) clamp(2.5rem,6vh,3rem)", maxWidth: 1400, width: "100%", flex: 1 }}>
           <motion.div {...heroUp(0.1)} className="hidden sm:block" style={{ marginBottom: "1.6rem" }}>
             <span style={{ display: "inline-block", fontSize: "clamp(0.58rem,1.9vw,0.7rem)", fontWeight: 700, letterSpacing: "0.18em", color: "#4DD2FF", padding: "5px 10px", border: "1px solid rgba(77,210,255,0.3)" }}>
-              THE AFTER HOURS SOCIALS — EST. THE GRIND NEVER STOPS
+              THEAFTERHOUR SOCIALS — SPORTS -MADE SOCIAL
             </span>
           </motion.div>
 
-          <div style={{ overflow: "hidden" }}>
-            <motion.h1 {...heroUp(0.18)} style={{ fontSize: "clamp(2.6rem,9.6vw,9rem)", fontWeight: 800, lineHeight: 0.9, letterSpacing: "-0.03em", color: "#EFEFEF", margin: 0, textTransform: "uppercase" }}>
+          <div style={{ overflow: "hidden", paddingBottom: "0.2em" }}>
+            <motion.h1 {...heroUp(0.18)} style={{ fontSize: "clamp(2.6rem,9.6vw,9rem)", fontWeight: 800, lineHeight: 0.98, letterSpacing: "-0.03em", color: "#EFEFEF", margin: 0, textTransform: "uppercase" }}>
               NO FLUFF.
             </motion.h1>
           </div>
-          <div className="hidden sm:block" style={{ overflow: "hidden" }}>
-            <motion.h1 {...heroUp(0.24)} style={{ fontSize: "clamp(3.5rem,10vw,9rem)", fontWeight: 800, lineHeight: 0.92, letterSpacing: "-0.03em", margin: 0, textTransform: "uppercase", WebkitTextStroke: "1px rgba(255,255,255,0.2)", color: "transparent" }}>
+          <div className="hidden sm:block" style={{ overflow: "hidden", paddingBottom: "0.2em" }}>
+            <motion.h1 {...heroUp(0.24)} style={{ fontSize: "clamp(3.5rem,10vw,9rem)", fontWeight: 800, lineHeight: 0.98, letterSpacing: "-0.03em", margin: 0, textTransform: "uppercase", WebkitTextStroke: "1px rgba(255,255,255,0.2)", color: "transparent" }}>
               JUST EXECUTION.
             </motion.h1>
           </div>
-          <div style={{ overflow: "hidden" }}>
-            <motion.h1 {...heroUp(0.30)} style={{ fontSize: "clamp(2.9rem,10vw,9rem)", fontWeight: 800, lineHeight: 0.9, letterSpacing: "-0.03em", color: "#4DD2FF", margin: 0, textTransform: "uppercase" }}>
+          <div style={{ overflow: "hidden", paddingBottom: "0.2em" }}>
+            <motion.h1 {...heroUp(0.30)} style={{ fontSize: "clamp(2.9rem,10vw,9rem)", fontWeight: 800, lineHeight: 0.98, letterSpacing: "-0.03em", color: "#4DD2FF", margin: 0, textTransform: "uppercase" }}>
               AFTER HOURS.
             </motion.h1>
           </div>
@@ -380,7 +380,7 @@ export default function LandingPage() {
       {/* ── IDENTITY SECTION ─────────────────────────────── */}
       <section style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", minHeight: "60vh", borderTop: "1px solid rgba(255,255,255,0.06)" }}>
         <motion.div {...revealUp(0, 40)} style={{ background: "#4DD2FF", padding: "clamp(2.5rem,7vw,5rem) clamp(1.5rem,6vw,4rem)", display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
-          <motion.span {...fadeIn(0.2)} style={{ fontSize: "0.65rem", fontWeight: 700, letterSpacing: "0.25em", color: "rgba(0,0,0,0.5)", textTransform: "uppercase" }}>The After Hours Socials</motion.span>
+          <motion.span {...fadeIn(0.2)} style={{ fontSize: "0.65rem", fontWeight: 700, letterSpacing: "0.25em", color: "rgba(0,0,0,0.5)", textTransform: "uppercase" }}>TheAfterHour Socials</motion.span>
           <div>
             <motion.div {...revealUp(0.15, 24)} style={{ fontSize: "clamp(2.2rem,5vw,4.5rem)", fontWeight: 800, lineHeight: 0.9, letterSpacing: "-0.03em", color: "#000", textTransform: "uppercase" }}>BUILT FOR THOSE WHO SHOW UP.</motion.div>
             <motion.div {...revealUp(0.3)}>
@@ -415,6 +415,68 @@ export default function LandingPage() {
             Sign In
           </Link>
         </motion.div>
+      </section>
+
+      {/* ── ELITE ATHLETES TEASER ──────────────────────── */}
+      {/* ── ELITE ATHLETES TEASER ──────────────────────── */}
+      <section style={{ borderTop: "1px solid rgba(255,255,255,0.06)", padding: "clamp(5rem,15vw,10rem) 0", overflow: "visible", position: "relative" }}>
+        <div style={{ position: "absolute", top: "50%", left: "50%", transform: "translate(-50%, -50%)", width: "80vw", height: "80vw", background: "radial-gradient(circle, rgba(77,210,255,0.05) 0%, transparent 70%)", filter: "blur(80px)", pointerEvents: "none" }} />
+        
+        <div className="max-w-[1400px] mx-auto px-6 sm:px-12 grid grid-cols-1 lg:grid-cols-2 gap-24 items-center">
+          <motion.div {...revealLeft(0)} className="order-2 lg:order-1 relative">
+            <div className="relative aspect-[1/1] max-w-[650px] mx-auto group">
+              {/* Outer Glow */}
+              <div className="absolute -inset-10 bg-gradient-to-tr from-[#4DD2FF]/20 via-[#A78BFA]/10 to-transparent rounded-full blur-[100px] opacity-40 group-hover:opacity-60 transition-opacity duration-1000" />
+              
+              <div className="relative h-full w-full rounded-[48px] overflow-hidden border border-white/10 shadow-[0_40px_100px_rgba(0,0,0,0.8)] transition-transform duration-1000 group-hover:scale-[1.02]">
+                <img src="/charusat_sports_poster_indian_1775636165075.png" alt="Charusat Elite Poster" className="w-full h-full object-cover" />
+                <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent opacity-60" />
+                
+                <div className="absolute bottom-12 left-12 right-12">
+                  <div className="inline-flex items-center gap-3 px-4 py-2 rounded-full bg-black/60 border border-white/20 text-white text-[10px] font-black uppercase tracking-[0.3em] mb-6 backdrop-blur-xl">
+                    <ShieldCheck size={14} className="text-[#4DD2FF]" /> OFFICIAL SPOURAL REGISTRY
+                  </div>
+                  <h3 className="text-4xl font-black text-white uppercase tracking-tighter leading-[1.1] mb-2">THE SPIRIT OF <br /> CHAMPIONS</h3>
+                </div>
+              </div>
+            </div>
+          </motion.div>
+
+          <div className="order-1 lg:order-2 space-y-12">
+            <div className="space-y-8">
+              <motion.div {...revealUp(0)} className="flex items-center gap-4">
+                 <div className="w-3 h-3 rounded-full bg-[#4DD2FF] shadow-[0_0_15px_#4DD2FF]" />
+                 <span className="text-xs font-black uppercase tracking-[0.5em] text-white/40">CHARUSAT ATHLETIC SECTOR</span>
+              </motion.div>
+              <motion.h2 {...revealUp(0.1)} className="text-7xl sm:text-9xl font-black tracking-[-0.05em] uppercase leading-[1] overflow-visible py-4">
+                ELITE <br /> <span className="bg-gradient-to-r from-[#4DD2FF] via-[#A78BFA] to-[#C9F85A] bg-clip-text text-transparent opacity-90">ROSTER</span>
+              </motion.h2>
+              <motion.p {...revealUp(0.2)} className="text-xl text-white/40 font-light leading-relaxed max-w-lg border-l-2 border-[#4DD2FF]/20 pl-8">
+                A celebration of triumph. Documenting the legends of Charotar University—from the cricket pitch to the martial arts dojo. Pure performance architecture.
+              </motion.p>
+            </div>
+
+            <div className="space-y-6 py-10 border-y border-white/5">
+               {[
+                 { icon: Medal, label: "Spoural Champion Dossiers" },
+                 { icon: Users, label: "Official Unit Personnel Data" }
+               ].map((item, i) => (
+                 <div key={i} className="flex items-center gap-6">
+                    <div className="p-3 rounded-2xl bg-white/5 border border-white/10 text-[#4DD2FF]">
+                       <item.icon className="h-5 w-5" />
+                    </div>
+                    <span className="text-xs font-black uppercase tracking-[0.3em] text-white/60">{item.label}</span>
+                 </div>
+               ))}
+            </div>
+
+            <motion.div {...revealUp(0.5)}>
+              <Link to="/athletes" className="inline-flex items-center gap-10 px-16 py-8 rounded-full bg-white text-black font-black uppercase text-xs tracking-[0.4em] hover:bg-[#4DD2FF] transition-all shadow-[0_30px_60px_rgba(255,255,255,0.1)] group">
+                ENTER ARCHIVES <ArrowRight className="h-6 w-6 group-hover:translate-x-3 transition-transform" />
+              </Link>
+            </motion.div>
+          </div>
+        </div>
       </section>
 
       {/* ── EVENTS TEASER ───────────────────────────────── */}
@@ -452,15 +514,15 @@ export default function LandingPage() {
       <motion.footer {...fadeIn(0)} style={{ borderTop: "1px solid rgba(255,255,255,0.06)", padding: "2rem clamp(1rem,6vw,6vw)", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "1rem" }}>
         <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <img src="/logo.jpg" alt="The After Hours Socials Logo" className="w-6 h-6 object-cover rounded shadow-[0_0_12px_rgba(255,255,255,0.1)]" />
-            <span style={{ fontSize: "0.7rem", fontWeight: 700, letterSpacing: "0.18em", color: "rgba(255,255,255,0.3)", textTransform: "uppercase" }}>The After Hours Socials</span>
+            <img src="/logo.jpg" alt="TheAfterHour Socials Logo" className="w-6 h-6 object-cover rounded shadow-[0_0_12px_rgba(255,255,255,0.1)]" />
+            <span style={{ fontSize: "0.7rem", fontWeight: 700, letterSpacing: "0.18em", color: "rgba(255,255,255,0.3)", textTransform: "uppercase" }}>TheAfterHour Socials</span>
           </div>
           <div style={{ width: 1, height: 16, background: "rgba(255,255,255,0.1)" }} />
           <a href="https://www.instagram.com/the.afterhoursocials/" target="_blank" rel="noopener noreferrer" style={{ display: "flex", alignItems: "center", gap: 6, color: "rgba(255,255,255,0.4)", textDecoration: "none", fontSize: "0.7rem", fontWeight: 600, transition: "color 0.2s" }} onMouseEnter={(e) => (e.currentTarget.style.color = "#4DD2FF")} onMouseLeave={(e) => (e.currentTarget.style.color = "rgba(255,255,255,0.4)")}>
             <Instagram size={14} /> Instagram
           </a>
         </div>
-        <span style={{ fontSize: "0.65rem", color: "rgba(255,255,255,0.15)", letterSpacing: "0.1em" }}>© 2026 — GRIND NEVER STOPS</span>
+        <span style={{ fontSize: "0.65rem", color: "rgba(255,255,255,0.15)", letterSpacing: "0.1em" }}>© 2026 — SPORTS -MADE SOCIAL</span>
       </motion.footer>
 
     </div>

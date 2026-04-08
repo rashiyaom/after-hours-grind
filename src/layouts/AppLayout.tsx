@@ -4,7 +4,7 @@ import { useState } from "react";
 import {
   LayoutDashboard, Calendar, BarChart3, Rss, Trophy, User, Users,
   Bell, Settings, Flame, Menu, X, ChevronLeft,
-  ClipboardList, Award, LogOut, Plus, Search, Zap, Activity, Shield
+  ClipboardList, Award, LogOut, Plus, Search, Zap, Activity, Shield, Star
 } from "lucide-react";
 import { useAppStore } from "@/hooks/useStore";
 import { LUXURY_SPRING, LUXURY_TWEEN_MEDIUM } from "@/lib/motionTokens";
@@ -15,6 +15,7 @@ const studentNav = [
   { label: "Progress", path: "/student/progress", icon: BarChart3 },
   { label: "Feed", path: "/student/feed", icon: Rss },
   { label: "Community", path: "/student/community", icon: Users },
+  { label: "ELITE", path: "/athletes", icon: Star, isElite: true },
   { label: "Leaderboard", path: "/student/leaderboard", icon: Trophy },
   { label: "Profile", path: "/student/profile", icon: User },
   { label: "Achievements", path: "/student/achievements", icon: Award },
@@ -39,6 +40,7 @@ const mobileTrainerBottomNav = [
 const trainerNav = [
   { label: "Dashboard", path: "/trainer/dashboard", icon: LayoutDashboard },
   { label: "Students", path: "/trainer/students", icon: Users },
+  { label: "ELITE", path: "/athletes", icon: Star, isElite: true },
   { label: "Auto Plans Queue", path: "/trainer/auto-plans", icon: Zap },
   { label: "Plan Builder", path: "/trainer/plan-builder", icon: ClipboardList },
 ];
@@ -46,6 +48,7 @@ const trainerNav = [
 const adminNav = [
   { label: "Dashboard", path: "/admin/dashboard", icon: LayoutDashboard },
   { label: "Users", path: "/admin/users", icon: Users },
+  { label: "ELITE", path: "/athletes", icon: Star, isElite: true },
   { label: "Events", path: "/admin/events", icon: Calendar },
   { label: "Content", path: "/admin/content", icon: Rss },
   { label: "Permissions", path: "/admin/permissions", icon: Shield },
@@ -116,7 +119,7 @@ export default function AppLayout() {
               <div className="w-8 h-8 rounded-lg bg-[#C9F85A]/15 flex items-center justify-center border border-[#C9F85A]/25 transition-transform group-hover:scale-105 overflow-hidden">
                  <img src="/logo.jpg" alt="Logo" className="w-full h-full object-cover" />
               </div>
-              <span className="font-display font-bold text-sm tracking-widest text-foreground uppercase">After Hours Socials</span>
+              <span className="font-display font-bold text-sm tracking-widest text-foreground uppercase">TheAfterHour Socials</span>
             </Link>
           )}
           {collapsed && (
@@ -148,11 +151,13 @@ export default function AppLayout() {
                 className={`flex items-center gap-4 px-4 py-3 rounded-xl text-xs font-semibold tracking-wide transition-all relative group ${
                   active
                     ? "bg-[#C9F85A]/8 text-white border border-[#C9F85A]/20"
-                    : "text-white/40 hover:text-white hover:bg-white/[0.03]"
+                    : item.isElite 
+                      ? "text-[#4DD2FF] hover:bg-[#4DD2FF]/5" 
+                      : "text-white/40 hover:text-white hover:bg-white/[0.03]"
                 } ${collapsed ? "justify-center" : ""}`}
               >
-                <item.icon className={`h-[18px] w-[18px] flex-shrink-0 transition-all ${active ? "text-[#C9F85A]" : "group-hover:text-[#C9F85A]"}`} />
-                {!collapsed && <span>{item.label}</span>}
+                <item.icon className={`h-[18px] w-[18px] flex-shrink-0 transition-all ${active ? "text-[#C9F85A]" : item.isElite ? "text-[#4DD2FF]" : "group-hover:text-[#C9F85A]"}`} />
+                {!collapsed && <span className={item.isElite ? "bg-gradient-to-r from-[#D97706] via-[#FDE68A] to-[#D97706] bg-clip-text text-transparent font-black drop-shadow-[0_0_8px_rgba(251,191,36,0.2)]" : ""}>{item.label}</span>}
                 {active && (
                    <motion.div layoutId="nav-glow" className="absolute left-[-12px] w-1 h-5 bg-[#C9F85A] rounded-full shadow-[0_0_10px_rgba(201,248,90,0.5)]" />
                 )}
@@ -178,7 +183,7 @@ export default function AppLayout() {
           <div className="w-8 h-8 rounded-lg bg-[#C9F85A]/15 flex items-center justify-center border border-[#C9F85A]/25 overflow-hidden">
              <img src="/logo.jpg" alt="Logo" className="w-full h-full object-cover" />
           </div>
-          <span className="font-bold text-xs tracking-widest text-white uppercase">After Hours Socials</span>
+          <span className="font-bold text-xs tracking-widest text-white uppercase">TheAfterHour Socials</span>
         </Link>
         <div className="flex items-center gap-4">
           {!isTrainer && (
@@ -218,8 +223,8 @@ export default function AppLayout() {
                         className={`flex items-center justify-between p-4 rounded-xl text-sm font-medium transition-all border ${active ? "bg-[#C9F85A]/8 border-[#C9F85A]/20 text-white" : "bg-transparent border-transparent text-white/40 hover:text-white"}`}
                       >
                         <div className="flex items-center gap-4">
-                           <item.icon className={`h-5 w-5 ${active ? "text-[#C9F85A]" : ""}`} />
-                           <span>{item.label}</span>
+                           <item.icon className={`h-5 w-5 ${active ? "text-[#C9F85A]" : item.isElite ? "text-[#4DD2FF]" : ""}`} />
+                           <span className={item.isElite ? "bg-gradient-to-r from-[#D97706] via-[#FDE68A] to-[#D97706] bg-clip-text text-transparent font-black drop-shadow-[0_0_8px_rgba(251,191,36,0.2)]" : ""}>{item.label}</span>
                         </div>
                       </Link>
                     );

@@ -45,6 +45,7 @@ import AdminEventsManager from "@/pages/admin/EventsManager";
 
 // Public pages
 import EventsPage from "@/pages/EventsPage";
+import AthletesPage from "@/pages/AthletesPage";
 
 const queryClient = new QueryClient();
 
@@ -59,6 +60,7 @@ const App = () => (
           <Route element={<PublicLayout />}>
             <Route path="/" element={<LandingPage />} />
             <Route path="/events" element={<EventsPage />} />
+            <Route path="/athletes" element={<AthletesPage />} />
           </Route>
           <Route path="/login" element={<LoginPage />} />
           <Route path="/signup" element={<SignupPage />} />

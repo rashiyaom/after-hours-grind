@@ -8,6 +8,7 @@ const navLinks = [
   { label: "Home", path: "/" },
   { label: "Features", path: "/#features" },
   { label: "Events", path: "/events" },
+  { label: "ELITE", path: "/athletes" },
 ];
 
 export default function PublicLayout() {
@@ -25,12 +26,16 @@ export default function PublicLayout() {
         <div className="max-w-[1400px] mx-auto flex items-center justify-between h-16 px-4 sm:px-6">
           <Link to="/" className="flex items-center gap-2 relative z-[101]">
             <img src="/logo.jpg" alt="Logo" className="w-5 h-5 object-cover rounded shadow-[0_0_12px_rgba(255,255,255,0.1)]" />
-            <span className="font-bold text-[0.75rem] tracking-[0.18em] text-white uppercase">The After Hours Socials</span>
+            <span className="font-bold text-[0.75rem] tracking-[0.18em] text-white uppercase">TheAfterHour Socials</span>
           </Link>
           
           <div className="hidden md:flex items-center gap-8">
             {navLinks.map((l) => (
-              <Link key={l.path} to={l.path} className="text-xs font-bold tracking-widest uppercase text-white/70 hover:text-[#4DD2FF] transition-colors">
+              <Link 
+                key={l.path} 
+                to={l.path} 
+                className={`text-xs font-bold tracking-widest uppercase transition-colors ${l.label === 'ELITE' ? 'bg-gradient-to-r from-[#D97706] via-[#FDE68A] to-[#D97706] bg-clip-text text-transparent drop-shadow-[0_0_8px_rgba(251,191,36,0.3)]' : 'text-white/70 hover:text-[#4DD2FF]'}`}
+              >
                 {l.label}
               </Link>
             ))}
@@ -83,7 +88,9 @@ export default function PublicLayout() {
                     className="text-[2.5rem] leading-[1] font-black uppercase text-white/90 hover:text-[#4DD2FF] tracking-tighter block"
                     onClick={() => setMobileMenuOpen(false)}
                   >
-                    {l.label}
+                    <span className={l.label === 'ELITE' ? "bg-gradient-to-r from-[#D97706] via-[#FDE68A] to-[#D97706] bg-clip-text text-transparent drop-shadow-[0_0_15px_rgba(251,191,36,0.4)]" : "text-white/90 hover:text-[#4DD2FF]"}>
+                      {l.label}
+                    </span>
                   </Link>
                 </motion.div>
               ))}

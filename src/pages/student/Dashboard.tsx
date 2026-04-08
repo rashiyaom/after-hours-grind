@@ -7,6 +7,7 @@ import {
   Check,
   Flame,
   Search,
+  Star,
   Target,
   Trophy,
 } from "lucide-react";
@@ -140,7 +141,7 @@ export default function StudentDashboard() {
 
   const handleDownloadSummary = () => {
     const lines = [
-      `The After Hours Socials Dashboard Summary`,
+      `TheAfterHour Socials Dashboard Summary`,
       `Student: ${s.name}`,
       `Generated At: ${new Date().toLocaleString()}`,
       `Tab: ${activeTab}`,
@@ -582,6 +583,9 @@ export default function StudentDashboard() {
             </Link>
             <Link to="/student/leaderboard" className="rounded-xl bg-[#1D1D1D] border border-white/8 px-3 py-2 text-center text-xs font-semibold text-white/70 hover:text-white hover:bg-[#252525] transition-all">
               Leaderboard
+            </Link>
+            <Link to="/athletes" className="col-span-2 rounded-xl bg-gradient-to-r from-[#C9F85A] to-[#4DD2FF] px-3 py-3 text-center text-[10px] font-black uppercase tracking-[0.2em] text-black hover:opacity-90 transition-all flex items-center justify-center gap-2">
+              <Star className="h-3 w-3 fill-black" /> Open Elite Roster
             </Link>
           </div>
         </motion.div>

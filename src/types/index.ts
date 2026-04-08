@@ -348,4 +348,23 @@ export interface AHGEvent {
   createdAt: string;
   createdBy: string;      // admin userId
 }
+export interface Athlete {
+  id: string;
+  name: string;
+  sport: "Football" | "Basketball" | "Karate" | "Judo" | "Tennis" | "Badminton" | "Kabaddi" | "Chess" | "Martial Arts" | "Cricket" | "Volleyball";
+  team: string;
+  gender: "Male" | "Female";
+  photo: string;
+  achievements: string[];
+  description: string;
+  role: string;
+}
+
+export interface SportsTeam {
+  name: string;
+  sport: string;
+  members: Athlete[];
+  achievements: string[];
+  photo: string;
+}
 
