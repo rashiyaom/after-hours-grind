@@ -1,18 +1,24 @@
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { Shield, Users, FileWarning, EyeOff, Download, LineChart } from "lucide-react";
+import { Shield, Users, FileWarning, EyeOff, Download, LineChart, CheckCircle2, AlertCircle, Clock, ChevronDown, X } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import Button from "@/components/ui/button";
-import { useCurrentUser, usePermissions, usePosts, useSystem, useUsers } from "@/hooks/useStore";
+import { useCurrentUser, usePermissions, usePosts, useSystem, useUsers, useAppStore } from "@/hooks/useStore";
 
 const AdminDashboard = () => {
   const [rangeDays, setRangeDays] = useState<7 | 14 | 30>(7);
   const [actionFilter, setActionFilter] = useState<"all" | "moderation" | "user">("all");
+  const [reviewingId, setReviewingId] = useState<string | null>(null);
+  const [reviewNote, setReviewNote] = useState("");
+  const [submissionsExpanded, setSubmissionsExpanded] = useState(false);
   const currentUser = useCurrentUser();
   const permissions = usePermissions();
   const users = Object.values(useUsers());
   const posts = Object.values(usePosts());
   const { activityLogs } = useSystem();
+  const legacySubmissions = useAppStore((s) => s.system.legacySubmissions);
+  const approveTaskSubmission = useAppStore((s) => s.approveTaskSubmission);
+  const rejectTaskSubmission = useAppStore((s) => s.rejectTaskSubmission);
 
   const rolePermissions = currentUser ? permissions[currentUser.role] : undefined;
   const canManageUsers = Boolean(rolePermissions?.manage_users);
@@ -209,6 +215,102 @@ const AdminDashboard = () => {
             </div>
           )}
         </CardContent>
+      </Card>
+
+      {/* Submission Approval Section */}
+      <Card className="mt-6">
+        <CardHeader>
+          <CardTitle className="inline-flex items-center justify-between gap-2 w-full">
+            <span className="inline-flex items-center gap-2">
+              <Clock className="h-4 w-4" />
+              Task Submission Reviews
+              {legacySubmissions.filter((s) => s.status === "pending").length > 0 && (
+                <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-amber-500 text-[10px] font-bold text-black">
+                  {legacySubmissions.filter((s) => s.status === "pending").length}
+                </span>
+              )}
+            </span>
+            <button
+              onClick={() => setSubmissionsExpanded(!submissionsExpanded)}
+              className="text-xs font-medium text-muted-foreground"
+            >
+              <ChevronDown className={`h-4 w-4 transition-transform ${submissionsExpanded ? "rotate-180" : ""}`} />
+            </button>
+          </CardTitle>
+        </CardHeader>
+        {submissionsExpanded && (
+          <CardContent>
+            <p className="text-xs text-muted-foreground mb-4">
+              As admin, you can approve or reject task submissions for all students. Trainers can only approve their assigned students.
+            </p>
+            <div className="space-y-3">
+              {legacySubmissions.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No task submissions yet.</p>
+              ) : (
+                legacySubmissions.map((sub) => (
+                  <div key={sub.id} className="rounded-lg border p-4 space-y-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <p className="text-sm font-semibold">{sub.studentName}</p>
+                        <p className="text-xs text-muted-foreground">{sub.taskName} · {sub.timestamp}</p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full capitalize border ${
+                          sub.status === "approved" ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20" :
+                          sub.status === "rejected" ? "bg-red-500/10 text-red-500 border-red-500/20" :
+                          "bg-amber-500/10 text-amber-500 border-amber-500/20"
+                        }`}>{sub.status}</span>
+                        {sub.status === "pending" && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => setReviewingId(reviewingId === sub.id ? null : sub.id)}
+                          >
+                            {reviewingId === sub.id ? <X className="h-3 w-3" /> : "Review"}
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                    {reviewingId === sub.id && sub.status === "pending" && (
+                      <div className="pt-2 border-t space-y-2">
+                        <textarea
+                          value={reviewNote}
+                          onChange={(e) => setReviewNote(e.target.value)}
+                          placeholder="Admin feedback (required for rejection)..."
+                          className="w-full border border-input bg-background rounded-md px-3 py-2 text-sm min-h-[80px] resize-none focus:outline-none focus:ring-1 focus:ring-ring"
+                        />
+                        <div className="flex gap-2">
+                          <Button
+                            size="sm"
+                            onClick={() => {
+                              approveTaskSubmission(sub.id, reviewNote || undefined);
+                              setReviewingId(null);
+                              setReviewNote("");
+                            }}
+                          >
+                            <CheckCircle2 className="h-3 w-3 mr-1" /> Approve
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => {
+                              if (!reviewNote.trim()) return;
+                              rejectTaskSubmission(sub.id, reviewNote);
+                              setReviewingId(null);
+                              setReviewNote("");
+                            }}
+                          >
+                            <AlertCircle className="h-3 w-3 mr-1" /> Request Changes
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ))
+              )}
+            </div>
+          </CardContent>
+        )}
       </Card>
     </div>
   );

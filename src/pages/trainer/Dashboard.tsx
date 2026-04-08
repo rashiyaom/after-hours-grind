@@ -2,11 +2,10 @@ import { useState, useEffect, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Users, CheckCircle2, AlertCircle, Clock, Search,
-  ChevronRight, MessageSquare, Plus, Check, X,
-  Play, Calendar, Activity, Zap, TrendingUp, Eye
+  ChevronRight, MessageSquare, Plus, X,
+  Calendar, Activity, Zap, TrendingUp, Bell,
+  Play, ArrowUpRight, Flame, Target
 } from "lucide-react";
-import StatCard from "@/components/StatCard";
-import SectionHeader from "@/components/SectionHeader";
 import { useAppStore } from "@/hooks/useStore";
 import { useCurrentUser } from "@/hooks/useStore";
 import { Student, Trainer } from "@/types";
@@ -14,6 +13,8 @@ import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Link } from "react-router-dom";
 import { LUXURY_TWEEN_MEDIUM, LUXURY_TWEEN_SLOW } from "@/lib/motionTokens";
+
+type DashTab = "Submissions" | "Roster" | "Activity";
 
 export default function TrainerDashboard() {
   const currentUser = useCurrentUser();
@@ -23,23 +24,25 @@ export default function TrainerDashboard() {
   const legacySubmissions = useAppStore((s) => s.system.legacySubmissions);
   const isLoading = useAppStore((s) => s.system.isLoading);
   const setLoading = useAppStore((s) => s.setLoading);
+  const approveTaskSubmission = useAppStore((s) => s.approveTaskSubmission);
+  const rejectTaskSubmission = useAppStore((s) => s.rejectTaskSubmission);
 
   const [feedbackNote, setFeedbackNote] = useState("");
   const [reviewing, setReviewing] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedSubmissionId, setSelectedSubmissionId] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<DashTab>("Submissions");
 
   const trainer = currentUser?.role === "trainer" ? (currentUser as Trainer) : null;
 
-  // Derive all students (in a real app, filter by trainer assignment)
-  const allStudents = useMemo(() =>
-    Object.values(users).filter((u): u is Student => u.role === "student"),
-    [users]
-  );
-
+  // Strictly filter students assigned to this trainer only
   const assignedStudents = useMemo(() =>
-    allStudents.filter((s) => s.trainerId === trainer?.id || allStudents.length <= 5),
-    [allStudents, trainer?.id]
+    Object.values(users).filter((u): u is Student => {
+      if (u.role !== "student") return false;
+      const s = u as Student;
+      return s.trainerId === trainer?.id;
+    }),
+    [users, trainer?.id]
   );
 
   // Live-computed stats
@@ -49,66 +52,42 @@ export default function TrainerDashboard() {
       const plan = s.currentPlanId ? plans[s.currentPlanId] : null;
       return plan?.status === "active";
     }).length;
-    const pendingReviews = legacySubmissions.filter((s) => s.status === "pending").length;
+    // Submissions from my students only
+    const pendingReviews = legacySubmissions.filter((s) =>
+      s.status === "pending" && assignedStudents.some((st) => st.id === s.studentId)
+    ).length;
     const avgCompletion = totalStudents > 0
       ? Math.round(assignedStudents.reduce((sum, s) => sum + s.completionPercentage, 0) / totalStudents)
       : 0;
-    return [
-      { label: "Total Students", value: totalStudents.toString(), icon: Users },
-      { label: "Active Plans", value: activePlanCount.toString(), icon: Zap, trend: `+${activePlanCount}` },
-      { label: "Pending Reviews", value: pendingReviews.toString(), icon: Clock, accent: true },
-      { label: "Avg Completion", value: `${avgCompletion}%`, icon: Activity },
-    ];
+    return { totalStudents, activePlanCount, pendingReviews, avgCompletion };
   }, [assignedStudents, plans, legacySubmissions]);
 
-  // Filtered submissions
+  // Submissions from my assigned students only, filtered by search
+  const mySubmissions = useMemo(() => {
+    const studentIds = new Set(assignedStudents.map((s) => s.id));
+    return legacySubmissions.filter((s) => studentIds.has(s.studentId));
+  }, [legacySubmissions, assignedStudents]);
+
   const filteredSubmissions = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
-    if (!q) return legacySubmissions;
-    return legacySubmissions.filter(
+    if (!q) return mySubmissions;
+    return mySubmissions.filter(
       (s) => s.studentName.toLowerCase().includes(q) || s.taskName.toLowerCase().includes(q)
     );
-  }, [legacySubmissions, searchQuery]);
+  }, [mySubmissions, searchQuery]);
 
   const selectedSubmission = filteredSubmissions.find((s) => s.id === selectedSubmissionId) ?? null;
 
-  useEffect(() => {
-    setLoading(true);
-    const timer = setTimeout(() => setLoading(false), 600);
-    return () => clearTimeout(timer);
-  }, [setLoading]);
-
-  const handleReview = (id: string, action: "approved" | "rejected") => {
-    if (action === "rejected" && !feedbackNote.trim()) {
-      toast.error("Please provide feedback when requesting changes.");
-      return;
-    }
-    setReviewing(true);
-    setTimeout(() => {
-      useAppStore.setState((prev) => ({
-        ...prev,
-        system: {
-          ...prev.system,
-          legacySubmissions: prev.system.legacySubmissions.map((s) =>
-            s.id === id ? { ...s, status: action, trainerNote: feedbackNote || s.trainerNote } : s
-          ),
-        },
-      }));
-      setSelectedSubmissionId(null);
-      setFeedbackNote("");
-      setReviewing(false);
-      if (action === "approved") toast.success("Submission approved and student notified.");
-      else toast.warning("Changes requested. Student notified.");
-    }, 800);
-  };
-
-  // Auto-generated plans needing review
+  // Auto-generated plans needing review from my students
   const pendingAutoPlans = useMemo(() =>
-    Object.values(plans).filter((p) => p.type === "auto_generated" && p.status === "pending_trainer_approval"),
-    [plans]
+    Object.values(plans).filter((p) => {
+      if (p.type !== "auto_generated" || p.status !== "pending_trainer_approval") return false;
+      return assignedStudents.some((s) => s.currentPlanId === p.id);
+    }),
+    [plans, assignedStudents]
   );
 
-  // Recent posts by students
+  // Recent posts by my students
   const recentStudentPosts = useMemo(() =>
     Object.values(posts)
       .filter((p) => assignedStudents.some((s) => s.id === p.userId))
@@ -117,331 +96,521 @@ export default function TrainerDashboard() {
     [posts, assignedStudents]
   );
 
+  useEffect(() => {
+    setLoading(true);
+    const timer = setTimeout(() => setLoading(false), 600);
+    return () => clearTimeout(timer);
+  }, [setLoading]);
+
+  const handleApprove = (id: string) => {
+    setReviewing(true);
+    setTimeout(() => {
+      approveTaskSubmission(id, feedbackNote || undefined);
+      setSelectedSubmissionId(null);
+      setFeedbackNote("");
+      setReviewing(false);
+      toast.success("Task approved! Student has been notified and awarded points.");
+    }, 800);
+  };
+
+  const handleReject = (id: string) => {
+    if (!feedbackNote.trim()) {
+      toast.error("Please provide feedback when requesting changes.");
+      return;
+    }
+    setReviewing(true);
+    setTimeout(() => {
+      rejectTaskSubmission(id, feedbackNote);
+      setSelectedSubmissionId(null);
+      setFeedbackNote("");
+      setReviewing(false);
+      toast.warning("Changes requested. Student has been notified.");
+    }, 800);
+  };
+
+  const pendingCount = filteredSubmissions.filter((s) => s.status === "pending").length;
+
   if (isLoading) {
     return (
-      <div className="p-4 sm:p-6 lg:p-8 max-w-6xl mx-auto space-y-10 animate-in fade-in duration-700 pb-20">
-        <div className="flex justify-between items-end">
-          <div className="space-y-4">
-            <Skeleton className="h-4 w-32" />
-            <Skeleton className="h-12 w-80" />
-          </div>
-          <div className="flex gap-4">
-            <Skeleton className="h-12 w-32 rounded-2xl" />
-            <Skeleton className="h-12 w-48 rounded-2xl" />
+      <div className="mx-auto max-w-7xl space-y-6 p-4 sm:p-6 lg:p-8">
+        <div className="rounded-[32px] border border-white/10 bg-[#121212] p-6">
+          <Skeleton className="h-10 w-72 rounded-full" />
+          <div className="mt-6 grid grid-cols-2 gap-4 md:grid-cols-4">
+            {[1,2,3,4].map(i => <Skeleton key={i} className="h-28 rounded-3xl" />)}
           </div>
         </div>
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
-          {[1, 2, 3, 4].map((i) => <Skeleton key={i} className="h-40 rounded-[2rem]" />)}
-        </div>
-        <div className="grid lg:grid-cols-3 gap-10">
-          <Skeleton className="lg:col-span-2 h-[600px] rounded-[2.5rem]" />
-          <Skeleton className="h-[600px] rounded-[2.5rem]" />
+        <div className="grid gap-6 lg:grid-cols-12">
+          <Skeleton className="h-[500px] rounded-3xl lg:col-span-8" />
+          <Skeleton className="h-[500px] rounded-3xl lg:col-span-4" />
         </div>
       </div>
     );
   }
 
+  const kpiData = [
+    { label: "Students", value: stats.totalStudents.toString(), icon: Users, color: "#C9F85A", link: "/trainer/students" },
+    { label: "Active Plans", value: stats.activePlanCount.toString(), icon: Activity, color: "#4DD2FF", link: "/trainer/students" },
+    { label: "Pending Reviews", value: stats.pendingReviews.toString(), icon: Clock, color: "#FFD36E", link: "#", alert: stats.pendingReviews > 0 },
+    { label: "Avg Completion", value: `${stats.avgCompletion}%`, icon: TrendingUp, color: "#A78BFA", link: "/trainer/students" },
+  ];
+
   return (
-    <div className="p-4 sm:p-6 lg:p-8 max-w-6xl mx-auto space-y-10 pb-24">
-      {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-8 animate-in slide-in-from-left duration-700">
-        <div className="space-y-1">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-primary/10 border border-primary/30 flex items-center justify-center">
-              <Zap className="h-5 w-5 text-primary fill-primary/20" />
-            </div>
-            <p className="text-xs font-semibold uppercase tracking-widest text-primary">Status: Online</p>
+    <div className="mx-auto max-w-7xl space-y-6 p-4 sm:p-6 lg:p-8">
+
+      {/* Top Header + Stats */}
+      <motion.section
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={LUXURY_TWEEN_MEDIUM}
+        className="rounded-[32px] border border-white/10 bg-[#121212] p-5 sm:p-6 shadow-[0_20px_60px_rgba(0,0,0,0.4)]"
+      >
+        <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-widest text-[#C9F85A]">Trainer Console · Online</p>
+            <h1 className="mt-2 text-4xl font-semibold text-white tracking-tight">{trainer?.name ?? "Coach"}</h1>
+            <p className="mt-1 text-sm text-white/50">{trainer?.specialization} · {assignedStudents.length} students assigned</p>
           </div>
-          <h1 className="text-[3.5rem] font-display font-semibold text-foreground tracking-tight leading-none mt-2">
-            {trainer?.name ?? "Coach"}
-          </h1>
-        </div>
-
-        <div className="flex items-center gap-3 bg-card p-2 rounded-2xl border border-white/5 shadow-sm">
-          <Link to="/trainer/auto-plans" className="flex items-center gap-2 px-6 py-3 rounded-xl bg-background text-sm font-semibold text-foreground hover:bg-white/5 transition-all relative">
-            Queue ({pendingAutoPlans.length})
+          <div className="flex items-center gap-3">
             {pendingAutoPlans.length > 0 && (
-              <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-primary text-[9px] font-bold text-black flex items-center justify-center">
-                {pendingAutoPlans.length}
-              </span>
+              <Link to="/trainer/auto-plans" className="relative inline-flex items-center gap-2 rounded-full bg-[#FFD36E]/15 border border-[#FFD36E]/30 px-4 py-2.5 text-xs font-semibold text-[#FFD36E] hover:bg-[#FFD36E]/20 transition-all">
+                <Bell className="h-3.5 w-3.5" />
+                Plans Queue ({pendingAutoPlans.length})
+                <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-[#FFD36E] text-[9px] font-bold text-black flex items-center justify-center">{pendingAutoPlans.length}</span>
+              </Link>
             )}
-          </Link>
-          <Link to="/trainer/students" className="flex items-center gap-2 px-6 py-3 rounded-xl bg-background text-sm font-semibold text-foreground hover:bg-white/5 transition-all">
-            <Users className="h-4 w-4" /> Roster
-          </Link>
-          <Link to="/trainer/plan-builder" className="flex items-center gap-2 px-6 py-3 rounded-xl bg-primary text-black text-sm font-semibold hover:opacity-90 active:scale-95 transition-all">
-            <Plus className="h-5 w-5" /> New Plan
-          </Link>
+            <Link to="/trainer/students" className="inline-flex items-center gap-2 rounded-full bg-[#1A1A1A] border border-white/10 px-4 py-2.5 text-xs font-semibold text-white/80 hover:text-white hover:bg-[#222] transition-all">
+              <Users className="h-3.5 w-3.5" />
+              Roster
+            </Link>
+            <Link to="/trainer/plan-builder" className="inline-flex items-center gap-2 rounded-full bg-[#C9F85A] px-5 py-2.5 text-xs font-bold text-black hover:bg-[#d4ff60] transition-all shadow-[0_4px_20px_rgba(201,248,90,0.2)]">
+              <Plus className="h-4 w-4" />
+              New Plan
+            </Link>
+          </div>
         </div>
-      </div>
 
-      {/* Stats */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
-        {stats.map((stat, i) => (
-          <motion.div key={stat.label} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ ...LUXURY_TWEEN_MEDIUM, delay: i * 0.1 }}>
-            <StatCard {...stat} />
-          </motion.div>
-        ))}
-      </div>
+        {/* KPI Cards */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          {kpiData.map((kpi, i) => {
+            const Icon = kpi.icon;
+            return (
+              <motion.div
+                key={kpi.label}
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ ...LUXURY_TWEEN_MEDIUM, delay: i * 0.08 }}
+              >
+                <Link to={kpi.link} className={`block rounded-3xl border p-5 relative overflow-hidden hover:scale-[1.02] transition-transform ${kpi.alert ? "border-[#FFD36E]/30 bg-[#FFD36E]/5" : "border-white/8 bg-[#171717]"}`}>
+                  {kpi.alert && <div className="absolute inset-0 bg-[#FFD36E]/3 animate-pulse" />}
+                  <div className="relative">
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ background: `${kpi.color}18`, border: `1px solid ${kpi.color}30` }}>
+                        <Icon className="h-4 w-4" style={{ color: kpi.color }} />
+                      </div>
+                      <ArrowUpRight className="h-3.5 w-3.5 text-white/20" />
+                    </div>
+                    <p className="text-[10px] font-semibold uppercase tracking-wider text-white/40">{kpi.label}</p>
+                    <p className="mt-1 text-3xl font-bold tracking-tight" style={{ color: kpi.alert ? "#FFD36E" : "white" }}>{kpi.value}</p>
+                  </div>
+                </Link>
+              </motion.div>
+            );
+          })}
+        </div>
+      </motion.section>
 
-      <div className="grid lg:grid-cols-12 gap-10">
-        {/* Submissions Table */}
-        <motion.div initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} transition={{ ...LUXURY_TWEEN_MEDIUM, delay: 0.4 }} className="lg:col-span-8 space-y-6">
-          <div className="flex items-center justify-between px-2">
-            <SectionHeader title="Submissions" subtitle="Student check-ins pending review" />
-            <div className="hidden md:flex gap-4">
-              <div className="relative group">
-                <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/30 group-focus-within:text-primary transition-colors" />
-                <input value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} placeholder="Search students..." className="pl-12 pr-6 py-3 rounded-xl bg-card border border-white/5 text-sm font-medium focus:outline-none w-64 transition-all focus:border-primary/20" />
+      {/* Main Content Grid */}
+      <section className="grid gap-6 lg:grid-cols-12">
+
+        {/* Submissions Panel */}
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ ...LUXURY_TWEEN_MEDIUM, delay: 0.1 }}
+          className="lg:col-span-8 rounded-3xl border border-white/10 bg-[#151515] overflow-hidden"
+        >
+          {/* Tab header */}
+          <div className="p-5 pb-0 border-b border-white/5">
+            <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
+              <div>
+                <h2 className="text-base font-semibold text-white">Student Management</h2>
+                <p className="text-xs text-white/40 mt-0.5">Students assigned to you only</p>
+              </div>
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-white/25" />
+                <input
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search students or tasks..."
+                  className="pl-9 pr-4 py-2.5 rounded-xl bg-[#1A1A1A] border border-white/8 text-sm text-white/80 placeholder:text-white/25 focus:outline-none focus:border-[#C9F85A]/30 w-64 transition-all"
+                />
               </div>
             </div>
+            <div className="flex gap-1">
+              {(["Submissions", "Roster", "Activity"] as DashTab[]).map((tab) => (
+                <button
+                  key={tab}
+                  onClick={() => setActiveTab(tab)}
+                  className={`px-4 py-2 rounded-t-lg text-xs font-semibold transition-all ${activeTab === tab ? "bg-[#C9F85A] text-black" : "text-white/40 hover:text-white"}`}
+                >
+                  {tab}
+                  {tab === "Submissions" && pendingCount > 0 && (
+                    <span className="ml-1.5 inline-flex items-center justify-center w-4 h-4 rounded-full bg-[#FFD36E] text-[9px] font-bold text-black">{pendingCount}</span>
+                  )}
+                </button>
+              ))}
+            </div>
           </div>
 
-          <div className="glass-card overflow-hidden rounded-3xl border-white/5 relative bg-card">
-            <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 blur-[80px] pointer-events-none" />
-            <div className="overflow-x-auto">
-              <table className="w-full text-left min-w-[650px]">
-                <thead>
-                  <tr className="border-b border-white/5 bg-background/50">
-                    <th className="px-8 py-5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Student</th>
-                    <th className="px-6 py-5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Task</th>
-                    <th className="px-6 py-5 text-xs font-semibold uppercase tracking-wider text-muted-foreground text-center">Status</th>
-                    <th className="px-8 py-5 text-xs font-semibold uppercase tracking-wider text-muted-foreground text-right">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-white/5">
-                  {filteredSubmissions.length === 0 ? (
-                    <tr>
-                      <td colSpan={4} className="px-8 py-12 text-center text-sm text-muted-foreground">
-                        {searchQuery ? "No submissions match your search." : "No submissions yet. Students will appear here after their check-ins."}
-                      </td>
+          <div className="p-5">
+            {activeTab === "Submissions" && (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left min-w-[580px]">
+                  <thead>
+                    <tr className="border-b border-white/5">
+                      <th className="pb-3 text-[10px] font-semibold uppercase tracking-wider text-white/30">Student</th>
+                      <th className="pb-3 text-[10px] font-semibold uppercase tracking-wider text-white/30">Task</th>
+                      <th className="pb-3 text-[10px] font-semibold uppercase tracking-wider text-white/30 text-center">Status</th>
+                      <th className="pb-3 text-[10px] font-semibold uppercase tracking-wider text-white/30 text-right">Action</th>
                     </tr>
-                  ) : (
-                    filteredSubmissions.map((sub) => (
-                      <tr key={sub.id} className="hover:bg-white/5 transition-colors group">
-                        <td className="px-8 py-5">
-                          <div className="flex items-center gap-4">
-                            <div className="w-10 h-10 rounded-xl bg-background border border-white/5 flex items-center justify-center text-xs font-semibold text-foreground group-hover:bg-primary/10 transition-colors">
-                              {sub.studentName.split(" ").map((n) => n[0]).join("")}
-                            </div>
-                            <div>
-                              <p className="text-sm font-semibold text-foreground tracking-tight">{sub.studentName}</p>
-                              <p className="text-xs font-medium text-muted-foreground mt-0.5">ID: {sub.studentId}</p>
-                            </div>
-                          </div>
-                        </td>
-                        <td className="px-6 py-5">
-                          <div className="space-y-1">
-                            <p className="text-sm font-medium text-foreground tracking-tight">{sub.taskName}</p>
-                            <div className="flex items-center gap-1.5">
-                              <Clock className="h-3 w-3 text-muted-foreground/50" />
-                              <p className="text-xs text-muted-foreground">{sub.timestamp}</p>
-                            </div>
-                          </div>
-                        </td>
-                        <td className="px-6 py-5 text-center">
-                          <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold border ${
-                            sub.status === "approved" ? "bg-green-500/10 text-green-500 border-green-500/20" :
-                            sub.status === "rejected" ? "bg-red-500/10 text-red-500 border-red-500/20" :
-                            "bg-primary/10 text-primary border-primary/20"
-                          }`}>
-                            {sub.status === "pending" && <Activity className="h-3 w-3" />}
-                            <span className="capitalize">{sub.status}</span>
-                          </div>
-                        </td>
-                        <td className="px-8 py-5 text-right">
-                          {sub.status === "pending" ? (
-                            <button
-                              onClick={() => setSelectedSubmissionId(sub.id)}
-                              className="text-xs font-semibold px-6 py-2.5 rounded-xl bg-foreground text-background hover:bg-primary hover:text-black transition-all active:scale-95 shadow-sm"
-                            >
-                              Review
-                            </button>
-                          ) : (
-                            <button
-                              onClick={() => setSelectedSubmissionId(sub.id)}
-                              className="text-muted-foreground hover:text-foreground text-xs font-semibold px-5 py-2.5 hover:bg-white/5 rounded-xl transition-all"
-                            >
-                              View
-                            </button>
-                          )}
+                  </thead>
+                  <tbody className="divide-y divide-white/4">
+                    {filteredSubmissions.length === 0 ? (
+                      <tr>
+                        <td colSpan={4} className="py-12 text-center text-sm text-white/30">
+                          {searchQuery ? "No submissions match your search." : "No submissions yet. Students will appear here after their check-ins."}
                         </td>
                       </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
+                    ) : (
+                      filteredSubmissions.map((sub) => (
+                        <tr key={sub.id} className="hover:bg-white/3 transition-colors group">
+                          <td className="py-4 pr-4">
+                            <div className="flex items-center gap-3">
+                              <div className="w-9 h-9 rounded-xl bg-[#1D1D1D] border border-white/8 flex items-center justify-center text-[10px] font-bold text-white group-hover:border-[#C9F85A]/20 transition-colors">
+                                {sub.studentName.split(" ").map((n) => n[0]).join("")}
+                              </div>
+                              <div>
+                                <p className="text-sm font-semibold text-white">{sub.studentName}</p>
+                                <p className="text-[10px] text-white/30">{sub.timestamp}</p>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="py-4 pr-4">
+                            <p className="text-sm font-medium text-white/80">{sub.taskName}</p>
+                            {sub.taskType && (
+                              <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full mt-0.5 inline-block ${sub.taskType === "workout" ? "bg-[#4DD2FF]/15 text-[#4DD2FF]" : sub.taskType === "diet" ? "bg-[#FFD36E]/15 text-[#FFD36E]" : "bg-white/8 text-white/40"}`}>
+                                {sub.taskType}
+                              </span>
+                            )}
+                          </td>
+                          <td className="py-4 text-center">
+                            <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-semibold ${
+                              sub.status === "approved" ? "bg-emerald-500/15 text-emerald-400 border border-emerald-500/20" :
+                              sub.status === "rejected" ? "bg-red-500/15 text-red-400 border border-red-500/20" :
+                              "bg-[#FFD36E]/15 text-[#FFD36E] border border-[#FFD36E]/20"
+                            }`}>
+                              {sub.status === "pending" && <Clock className="h-3 w-3" />}
+                              {sub.status === "approved" && <CheckCircle2 className="h-3 w-3" />}
+                              {sub.status === "rejected" && <AlertCircle className="h-3 w-3" />}
+                              <span className="capitalize">{sub.status}</span>
+                            </span>
+                          </td>
+                          <td className="py-4 text-right">
+                            <button
+                              onClick={() => setSelectedSubmissionId(sub.id)}
+                              className={`px-4 py-2 rounded-xl text-xs font-semibold transition-all ${
+                                sub.status === "pending"
+                                  ? "bg-[#C9F85A] text-black hover:bg-[#d4ff60] shadow-[0_2px_12px_rgba(201,248,90,0.2)]"
+                                  : "bg-[#1A1A1A] border border-white/8 text-white/50 hover:text-white"
+                              }`}
+                            >
+                              {sub.status === "pending" ? "Review" : "View"}
+                            </button>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            {activeTab === "Roster" && (
+              <div className="space-y-3">
+                {assignedStudents.length === 0 ? (
+                  <div className="py-12 text-center">
+                    <Users className="h-12 w-12 text-white/10 mx-auto mb-3" />
+                    <p className="text-sm text-white/30">No students assigned to you yet.</p>
+                  </div>
+                ) : (
+                  assignedStudents.map((s) => {
+                    const plan = s.currentPlanId ? plans[s.currentPlanId] : null;
+                    return (
+                      <Link
+                        key={s.id}
+                        to={`/trainer/students/${s.id}`}
+                        className="flex items-center gap-4 rounded-2xl bg-[#1B1B1B] hover:bg-[#212121] transition-all px-4 py-3.5 group border border-white/5 hover:border-[#C9F85A]/20"
+                      >
+                        <div className="w-10 h-10 rounded-xl bg-[#252525] border border-white/8 flex items-center justify-center text-xs font-bold text-white group-hover:border-[#C9F85A]/20 transition-colors">
+                          {s.name.split(" ").map((n) => n[0]).join("")}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between">
+                            <p className="text-sm font-semibold text-white truncate">{s.name}</p>
+                            <span className="text-xs font-bold text-[#C9F85A]">{s.completionPercentage}%</span>
+                          </div>
+                          <div className="flex items-center gap-3 mt-1">
+                            <span className="text-[11px] text-white/40">Day {s.currentDay}/{s.totalDays}</span>
+                            <span className="text-[11px] text-[#FF4D00] flex items-center gap-1"><Flame className="h-3 w-3" />{s.streak}d</span>
+                            {plan?.status && (
+                              <span className={`text-[9px] font-semibold px-1.5 py-0.5 rounded capitalize ${plan.status === "active" ? "bg-emerald-500/15 text-emerald-400" : "bg-[#FFD36E]/15 text-[#FFD36E]"}`}>
+                                {plan.status.replace(/_/g, " ")}
+                              </span>
+                            )}
+                          </div>
+                          <div className="mt-2 h-1 bg-[#1A1A1A] rounded-full overflow-hidden">
+                            <div className="h-full bg-[#C9F85A] rounded-full transition-all" style={{ width: `${s.completionPercentage}%` }} />
+                          </div>
+                        </div>
+                        <ChevronRight className="h-4 w-4 text-white/20 group-hover:text-[#C9F85A] transition-colors flex-shrink-0" />
+                      </Link>
+                    );
+                  })
+                )}
+                <Link to="/trainer/students" className="block text-center py-3 text-xs font-semibold text-white/40 hover:text-[#C9F85A] transition-colors">
+                  View full roster →
+                </Link>
+              </div>
+            )}
+
+            {activeTab === "Activity" && (
+              <div className="space-y-3">
+                {recentStudentPosts.length === 0 ? (
+                  <div className="py-12 text-center">
+                    <Activity className="h-12 w-12 text-white/10 mx-auto mb-3" />
+                    <p className="text-sm text-white/30">No recent activity from your students.</p>
+                  </div>
+                ) : (
+                  recentStudentPosts.map((post) => (
+                    <div key={post.id} className="flex items-start gap-4 rounded-2xl bg-[#1B1B1B] border border-white/5 px-4 py-3.5">
+                      <div className="w-9 h-9 rounded-xl bg-[#252525] border border-white/8 flex items-center justify-center text-[10px] font-bold text-white flex-shrink-0">
+                        {post.userName.split(" ").map((n) => n[0]).join("")}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold text-white truncate">{post.userName}</p>
+                        <p className="text-xs text-white/50 mt-0.5 truncate">{post.caption}</p>
+                      </div>
+                      <span className="text-[10px] text-white/25 flex-shrink-0">{new Date(post.timestamp).toLocaleDateString()}</span>
+                    </div>
+                  ))
+                )}
+              </div>
+            )}
           </div>
         </motion.div>
 
-        {/* Right sidebar */}
-        <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ ...LUXURY_TWEEN_MEDIUM, delay: 0.5 }} className="lg:col-span-4 space-y-8">
-          {/* Student roster quick view */}
-          <SectionHeader title="Student Roster" subtitle="Assigned athletes overview" />
-          <div className="glass-card rounded-3xl divide-y divide-white/5 overflow-hidden border-white/5 relative bg-card">
-            <div className="absolute top-0 left-0 w-24 h-24 bg-primary/5 blur-[60px] pointer-events-none" />
-            {assignedStudents.slice(0, 5).map((s) => {
-              const plan = s.currentPlanId ? plans[s.currentPlanId] : null;
-              return (
-                <Link key={s.id} to={`/trainer/students/${s.id}`} className="p-5 flex items-center gap-4 hover:bg-white/5 cursor-pointer transition-all border-l-4 border-l-transparent hover:border-l-primary block">
-                  <div className="relative">
-                    <div className="w-11 h-11 rounded-xl bg-background border border-white/5 flex items-center justify-center text-xs font-semibold">
-                      {s.name.split(" ").map((n) => n[0]).join("")}
+        {/* Right column */}
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ ...LUXURY_TWEEN_MEDIUM, delay: 0.2 }}
+          className="lg:col-span-4 space-y-5"
+        >
+          {/* Team Performance */}
+          <div className="rounded-3xl border border-white/10 bg-[#151515] p-5">
+            <div className="flex items-center gap-2 mb-5">
+              <div className="p-1.5 rounded-lg bg-[#C9F85A]/10 border border-[#C9F85A]/20">
+                <TrendingUp className="h-3.5 w-3.5 text-[#C9F85A]" />
+              </div>
+              <h3 className="text-sm font-semibold text-white">Team Performance</h3>
+            </div>
+            {assignedStudents.length === 0 ? (
+              <p className="text-xs text-white/30 text-center py-4">No students assigned yet</p>
+            ) : (
+              <div className="space-y-4">
+                {[
+                  { label: "Avg Completion", value: stats.avgCompletion, pct: stats.avgCompletion, color: "#C9F85A" },
+                  {
+                    label: "Avg Streak",
+                    value: Math.round(assignedStudents.reduce((s, st) => s + st.streak, 0) / (assignedStudents.length || 1)),
+                    pct: Math.min(100, Math.round(assignedStudents.reduce((s, st) => s + st.streak, 0) / (assignedStudents.length || 1)) * 3),
+                    color: "#4DD2FF",
+                    suffix: "d",
+                  },
+                ].map((metric) => (
+                  <div key={metric.label} className="space-y-2">
+                    <div className="flex justify-between items-center">
+                      <p className="text-xs text-white/40">{metric.label}</p>
+                      <p className="text-sm font-bold text-white">{metric.value}{metric.suffix ?? "%"}</p>
                     </div>
-                    <div className={`absolute -top-1 -right-1 w-3 h-3 rounded-full border-2 border-card ${s.streak > 0 ? "bg-green-500" : "bg-muted-foreground/30"}`} />
+                    <div className="h-1.5 w-full bg-[#1D1D1D] rounded-full overflow-hidden">
+                      <motion.div
+                        initial={{ width: 0 }}
+                        animate={{ width: `${metric.pct}%` }}
+                        transition={{ ...LUXURY_TWEEN_SLOW, delay: 0.5 }}
+                        className="h-full rounded-full"
+                        style={{ background: metric.color }}
+                      />
+                    </div>
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between mb-0.5">
-                      <p className="text-sm font-semibold truncate text-foreground">{s.name}</p>
-                      <span className="text-[10px] font-bold text-primary">{s.completionPercentage}%</span>
-                    </div>
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                      <span>Day {s.currentDay}/{s.totalDays}</span>
-                      <span>·</span>
-                      <span className="flex items-center gap-1">🔥 {s.streak}</span>
-                      {plan?.status && <span className="ml-auto text-[10px] capitalize px-1.5 py-0.5 rounded bg-white/5">{plan.status.replace(/_/g, " ")}</span>}
-                    </div>
-                  </div>
-                  <ChevronRight className="h-4 w-4 text-muted-foreground/30" />
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Quick Actions */}
+          <div className="rounded-3xl border border-white/10 bg-[#151515] p-5">
+            <h3 className="text-sm font-semibold text-white mb-4">Quick Actions</h3>
+            <div className="space-y-2.5">
+              <Link to="/trainer/plan-builder" className="flex items-center gap-3 rounded-2xl bg-[#C9F85A]/10 border border-[#C9F85A]/20 px-4 py-3 text-xs font-semibold text-[#C9F85A] hover:bg-[#C9F85A]/15 transition-all group">
+                <Plus className="h-4 w-4" />
+                <span className="flex-1">Create New Plan</span>
+                <ChevronRight className="h-3.5 w-3.5 opacity-50 group-hover:opacity-100 transition-opacity" />
+              </Link>
+              <Link to="/trainer/students" className="flex items-center gap-3 rounded-2xl bg-[#1A1A1A] border border-white/8 px-4 py-3 text-xs font-semibold text-white/70 hover:text-white hover:bg-[#222] transition-all group">
+                <Users className="h-4 w-4" />
+                <span className="flex-1">Manage Students</span>
+                <ChevronRight className="h-3.5 w-3.5 opacity-50 group-hover:opacity-100 transition-opacity" />
+              </Link>
+              {pendingAutoPlans.length > 0 && (
+                <Link to="/trainer/auto-plans" className="flex items-center gap-3 rounded-2xl bg-[#FFD36E]/10 border border-[#FFD36E]/20 px-4 py-3 text-xs font-semibold text-[#FFD36E] hover:bg-[#FFD36E]/15 transition-all group">
+                  <Zap className="h-4 w-4" />
+                  <span className="flex-1">Review Auto Plans ({pendingAutoPlans.length})</span>
+                  <ChevronRight className="h-3.5 w-3.5 opacity-50 group-hover:opacity-100 transition-opacity" />
                 </Link>
-              );
-            })}
-            <Link to="/trainer/students" className="w-full block py-5 text-center text-xs text-muted-foreground hover:text-primary hover:bg-primary/5 transition-all font-semibold">
-              View All Students →
-            </Link>
-          </div>
-
-          {/* System status */}
-          <div className="glass-card p-8 border border-white/5 relative overflow-hidden bg-card">
-            <div className="flex items-center gap-4 mb-6">
-              <div className="w-10 h-10 rounded-xl bg-green-500/10 border border-green-500/20 flex items-center justify-center">
-                <TrendingUp className="h-5 w-5 text-green-500" />
-              </div>
-              <h3 className="text-lg font-display font-semibold text-foreground tracking-tight">Team Performance</h3>
-            </div>
-            <div className="space-y-4">
-              {[
-                { label: "Avg Completion", value: stats[3].value, color: "bg-green-500" },
-                { label: "Streak Avg", value: `${assignedStudents.length > 0 ? Math.round(assignedStudents.reduce((s, st) => s + st.streak, 0) / assignedStudents.length) : 0}d`, color: "bg-primary" },
-              ].map((metric) => (
-                <div key={metric.label} className="space-y-2">
-                  <div className="flex justify-between items-center px-1">
-                    <p className="text-xs font-medium text-muted-foreground">{metric.label}</p>
-                    <p className="text-sm font-bold text-foreground">{metric.value}</p>
-                  </div>
-                  <div className="h-1.5 w-full bg-background rounded-full overflow-hidden border border-white/5">
-                    <motion.div initial={{ width: 0 }} animate={{ width: metric.value }} transition={{ ...LUXURY_TWEEN_SLOW, delay: 0.8 }} className={`h-full ${metric.color}`} />
-                  </div>
-                </div>
-              ))}
+              )}
             </div>
           </div>
 
-          {/* Recent activity */}
-          {recentStudentPosts.length > 0 && (
-            <div className="glass-card rounded-3xl overflow-hidden border-white/5 bg-card">
-              <div className="p-5 border-b border-white/5">
-                <h3 className="text-sm font-semibold text-foreground">Recent Activity</h3>
+          {/* Pending Submissions Summary */}
+          {pendingCount > 0 && (
+            <div className="rounded-3xl border border-[#FFD36E]/20 bg-[#FFD36E]/5 p-5">
+              <div className="flex items-center gap-2 mb-3">
+                <Clock className="h-4 w-4 text-[#FFD36E]" />
+                <h3 className="text-sm font-semibold text-[#FFD36E]">{pendingCount} Pending Reviews</h3>
               </div>
-              {recentStudentPosts.map((post) => (
-                <div key={post.id} className="p-4 border-b border-white/5 last:border-b-0 flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-lg bg-background border border-white/5 flex items-center justify-center text-[10px] font-semibold">
-                    {post.userName.split(" ").map((n) => n[0]).join("")}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs font-medium text-foreground truncate">{post.userName}</p>
-                    <p className="text-[10px] text-muted-foreground truncate">{post.caption.slice(0, 40)}...</p>
-                  </div>
-                  <span className="text-[10px] text-muted-foreground">{new Date(post.timestamp).toLocaleDateString()}</span>
-                </div>
-              ))}
+              <p className="text-xs text-white/50 leading-relaxed">
+                {pendingCount} student task{pendingCount > 1 ? "s" : ""} waiting for your approval before points are awarded.
+              </p>
+              <button
+                onClick={() => setActiveTab("Submissions")}
+                className="mt-3 w-full rounded-xl bg-[#FFD36E]/20 border border-[#FFD36E]/30 py-2.5 text-xs font-semibold text-[#FFD36E] hover:bg-[#FFD36E]/25 transition-all"
+              >
+                Review Now →
+              </button>
             </div>
           )}
         </motion.div>
-      </div>
+      </section>
 
       {/* Review Modal */}
       <AnimatePresence>
         {selectedSubmission && (
           <div className="fixed inset-0 flex items-center justify-center p-4 z-[100]">
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setSelectedSubmissionId(null)} className="absolute inset-0 bg-background/90 backdrop-blur-sm" />
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setSelectedSubmissionId(null)}
+              className="absolute inset-0 bg-black/85 backdrop-blur-md"
+            />
             <motion.div
               initial={{ opacity: 0, scale: 0.95, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              className="w-full max-w-2xl bg-card border border-white/10 shadow-2xl relative rounded-3xl overflow-hidden"
+              className="relative z-10 w-full max-w-2xl rounded-[32px] border border-white/10 bg-[#111111] overflow-hidden shadow-[0_40px_120px_rgba(0,0,0,0.7)]"
             >
-              <div className="p-8 border-b border-white/5 flex items-center justify-between">
-                <div className="flex items-center gap-5">
-                  <div className="w-16 h-16 rounded-2xl bg-background border border-primary/20 flex items-center justify-center font-bold text-lg text-foreground">
+              {/* Modal header */}
+              <div className="p-6 border-b border-white/5 flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <div className="w-14 h-14 rounded-2xl bg-[#1A1A1A] border border-[#C9F85A]/20 flex items-center justify-center font-bold text-base text-white">
                     {selectedSubmission.studentName.split(" ").map((n) => n[0]).join("")}
                   </div>
                   <div>
-                    <h3 className="font-display font-semibold text-2xl text-foreground tracking-tight">{selectedSubmission.studentName}</h3>
-                    <p className="text-xs font-semibold text-primary mt-1">Task: {selectedSubmission.taskName}</p>
+                    <h3 className="text-xl font-semibold text-white tracking-tight">{selectedSubmission.studentName}</h3>
+                    <div className="flex items-center gap-2 mt-1">
+                      <span className="text-xs font-semibold text-[#C9F85A]">{selectedSubmission.taskName}</span>
+                      {selectedSubmission.points && (
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#C9F85A]/15 text-[#C9F85A]">
+                          +{selectedSubmission.points} pts on approval
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </div>
-                <button onClick={() => setSelectedSubmissionId(null)} className="p-3 rounded-xl bg-white/5 hover:bg-white/10 transition-all">
+                <button
+                  onClick={() => setSelectedSubmissionId(null)}
+                  className="p-2.5 rounded-xl bg-white/5 hover:bg-white/10 transition-all"
+                >
                   <X className="h-5 w-5" />
                 </button>
               </div>
 
-              <div className="p-8 gap-8 grid md:grid-cols-2">
-                <div className="space-y-6">
-                  <div className="aspect-[4/5] bg-background rounded-2xl flex flex-col items-center justify-center relative overflow-hidden group border border-white/5">
-                    {selectedSubmission.mediaUrl ? (
-                      <img src={selectedSubmission.mediaUrl} alt="Submission" className="w-full h-full object-cover" />
-                    ) : (
-                      <>
-                        <Play className="h-16 w-16 text-white/10 group-hover:text-primary/50 transition-all duration-300 z-10" />
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent" />
-                        <div className="absolute bottom-6 left-6 right-6 z-10">
-                          <p className="text-xs font-medium text-white/70 truncate">{selectedSubmission.studentId}_media</p>
-                        </div>
-                      </>
-                    )}
+              <div className="p-6 grid md:grid-cols-2 gap-6">
+                {/* Media/proof area */}
+                <div className="aspect-[4/5] bg-[#0D0D0D] rounded-2xl flex flex-col items-center justify-center relative overflow-hidden border border-white/5">
+                  {selectedSubmission.mediaUrl ? (
+                    <img src={selectedSubmission.mediaUrl} alt="Submission" className="w-full h-full object-cover" />
+                  ) : (
+                    <>
+                      <Play className="h-14 w-14 text-white/10" />
+                      <p className="text-xs text-white/30 mt-3">No media attached</p>
+                    </>
+                  )}
+                  <div className="absolute bottom-4 left-4">
+                    <span className={`text-[10px] font-bold px-2.5 py-1 rounded-full ${
+                      selectedSubmission.status === "approved" ? "bg-emerald-500/20 text-emerald-400" :
+                      selectedSubmission.status === "rejected" ? "bg-red-500/20 text-red-400" :
+                      "bg-[#FFD36E]/20 text-[#FFD36E]"
+                    }`}>
+                      {selectedSubmission.status.toUpperCase()}
+                    </span>
                   </div>
                 </div>
 
-                <div className="flex flex-col h-full justify-between py-2">
+                {/* Feedback + actions */}
+                <div className="flex flex-col h-full justify-between">
                   <div className="space-y-4">
-                    <div className="flex items-center gap-2 px-1">
-                      <MessageSquare className="h-4 w-4 text-primary" />
-                      <label className="text-xs text-muted-foreground font-medium">Feedback</label>
+                    <div className="flex items-center gap-2">
+                      <MessageSquare className="h-4 w-4 text-[#C9F85A]" />
+                      <label className="text-xs font-semibold text-white/50">Trainer Feedback</label>
                     </div>
                     <textarea
                       value={feedbackNote}
                       onChange={(e) => setFeedbackNote(e.target.value)}
                       placeholder={selectedSubmission.status === "pending" ? "Leave feedback for the student..." : selectedSubmission.trainerNote || "Review submitted."}
                       readOnly={selectedSubmission.status !== "pending"}
-                      className="w-full bg-background border border-white/10 rounded-xl p-5 text-sm font-medium text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:border-primary/40 min-h-[160px] transition-all resize-none"
+                      className="w-full bg-[#1A1A1A] border border-white/8 rounded-xl p-4 text-sm text-white placeholder:text-white/25 focus:outline-none focus:border-[#C9F85A]/30 min-h-[160px] resize-none transition-all"
                     />
+                    <div className="rounded-xl bg-[#1A1A1A] border border-white/5 p-3 space-y-1">
+                      <p className="text-[10px] text-white/30 uppercase tracking-wider">Submitted</p>
+                      <p className="text-xs font-medium text-white/60">{selectedSubmission.timestamp}</p>
+                    </div>
                   </div>
 
-                  <div className="space-y-3 mt-6">
+                  <div className="space-y-2.5 mt-4">
                     {selectedSubmission.status === "pending" ? (
                       <>
                         <button
-                          onClick={() => handleReview(selectedSubmission.id, "approved")}
+                          onClick={() => handleApprove(selectedSubmission.id)}
                           disabled={reviewing}
-                          className="w-full h-14 bg-primary text-black rounded-xl font-semibold text-sm flex items-center justify-center gap-2 hover:opacity-90 active:scale-[0.98] transition-all disabled:opacity-50"
+                          className="w-full h-12 bg-[#C9F85A] text-black rounded-xl font-bold text-sm flex items-center justify-center gap-2 hover:bg-[#d4ff60] active:scale-[0.98] transition-all disabled:opacity-50 shadow-[0_4px_20px_rgba(201,248,90,0.2)]"
                         >
-                          {reviewing ? <Clock className="h-5 w-5 animate-spin" /> : <><CheckCircle2 className="h-5 w-5" /> Approve</>}
+                          {reviewing ? <Clock className="h-4 w-4 animate-spin" /> : <><CheckCircle2 className="h-4 w-4" /> Approve & Award Points</>}
                         </button>
                         <button
-                          onClick={() => handleReview(selectedSubmission.id, "rejected")}
+                          onClick={() => handleReject(selectedSubmission.id)}
                           disabled={reviewing}
-                          className="w-full h-12 bg-transparent text-foreground rounded-xl font-semibold text-sm flex items-center justify-center gap-2 hover:bg-white/5 transition-all active:scale-[0.98] disabled:opacity-50 border border-white/10"
+                          className="w-full h-11 bg-transparent text-white/70 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 hover:bg-white/5 transition-all active:scale-[0.98] disabled:opacity-50 border border-white/10"
                         >
                           <AlertCircle className="h-4 w-4" /> Request Changes
                         </button>
                       </>
                     ) : (
-                      <div className={`h-14 w-full rounded-xl flex items-center justify-center font-bold text-xs uppercase tracking-wider border ${
-                        selectedSubmission.status === "approved" ? "bg-green-500/10 text-green-500 border-green-500/20" : "bg-red-500/10 text-red-500 border-red-500/20"
+                      <div className={`h-12 w-full rounded-xl flex items-center justify-center font-bold text-xs uppercase tracking-wider border ${
+                        selectedSubmission.status === "approved" ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20" : "bg-red-500/10 text-red-400 border-red-500/20"
                       }`}>
-                        STATUS: {selectedSubmission.status}
+                        {selectedSubmission.status === "approved" ? "✓ Approved" : "✗ Changes Requested"}
                       </div>
                     )}
                   </div>

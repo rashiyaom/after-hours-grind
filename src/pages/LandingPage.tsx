@@ -77,28 +77,28 @@ const pillars = [
     title: "SMART PLAN ENGINE",
     body: "Your goals, timeline, and history fuel a structured 30-day execution blueprint — generated in seconds, built to last.",
     icon: Zap,
-    accent: "#FF4D00",
+    accent: "#4DD2FF", // Cyan
   },
   {
     num: "02",
     title: "TRAINER APPROVAL GATE",
     body: "No plan goes live without expert eyes. Every programme is locked until your assigned trainer signs off.",
     icon: Lock,
-    accent: "#6B21FF",
+    accent: "#A78BFA", // Violet
   },
   {
     num: "03",
     title: "PROOF LOOP SYSTEM",
     body: "Daily uploads. Check-in streaks. Hard data. Discipline isn't a feeling — it's a number we track for you.",
     icon: BarChart3,
-    accent: "#FF4D00",
+    accent: "#4DD2FF",
   },
   {
     num: "04",
     title: "THE HOURS THAT COUNT",
     body: "Most people train when it's convenient. You train after hours — when the room is empty and the results are earned.",
     icon: Clock,
-    accent: "#6B21FF",
+    accent: "#A78BFA",
   },
 ];
 
@@ -212,6 +212,21 @@ export default function LandingPage() {
       onMouseMove={handlePointerMove}
       style={{ background: "#000", color: "#EFEFEF", fontFamily: "'Outfit', 'Inter', system-ui, sans-serif" }}
     >
+      {/* ── PERSISTENT MOUSE GLOW ─────────────────────────── */}
+      <motion.div
+        className="hidden sm:block pointer-events-none fixed"
+        style={{
+          x: smoothMouseX,
+          y: smoothMouseY,
+          width: 600,
+          height: 600,
+          borderRadius: "50%",
+          background: "radial-gradient(circle, rgba(77,210,255,0.25) 0%, rgba(77,210,255,0.08) 35%, rgba(77,210,255,0) 70%)",
+          filter: "blur(24px)",
+          mixBlendMode: "screen",
+          zIndex: 5,
+        }}
+      />
 
       {/* ── SCROLL PROGRESS BAR ───────────────────────────── */}
       <motion.div
@@ -242,12 +257,8 @@ export default function LandingPage() {
 
         {/* Gradient blobs */}
         <motion.div style={{ y: heroY, position: "absolute", inset: 0, zIndex: 1, pointerEvents: "none" }}>
-          <div style={{ position: "absolute", top: "10%", left: "-10%", width: "60vw", height: "60vw", borderRadius: "50%", background: "radial-gradient(circle, rgba(255,77,0,0.12) 0%, transparent 70%)", filter: "blur(40px)" }} />
-          <div style={{ position: "absolute", top: "20%", right: "-10%", width: "50vw", height: "50vw", borderRadius: "50%", background: "radial-gradient(circle, rgba(107,33,255,0.1) 0%, transparent 70%)", filter: "blur(40px)" }} />
-          <motion.div
-            className="hidden sm:block"
-            style={{ x: smoothMouseX, y: smoothMouseY, position: "absolute", width: 480, height: 480, borderRadius: "50%", background: "radial-gradient(circle, rgba(57,255,20,0.24) 0%, rgba(57,255,20,0.1) 28%, rgba(57,255,20,0) 72%)", filter: "blur(18px)", mixBlendMode: "screen" }}
-          />
+          <div style={{ position: "absolute", top: "10%", left: "-10%", width: "60vw", height: "60vw", borderRadius: "50%", background: "radial-gradient(circle, rgba(77,210,255,0.08) 0%, transparent 70%)", filter: "blur(40px)" }} />
+          <div style={{ position: "absolute", top: "20%", right: "-10%", width: "50vw", height: "50vw", borderRadius: "50%", background: "radial-gradient(circle, rgba(167,139,250,0.07) 0%, transparent 70%)", filter: "blur(40px)" }} />
         </motion.div>
 
         {/* Hero content */}
@@ -255,7 +266,7 @@ export default function LandingPage() {
 
           {/* Eyebrow — desktop only */}
           <motion.div {...heroUp(0.1)} className="hidden sm:block" style={{ marginBottom: "1.6rem" }}>
-            <span style={{ display: "inline-block", fontSize: "clamp(0.58rem,1.9vw,0.7rem)", fontWeight: 700, letterSpacing: "0.18em", color: "#FF4D00", padding: "5px 10px", border: "1px solid rgba(255,77,0,0.3)" }}>
+            <span style={{ display: "inline-block", fontSize: "clamp(0.58rem,1.9vw,0.7rem)", fontWeight: 700, letterSpacing: "0.18em", color: "#4DD2FF", padding: "5px 10px", border: "1px solid rgba(77,210,255,0.3)" }}>
               AFTER HOURS GRIND — EST. THE GRIND NEVER STOPS
             </span>
           </motion.div>
@@ -272,7 +283,7 @@ export default function LandingPage() {
             </motion.h1>
           </div>
           <div style={{ overflow: "hidden" }}>
-            <motion.h1 {...heroUp(0.30)} style={{ fontSize: "clamp(2.9rem,10vw,9rem)", fontWeight: 800, lineHeight: 0.9, letterSpacing: "-0.03em", color: "#FF4D00", margin: 0, textTransform: "uppercase" }}>
+            <motion.h1 {...heroUp(0.30)} style={{ fontSize: "clamp(2.9rem,10vw,9rem)", fontWeight: 800, lineHeight: 0.9, letterSpacing: "-0.03em", color: "#4DD2FF", margin: 0, textTransform: "uppercase" }}>
               AFTER HOURS.
             </motion.h1>
           </div>
@@ -282,7 +293,7 @@ export default function LandingPage() {
             {...heroUp(0.42)}
             className="mt-6 flex flex-col items-start gap-6 sm:mt-[clamp(1.2rem,2.4vh,2.5rem)] sm:flex-row sm:flex-wrap sm:items-end sm:gap-[clamp(1rem,3vw,3rem)]"
           >
-            <p style={{ maxWidth: 420, fontSize: "clamp(0.88rem,2.6vw,1rem)", fontWeight: 300, lineHeight: 1.7, color: "rgba(239,239,239,0.5)", margin: 0, borderLeft: "2px solid rgba(255,77,0,0.6)", paddingLeft: "1rem" }}>
+            <p style={{ maxWidth: 420, fontSize: "clamp(0.88rem,2.6vw,1rem)", fontWeight: 300, lineHeight: 1.7, color: "rgba(239,239,239,0.5)", margin: 0, borderLeft: "2px solid rgba(77,210,255,0.6)", paddingLeft: "1rem" }}>
               A precision coaching platform built for people who train when the rest of the world is asleep.
               Smart plans. Expert sign-off. Daily proof.
             </p>
@@ -295,8 +306,8 @@ export default function LandingPage() {
                 style={{
                   position: "relative",
                   display: "flex", alignItems: "center", justifyContent: "center", gap: 10,
-                  background: "#FF4D00",
-                  color: "#fff",
+                  background: "#4DD2FF",
+                  color: "#000",
                   textDecoration: "none",
                   padding: "17px 28px",
                   fontSize: "0.83rem",
@@ -307,14 +318,14 @@ export default function LandingPage() {
                   width: "100%",
                   overflow: "hidden",
                 }}
-                onMouseEnter={e => { e.currentTarget.style.transform = "translateY(-2px)"; e.currentTarget.style.background = "#e64400"; }}
-                onMouseLeave={e => { e.currentTarget.style.transform = "translateY(0)"; e.currentTarget.style.background = "#FF4D00"; }}
+                onMouseEnter={e => { e.currentTarget.style.transform = "translateY(-2px)"; e.currentTarget.style.background = "#3ab8e6"; }}
+                onMouseLeave={e => { e.currentTarget.style.transform = "translateY(0)"; e.currentTarget.style.background = "#4DD2FF"; }}
               >
                 {/* shimmer layer */}
                 <motion.span
                   style={{
                     position: "absolute", inset: 0,
-                    background: "linear-gradient(105deg, transparent 40%, rgba(255,255,255,0.18) 50%, transparent 60%)",
+                    background: "linear-gradient(105deg, transparent 40%, rgba(255,255,255,0.3) 50%, transparent 60%)",
                     backgroundSize: "200% 100%",
                   }}
                   animate={{ backgroundPosition: ["200% 0", "-200% 0"] }}
@@ -342,14 +353,14 @@ export default function LandingPage() {
             style={{ marginTop: "3.5rem", paddingTop: "2rem", borderTop: "1px solid rgba(255,255,255,0.06)", gap: "3rem", alignItems: "flex-start" }}
           >
             <div ref={ref94}>
-              <div style={{ fontSize: "2.1rem", fontWeight: 800, color: "#FF4D00", lineHeight: 1, fontVariantNumeric: "tabular-nums" }}>
+              <div style={{ fontSize: "2.1rem", fontWeight: 800, color: "#4DD2FF", lineHeight: 1, fontVariantNumeric: "tabular-nums" }}>
                 {count94}%
               </div>
               <div style={{ marginTop: "0.45rem", fontSize: "0.6rem", letterSpacing: "0.14em", color: "rgba(239,239,239,0.28)", textTransform: "uppercase" }}>Plan completion</div>
             </div>
             <div style={{ width: 1, height: 36, background: "rgba(255,255,255,0.08)", alignSelf: "center" }} />
             <div ref={ref100}>
-              <div style={{ fontSize: "2.1rem", fontWeight: 800, color: "#6B21FF", lineHeight: 1, fontVariantNumeric: "tabular-nums" }}>
+              <div style={{ fontSize: "2.1rem", fontWeight: 800, color: "#A78BFA", lineHeight: 1, fontVariantNumeric: "tabular-nums" }}>
                 {count100}%
               </div>
               <div style={{ marginTop: "0.45rem", fontSize: "0.6rem", letterSpacing: "0.14em", color: "rgba(239,239,239,0.28)", textTransform: "uppercase" }}>Trainer-reviewed</div>
@@ -401,7 +412,7 @@ export default function LandingPage() {
               className="border-r border-b border-white/10"
               style={{ padding: "clamp(1.1rem,3.2vw,2.2rem) clamp(1rem,3vw,2rem)", textAlign: "center" }}
             >
-              <div style={{ fontSize: "clamp(1.8rem,3vw,2.8rem)", fontWeight: 800, color: i % 2 === 0 ? "#FF4D00" : "#6B21FF", lineHeight: 1 }}>{s.value}</div>
+              <div style={{ fontSize: "clamp(1.8rem,3vw,2.8rem)", fontWeight: 800, color: i % 2 === 0 ? "#4DD2FF" : "#A78BFA", lineHeight: 1 }}>{s.value}</div>
               <div style={{ marginTop: "0.5rem", fontSize: "0.7rem", fontWeight: 400, letterSpacing: "0.12em", color: "rgba(239,239,239,0.35)", textTransform: "uppercase" }}>{s.label}</div>
             </motion.div>
           ))}
@@ -449,7 +460,7 @@ export default function LandingPage() {
             whileInView={{ scaleX: 1 }}
             viewport={{ once: true, amount: 0.5 }}
             transition={{ duration: 0.5, ease: snappyEase }}
-            style={{ width: 32, height: 1, background: "#FF4D00", display: "inline-block", transformOrigin: "left" }}
+            style={{ width: 32, height: 1, background: "#4DD2FF", display: "inline-block", transformOrigin: "left" }}
           />
           <span style={{ fontSize: "0.65rem", letterSpacing: "0.25em", color: "rgba(255,255,255,0.35)", textTransform: "uppercase" }}>The System</span>
         </motion.div>
@@ -465,10 +476,10 @@ export default function LandingPage() {
       {/* ── IDENTITY SECTION ─────────────────────────────── */}
       <section style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", minHeight: "60vh", borderTop: "1px solid rgba(255,255,255,0.06)" }}>
 
-        {/* Left — orange */}
+        {/* Left — Cyan accent block */}
         <motion.div
           {...revealUp(0, 40)}
-          style={{ background: "#FF4D00", padding: "clamp(2.5rem,7vw,5rem) clamp(1.5rem,6vw,4rem)", display: "flex", flexDirection: "column", justifyContent: "space-between" }}
+          style={{ background: "#4DD2FF", padding: "clamp(2.5rem,7vw,5rem) clamp(1.5rem,6vw,4rem)", display: "flex", flexDirection: "column", justifyContent: "space-between" }}
         >
           <motion.span {...fadeIn(0.2)} style={{ fontSize: "0.65rem", fontWeight: 700, letterSpacing: "0.25em", color: "rgba(0,0,0,0.5)", textTransform: "uppercase" }}>
             After Hours Grind
@@ -493,17 +504,17 @@ export default function LandingPage() {
           </div>
         </motion.div>
 
-        {/* Right — green */}
+        {/* Right — whitish gray sophisticated block */}
         <motion.div
           {...revealUp(0.12, 40)}
-          style={{ background: "#2CFF05", padding: "clamp(2.5rem,7vw,5rem) clamp(1.5rem,6vw,4rem)", display: "flex", flexDirection: "column", justifyContent: "flex-end", gap: "1.5rem", boxShadow: "inset 0 0 0 1px rgba(3,22,0,0.2), 0 0 45px rgba(44,255,5,0.38)", borderLeft: "1px solid rgba(3,22,0,0.28)" }}
+          style={{ background: "#F5F5F7", padding: "clamp(2.5rem,7vw,5rem) clamp(1.5rem,6vw,4rem)", display: "flex", flexDirection: "column", justifyContent: "flex-end", gap: "1.5rem", borderLeft: "1px solid rgba(0,0,0,0.05)" }}
         >
-          <motion.span {...fadeIn(0.25)} style={{ fontSize: "0.65rem", fontWeight: 700, letterSpacing: "0.25em", color: "rgba(3,22,0,0.72)", textTransform: "uppercase" }}>
+          <motion.span {...fadeIn(0.25)} style={{ fontSize: "0.65rem", fontWeight: 700, letterSpacing: "0.25em", color: "rgba(0,0,0,0.4)", textTransform: "uppercase" }}>
             The Identity
           </motion.span>
           <motion.p
             {...revealUp(0.2, 16)}
-            style={{ fontSize: "clamp(1.05rem,2.6vw,1.8rem)", fontWeight: 400, lineHeight: 1.7, color: "#031600", margin: 0 }}
+            style={{ fontSize: "clamp(1.05rem,2.6vw,1.8rem)", fontWeight: 300, lineHeight: 1.7, color: "#1A1A1A", margin: 0 }}
           >
             "After hours" isn't a time — it's a <strong style={{ fontWeight: 800, color: "#000" }}>mindset</strong>. It's the version of yourself that trades late-night scrolling for structured reps, discipline for excuses, and proof for promises.
           </motion.p>
@@ -515,7 +526,7 @@ export default function LandingPage() {
                 whileInView={{ opacity: 1, scale: 1 }}
                 viewport={{ once: true, amount: 0.2 }}
                 transition={{ duration: 0.35, ease: snappyEase, delay: 0.35 + i * 0.07 }}
-                style={{ fontSize: "0.65rem", fontWeight: 800, letterSpacing: "0.25em", color: "#031600", background: "rgba(3,22,0,0.1)", border: "1px solid rgba(3,22,0,0.2)", padding: "6px 10px" }}
+                style={{ fontSize: "0.65rem", fontWeight: 700, letterSpacing: "0.25em", color: "#000", background: "rgba(0,0,0,0.05)", border: "1px solid rgba(0,0,0,0.1)", padding: "6px 10px" }}
               >
                 {w}
               </motion.span>
@@ -541,7 +552,7 @@ export default function LandingPage() {
           YOUR PLAN. YOUR PROOF.<br />
           <motion.span
             initial={{ color: "#EFEFEF" }}
-            whileInView={{ color: "#FF4D00" }}
+            whileInView={{ color: "#4DD2FF" }}
             viewport={{ once: true, amount: 0.5 }}
             transition={{ duration: 0.65, delay: 0.3 }}
           >
@@ -566,8 +577,8 @@ export default function LandingPage() {
             style={{
               position: "relative",
               display: "flex", alignItems: "center", justifyContent: "center", gap: 10,
-              background: "#FF4D00",
-              color: "#fff",
+              background: "#4DD2FF",
+              color: "#000",
               textDecoration: "none",
               padding: "18px 40px",
               fontSize: "0.85rem",
@@ -581,7 +592,7 @@ export default function LandingPage() {
             onMouseLeave={e => (e.currentTarget.style.opacity = "1")}
           >
             <motion.span
-              style={{ position: "absolute", inset: 0, background: "linear-gradient(105deg, transparent 35%, rgba(255,255,255,0.16) 50%, transparent 65%)", backgroundSize: "200% 100%" }}
+              style={{ position: "absolute", inset: 0, background: "linear-gradient(105deg, transparent 35%, rgba(255,255,255,0.3) 50%, transparent 65%)", backgroundSize: "200% 100%" }}
               animate={{ backgroundPosition: ["200% 0", "-200% 0"] }}
               transition={{ duration: 2.6, repeat: Infinity, ease: "linear", repeatDelay: 1.5 }}
             />

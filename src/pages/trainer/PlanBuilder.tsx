@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { Plus, Trash2, Dumbbell, Utensils, Target, FileText, Users, ChevronRight, Zap, Shield } from "lucide-react";
+import { Plus, Trash2, Dumbbell, Utensils, Target, Users, ChevronRight, Calendar, Bell } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
@@ -22,14 +22,19 @@ export default function PlanBuilder() {
 
   const trainer = currentUser?.role === "trainer" ? (currentUser as Trainer) : null;
 
-  const allStudents = Object.values(users).filter((u): u is Student => u.role === "student");
-  const assignedStudents = allStudents.filter((s) => s.trainerId === trainer?.id || allStudents.length <= 10);
+  // Strictly show only students assigned to this trainer
+  const assignedStudents = Object.values(users)
+    .filter((u): u is Student => {
+      if (u.role !== "student") return false;
+      const s = u as Student;
+      return s.trainerId === trainer?.id;
+    });
 
   const [publishing, setPublishing] = useState(false);
   const [planTitle, setPlanTitle] = useState("");
   const [cycleDuration, setCycleDuration] = useState(28);
-  const [primaryObjective, setPrimaryObjective] = useState("Power Output Maximization");
-  const [athleticTier, setAthleticTier] = useState<"beginner" | "intermediate" | "advanced">("beginner");
+  const [primaryGoal, setPrimaryGoal] = useState("Strength & Conditioning");
+  const [difficulty, setDifficulty] = useState<"beginner" | "intermediate" | "advanced">("beginner");
   const [selectedStudentIds, setSelectedStudentIds] = useState<Set<string>>(new Set());
   const [dayForms, setDayForms] = useState<Record<number, DayFormData>>({
     1: { workout: "", diet: "", activity: "" },
@@ -67,7 +72,6 @@ export default function PlanBuilder() {
   };
 
   const buildStructuredPlan = (): Pick<Plan, "weeks"> => {
-    // Build weeks from day forms, cycling through configured days
     const weeks: PlanWeek[] = [];
     const totalDays = Math.max(1, cycleDuration);
     const templateDays = days;
@@ -78,29 +82,27 @@ export default function PlanBuilder() {
         const absoluteDay = (weekNum - 1) * 7 + dayOfWeek;
         if (absoluteDay > totalDays) break;
 
-        // Cycle through template days
         const templateIdx = (absoluteDay - 1) % templateDays.length;
         const templateDay = templateDays[templateIdx];
         const form = dayForms[templateDay] ?? { workout: "", diet: "", activity: "" };
 
         const tasks: PlanTaskItem[] = [];
 
-        // Parse workout
         if (form.workout.trim()) {
-          form.workout.split("\n").filter(Boolean).forEach((line, i) => {
+          form.workout.split("\n").filter(Boolean).forEach((line) => {
             tasks.push({
               type: "workout",
               title: line.trim(),
-              description: `Execute with strict form and controlled tempo.`,
+              description: "Complete with proper form and controlled tempo.",
               durationMinutes: 30,
-              intensity: athleticTier === "advanced" ? "high" : athleticTier === "intermediate" ? "moderate" : "low",
+              intensity: difficulty === "advanced" ? "high" : difficulty === "intermediate" ? "moderate" : "low",
               points: 50,
             });
           });
         } else {
           tasks.push({
             type: "workout",
-            title: `${primaryObjective} - Session ${dayOfWeek}`,
+            title: `${primaryGoal} - Session ${dayOfWeek}`,
             description: "Complete the assigned workout with proper form.",
             durationMinutes: 45,
             intensity: "moderate",
@@ -108,16 +110,14 @@ export default function PlanBuilder() {
           });
         }
 
-        // Parse diet
         tasks.push({
           type: "nutrition",
           title: form.diet.trim() || "Follow assigned nutrition plan",
           description: form.diet.trim() || "Hit your macro targets for the day.",
           points: 30,
-          meta: { proteinGoalGrams: athleticTier === "advanced" ? 140 : 110 },
+          meta: { proteinGoalGrams: difficulty === "advanced" ? 140 : 110 },
         });
 
-        // Parse activity
         tasks.push({
           type: "habit",
           title: form.activity.trim() || "10k steps + hydration",
@@ -135,20 +135,18 @@ export default function PlanBuilder() {
 
   const handlePublish = () => {
     if (!planTitle.trim()) {
-      toast.error("Protocol title required for deployment");
+      toast.error("Plan name is required.");
       return;
     }
     if (selectedStudentIds.size === 0) {
-      toast.error("Select at least one athlete for deployment");
+      toast.error("Please select at least one student.");
       return;
     }
     setPublishing(true);
 
-    // Build the structured plan
     const { weeks } = buildStructuredPlan();
 
     setTimeout(() => {
-      // Create plan via store
       const planId = `plan-${Date.now()}`;
       useAppStore.setState((prev) => {
         const plan: Plan = {
@@ -157,8 +155,8 @@ export default function PlanBuilder() {
           name: planTitle.trim(),
           trainerId: trainer?.id,
           duration: Math.max(1, cycleDuration),
-          goalType: primaryObjective,
-          difficulty: athleticTier,
+          goalType: primaryGoal,
+          difficulty,
           dailyTasks: [],
           type: "manual",
           status: "active",
@@ -184,7 +182,6 @@ export default function PlanBuilder() {
           nextUsers[studentId] = updatedStudent;
         }
 
-        // Update trainer stats
         let nextSession = prev.session;
         if (trainer) {
           const updatedTrainer: Trainer = {
@@ -205,150 +202,159 @@ export default function PlanBuilder() {
       });
 
       setPublishing(false);
-      toast.success(`Protocol assigned to ${selectedStudentIds.size} athlete${selectedStudentIds.size > 1 ? "s" : ""}!`);
+      toast.success(`Plan assigned to ${selectedStudentIds.size} student${selectedStudentIds.size > 1 ? "s" : ""}!`);
       navigate("/trainer/dashboard");
     }, 1500);
   };
 
   return (
-    <div className="p-4 sm:p-6 lg:p-8 max-w-4xl mx-auto space-y-10 pb-24 animate-in fade-in slide-in-from-bottom-4 duration-700">
-      <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} className="flex flex-col md:flex-row md:items-end justify-between gap-6">
-        <div>
-          <h1 className="text-4xl font-display font-black text-foreground tracking-tighter uppercase italic">Protocol Builder</h1>
-          <p className="text-[10px] font-black tracking-[0.4em] text-neon-orange uppercase mt-2 flex items-center gap-2">
-            <Zap className="h-3 w-3 fill-neon-orange" /> Creates structured plans students can follow
-          </p>
-        </div>
-        <div className="flex items-center gap-3 bg-accent/20 px-5 py-3 rounded-2xl border border-white/5 backdrop-blur-md">
-          <Shield className="h-4 w-4 text-neon-blue" />
-          <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Status: Secure Pipeline</p>
+    <div className="mx-auto max-w-5xl space-y-6 p-4 sm:p-6 lg:p-8 pb-24">
+
+      {/* Header */}
+      <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} className="rounded-[32px] border border-white/10 bg-[#121212] p-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-widest text-[#C9F85A]">Trainer Console</p>
+            <h1 className="mt-2 text-4xl font-semibold text-white tracking-tight">Plan Builder</h1>
+            <p className="text-sm text-white/50 mt-1">Create custom training plans for your students.</p>
+          </div>
+          <div className="flex items-center gap-2 rounded-2xl bg-[#1A1A1A] border border-white/8 px-4 py-3">
+            <Calendar className="h-4 w-4 text-[#C9F85A]" />
+            <p className="text-xs font-semibold text-white/60">Plans are auto-activated for students</p>
+          </div>
         </div>
       </motion.div>
 
-      <div className="grid lg:grid-cols-12 gap-8">
-        <div className="lg:col-span-8 space-y-8">
-          {/* Plan Meta */}
-          <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="glass-card-hover p-8 space-y-8 relative overflow-hidden border-l-4 border-l-neon-blue">
-            <div className="absolute top-0 right-0 p-8 opacity-5">
-              <FileText className="h-24 w-24 text-neon-blue" />
-            </div>
-            <SectionHeader title="Protocol Specifications" subtitle="Core parameters for the training cycle" />
+      <div className="grid lg:grid-cols-12 gap-6">
+        <div className="lg:col-span-8 space-y-5">
 
-            <div className="grid sm:grid-cols-2 gap-8 pt-4">
-              <div className="space-y-2">
-                <label className="text-[9px] font-black text-muted-foreground uppercase tracking-[0.2em] px-1">Protocol Identifier</label>
+          {/* Plan Details */}
+          <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="rounded-3xl border border-white/10 bg-[#151515] p-6 space-y-6">
+            <SectionHeader title="Plan Details" subtitle="Core parameters for the training programme" />
+
+            <div className="grid sm:grid-cols-2 gap-5 pt-2">
+              <div className="sm:col-span-2 space-y-2">
+                <label className="text-xs font-semibold text-white/40 uppercase tracking-wider">Plan Name</label>
                 <input
                   value={planTitle}
                   onChange={(e) => setPlanTitle(e.target.value)}
-                  placeholder="e.g., HYPERTROPHY_DELTA_2.0"
-                  className="w-full bg-zinc-950/50 border border-white/5 rounded-2xl px-5 py-4 text-sm font-bold text-foreground placeholder:text-muted-foreground/20 focus:outline-none focus:border-neon-blue/50 transition-all font-mono"
+                  placeholder="e.g., 4-Week Strength Program"
+                  className="w-full bg-[#1A1A1A] border border-white/8 rounded-xl px-4 py-3 text-sm font-medium text-white placeholder:text-white/25 focus:outline-none focus:border-[#C9F85A]/30 transition-all"
                 />
               </div>
               <div className="space-y-2">
-                <label className="text-[9px] font-black text-muted-foreground uppercase tracking-[0.2em] px-1">Cycle Duration (Days)</label>
-                <div className="relative group">
-                  <input
-                    type="number"
-                    min={1}
-                    value={cycleDuration}
-                    onChange={(e) => setCycleDuration(Number(e.target.value) || 1)}
-                    className="w-full bg-zinc-950/50 border border-white/5 rounded-2xl px-5 py-4 text-sm font-bold text-foreground focus:outline-none focus:border-neon-blue/50 transition-all font-mono"
-                  />
-                  <span className="absolute right-5 top-1/2 -translate-y-1/2 text-[10px] font-black text-neon-blue/40 group-hover:text-neon-blue transition-colors">DAYS</span>
+                <label className="text-xs font-semibold text-white/40 uppercase tracking-wider">Duration (Days)</label>
+                <input
+                  type="number"
+                  min={1}
+                  value={cycleDuration}
+                  onChange={(e) => setCycleDuration(Number(e.target.value) || 1)}
+                  className="w-full bg-[#1A1A1A] border border-white/8 rounded-xl px-4 py-3 text-sm font-medium text-white focus:outline-none focus:border-[#C9F85A]/30 transition-all"
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-xs font-semibold text-white/40 uppercase tracking-wider">Primary Goal</label>
+                <select
+                  value={primaryGoal}
+                  onChange={(e) => setPrimaryGoal(e.target.value)}
+                  className="w-full bg-[#1A1A1A] border border-white/8 rounded-xl px-4 py-3 text-sm font-medium text-white focus:outline-none focus:border-[#C9F85A]/30 transition-all cursor-pointer"
+                >
+                  <option>Strength & Conditioning</option>
+                  <option>Endurance</option>
+                  <option>Fat Loss</option>
+                  <option>Muscle Gain</option>
+                  <option>General Fitness</option>
+                  <option>Flexibility & Mobility</option>
+                </select>
+              </div>
+              <div className="sm:col-span-2 space-y-2">
+                <label className="text-xs font-semibold text-white/40 uppercase tracking-wider">Difficulty</label>
+                <div className="flex gap-2">
+                  {(["beginner", "intermediate", "advanced"] as const).map((level) => (
+                    <button
+                      key={level}
+                      onClick={() => setDifficulty(level)}
+                      className={`flex-1 py-2.5 rounded-xl text-xs font-semibold capitalize transition-all border ${
+                        difficulty === level
+                          ? "bg-[#C9F85A] text-black border-[#C9F85A]"
+                          : "bg-[#1A1A1A] border-white/8 text-white/50 hover:text-white"
+                      }`}
+                    >
+                      {level}
+                    </button>
+                  ))}
                 </div>
-              </div>
-              <div className="space-y-2">
-                <label className="text-[9px] font-black text-muted-foreground uppercase tracking-[0.2em] px-1">Primary Objective</label>
-                <select
-                  value={primaryObjective}
-                  onChange={(e) => setPrimaryObjective(e.target.value)}
-                  className="w-full bg-zinc-950/50 border border-white/5 rounded-2xl px-5 py-4 text-sm font-bold text-foreground focus:outline-none focus:border-neon-blue/50 transition-all cursor-pointer"
-                >
-                  <option>Power Output Maximization</option>
-                  <option>Metabolic Optimization</option>
-                  <option>Endurance Threshold</option>
-                  <option>Hypertrophy Focus</option>
-                </select>
-              </div>
-              <div className="space-y-2">
-                <label className="text-[9px] font-black text-muted-foreground uppercase tracking-[0.2em] px-1">Athletic Tier</label>
-                <select
-                  value={athleticTier}
-                  onChange={(e) => setAthleticTier(e.target.value as "beginner" | "intermediate" | "advanced")}
-                  className="w-full bg-zinc-950/50 border border-white/5 rounded-2xl px-5 py-4 text-sm font-bold text-foreground focus:outline-none focus:border-neon-blue/50 transition-all cursor-pointer"
-                >
-                  <option value="beginner">Initial Recruit (Beginner)</option>
-                  <option value="intermediate">Field Operative (Intermediate)</option>
-                  <option value="advanced">Elite Specialist (Advanced)</option>
-                </select>
               </div>
             </div>
           </motion.div>
 
-          {/* Daily Plans */}
-          <div className="space-y-6">
+          {/* Daily Templates */}
+          <div className="space-y-4">
             {days.map((day, i) => (
-              <motion.div key={day} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ ...LUXURY_TWEEN_MEDIUM, delay: i * 0.1 }} className="glass-card-hover p-8 space-y-6 relative group border-t-4 border-t-neon-orange">
+              <motion.div
+                key={day}
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ ...LUXURY_TWEEN_MEDIUM, delay: i * 0.08 }}
+                className="rounded-3xl border border-white/10 bg-[#151515] p-6 space-y-5 group relative"
+              >
                 <div className="flex items-center justify-between">
                   <div>
-                    <h3 className="text-xl font-display font-black text-foreground tracking-tight italic uppercase">Day {String(day).padStart(2, "0")} Matrix</h3>
-                    <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest mt-1">
-                      {days.length < cycleDuration ? `Template cycles across ${cycleDuration} days` : "Operational Directive"}
+                    <h3 className="text-base font-semibold text-white">Day {String(day).padStart(2, "0")} Template</h3>
+                    <p className="text-[10px] text-white/30 mt-0.5">
+                      {days.length < cycleDuration ? `Cycles across ${cycleDuration} days` : "Set tasks for this day"}
                     </p>
                   </div>
                   {days.length > 1 && (
-                    <button onClick={() => removeDay(day)} className="p-3 rounded-xl text-muted-foreground hover:bg-red-500/10 hover:text-red-500 border border-transparent hover:border-red-500/20 transition-all opacity-0 group-hover:opacity-100 scale-90 group-hover:scale-100">
+                    <button
+                      onClick={() => removeDay(day)}
+                      className="p-2 rounded-xl text-white/30 hover:bg-red-500/10 hover:text-red-400 border border-transparent hover:border-red-500/20 transition-all opacity-0 group-hover:opacity-100"
+                    >
                       <Trash2 className="h-4 w-4" />
                     </button>
                   )}
                 </div>
 
-                <div className="space-y-6 pt-4">
-                  <div className="space-y-3">
-                    <div className="flex items-center gap-3">
-                      <div className="p-2 rounded-xl bg-neon-orange/10 border border-neon-orange/20">
-                        <Dumbbell className="h-4 w-4 text-neon-orange" />
-                      </div>
-                      <label className="text-[10px] font-black text-foreground uppercase tracking-widest">Physical Training (one exercise per line)</label>
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <Dumbbell className="h-3.5 w-3.5 text-[#C9F85A]" />
+                      <label className="text-[10px] font-semibold text-white/50 uppercase tracking-wider">Workout (one exercise per line)</label>
                     </div>
                     <textarea
                       value={dayForms[day]?.workout ?? ""}
                       onChange={(e) => updateDayForm(day, "workout", e.target.value)}
-                      placeholder={"Incline Dumbbell Press 4x12\nCable Fly 3x15\nOverhead Triceps Extension 3x12\nPush-ups 3x20"}
+                      placeholder={"Incline Dumbbell Press 4x12\nCable Fly 3x15\nOverhead Triceps Extension 3x12"}
                       rows={4}
-                      className="w-full bg-zinc-950/40 border border-white/5 rounded-2xl px-6 py-4 text-sm font-bold text-foreground placeholder:text-muted-foreground/20 focus:outline-none focus:border-neon-orange/50 transition-all font-mono resize-none leading-relaxed"
+                      className="w-full bg-[#1A1A1A] border border-white/8 rounded-xl px-4 py-3 text-sm text-white placeholder:text-white/20 focus:outline-none focus:border-[#C9F85A]/30 transition-all resize-none font-mono text-xs leading-relaxed"
                     />
                   </div>
 
-                  <div className="grid sm:grid-cols-2 gap-6">
-                    <div className="space-y-3">
-                      <div className="flex items-center gap-3">
-                        <div className="p-2 rounded-xl bg-neon-blue/10 border border-neon-blue/20">
-                          <Utensils className="h-4 w-4 text-neon-blue" />
-                        </div>
-                        <label className="text-[10px] font-black text-foreground uppercase tracking-widest">Fueling Strategy</label>
+                  <div className="grid sm:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2">
+                        <Utensils className="h-3.5 w-3.5 text-[#4DD2FF]" />
+                        <label className="text-[10px] font-semibold text-white/50 uppercase tracking-wider">Nutrition</label>
                       </div>
                       <textarea
                         value={dayForms[day]?.diet ?? ""}
                         onChange={(e) => updateDayForm(day, "diet", e.target.value)}
                         placeholder="High protein, 2200 cal target"
                         rows={2}
-                        className="w-full bg-zinc-950/40 border border-white/5 rounded-2xl px-6 py-4 text-sm font-bold text-foreground placeholder:text-muted-foreground/20 focus:outline-none focus:border-neon-blue/50 transition-all font-mono resize-none"
+                        className="w-full bg-[#1A1A1A] border border-white/8 rounded-xl px-4 py-3 text-sm text-white placeholder:text-white/20 focus:outline-none focus:border-[#4DD2FF]/30 transition-all resize-none font-mono text-xs"
                       />
                     </div>
-                    <div className="space-y-3">
-                      <div className="flex items-center gap-3">
-                        <div className="p-2 rounded-xl bg-neon-green/10 border border-neon-green/20">
-                          <Target className="h-4 w-4 text-neon-green" />
-                        </div>
-                        <label className="text-[10px] font-black text-foreground uppercase tracking-widest">Activity Goal</label>
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2">
+                        <Target className="h-3.5 w-3.5 text-[#A78BFA]" />
+                        <label className="text-[10px] font-semibold text-white/50 uppercase tracking-wider">Activity Goal</label>
                       </div>
                       <textarea
                         value={dayForms[day]?.activity ?? ""}
                         onChange={(e) => updateDayForm(day, "activity", e.target.value)}
                         placeholder="10k steps, 3.5L water"
                         rows={2}
-                        className="w-full bg-zinc-950/40 border border-white/5 rounded-2xl px-6 py-4 text-sm font-bold text-foreground placeholder:text-muted-foreground/20 focus:outline-none focus:border-neon-green/50 transition-all font-mono resize-none"
+                        className="w-full bg-[#1A1A1A] border border-white/8 rounded-xl px-4 py-3 text-sm text-white placeholder:text-white/20 focus:outline-none focus:border-[#A78BFA]/30 transition-all resize-none font-mono text-xs"
                       />
                     </div>
                   </div>
@@ -357,39 +363,54 @@ export default function PlanBuilder() {
             ))}
           </div>
 
-          <button onClick={addDay} className="w-full group flex items-center justify-center gap-4 p-8 rounded-[2rem] border-2 border-dashed border-white/5 text-muted-foreground hover:text-neon-orange hover:border-neon-orange/20 hover:bg-neon-orange/5 transition-all font-black uppercase tracking-[0.3em] text-[10px]">
-            <Plus className="h-5 w-5 transition-transform group-hover:rotate-90 duration-500" /> Add Day Template
+          <button
+            onClick={addDay}
+            className="w-full flex items-center justify-center gap-3 p-6 rounded-3xl border-2 border-dashed border-white/10 text-white/30 hover:text-[#C9F85A] hover:border-[#C9F85A]/25 hover:bg-[#C9F85A]/5 transition-all text-xs font-semibold uppercase tracking-wider group"
+          >
+            <Plus className="h-5 w-5 transition-transform group-hover:rotate-90 duration-300" />
+            Add Day Template
           </button>
         </div>
 
-        <div className="lg:col-span-4 space-y-8">
-          {/* Assign Students */}
-          <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="glass-card-hover p-8 border-t-4 border-t-neon-blue sticky top-8">
-            <div className="flex items-center gap-4 mb-8">
-              <div className="p-3 rounded-2xl bg-neon-blue/10 border border-neon-blue/20">
-                <Users className="h-5 w-5 text-neon-blue" />
+        {/* Sidebar - Student selector */}
+        <div className="lg:col-span-4">
+          <motion.div
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            className="rounded-3xl border border-white/10 bg-[#151515] p-6 sticky top-6 space-y-5"
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-xl bg-[#C9F85A]/10 border border-[#C9F85A]/20 flex items-center justify-center">
+                <Users className="h-4 w-4 text-[#C9F85A]" />
               </div>
               <div>
-                <h3 className="text-xl font-display font-black text-foreground tracking-tight uppercase italic">Target Units</h3>
-                <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest mt-0.5">
-                  {selectedStudentIds.size} / {assignedStudents.length} selected
-                </p>
+                <h3 className="text-base font-semibold text-white">Assign To</h3>
+                <p className="text-[10px] text-white/30">{selectedStudentIds.size} / {assignedStudents.length} selected</p>
               </div>
             </div>
 
-            <div className="space-y-3">
+            <div className="space-y-2">
               {assignedStudents.length === 0 ? (
-                <p className="text-xs text-muted-foreground text-center py-6">No students available. Students need to sign up first.</p>
+                <p className="text-xs text-white/30 text-center py-6">No students assigned to you yet.</p>
               ) : (
                 assignedStudents.map((student) => (
-                  <label key={student.id} className="flex items-center justify-between p-4 rounded-2xl bg-zinc-950/30 border border-white/5 cursor-pointer hover:bg-neon-blue/10 hover:border-neon-blue/20 transition-all group">
-                    <div className="flex items-center gap-4">
-                      <div className="w-10 h-10 rounded-xl bg-accent flex items-center justify-center text-[10px] font-black text-muted-foreground group-hover:text-neon-blue transition-colors">
+                  <label
+                    key={student.id}
+                    className={`flex items-center justify-between p-3.5 rounded-2xl border cursor-pointer transition-all ${
+                      selectedStudentIds.has(student.id)
+                        ? "bg-[#C9F85A]/10 border-[#C9F85A]/30"
+                        : "bg-[#1A1A1A] border-white/8 hover:border-white/15"
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className={`w-9 h-9 rounded-xl flex items-center justify-center text-[10px] font-bold transition-colors ${
+                        selectedStudentIds.has(student.id) ? "bg-[#C9F85A]/20 text-[#C9F85A]" : "bg-[#252525] text-white/50"
+                      }`}>
                         {student.name.split(" ").map((n) => n[0]).join("")}
                       </div>
                       <div>
-                        <p className="text-xs font-black text-foreground group-hover:ml-1 transition-all">{student.name}</p>
-                        <p className="text-[8px] font-black text-muted-foreground uppercase tracking-widest">
+                        <p className="text-xs font-semibold text-white">{student.name}</p>
+                        <p className="text-[9px] text-white/30 uppercase tracking-wider">
                           {student.currentPlanId ? "Has active plan" : "No plan"}
                         </p>
                       </div>
@@ -398,45 +419,45 @@ export default function PlanBuilder() {
                       type="checkbox"
                       checked={selectedStudentIds.has(student.id)}
                       onChange={(e) => toggleStudent(student.id, e.target.checked)}
-                      className="w-5 h-5 rounded-lg bg-zinc-900 border-white/10 text-neon-blue focus:ring-0 focus:ring-offset-0 transition-all cursor-pointer"
+                      className="w-4 h-4 rounded border-white/20 bg-[#1A1A1A] text-[#C9F85A] focus:ring-0 cursor-pointer"
                     />
                   </label>
                 ))
               )}
             </div>
 
-            {/* Plan summary */}
-            <div className="mt-8 pt-8 border-t border-white/5 space-y-4">
-              <div className="space-y-2 px-2 text-xs">
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Duration</span>
-                  <span className="font-semibold text-foreground">{cycleDuration} days</span>
+            {/* Summary */}
+            <div className="pt-4 border-t border-white/5 space-y-3">
+              {[
+                { label: "Duration", value: `${cycleDuration} days` },
+                { label: "Day templates", value: days.length.toString() },
+                { label: "Students", value: selectedStudentIds.size.toString() },
+              ].map((row) => (
+                <div key={row.label} className="flex justify-between text-xs">
+                  <span className="text-white/30">{row.label}</span>
+                  <span className="font-semibold text-white">{row.value}</span>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Day templates</span>
-                  <span className="font-semibold text-foreground">{days.length}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Athletes</span>
-                  <span className="font-semibold text-foreground">{selectedStudentIds.size}</span>
-                </div>
-              </div>
-
-              <button
-                onClick={handlePublish}
-                disabled={publishing}
-                className="w-full relative overflow-hidden group/btn bg-foreground text-background py-5 rounded-[1.5rem] font-black uppercase tracking-[0.2em] text-[11px] hover:scale-[1.02] active:scale-95 transition-all shadow-2xl disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                <div className="absolute inset-0 bg-gradient-to-r from-neon-orange to-neon-blue opacity-0 group-hover/btn:opacity-100 transition-opacity" />
-                <span className="relative z-10 flex items-center justify-center gap-3">
-                  {publishing ? (
-                    <>Deploying Protocol...</>
-                  ) : (
-                    <>Deploy & Assign <ChevronRight className="h-4 w-4" /></>
-                  )}
-                </span>
-              </button>
+              ))}
             </div>
+
+            <div className="rounded-2xl bg-[#1A1A1A] border border-[#C9F85A]/15 p-3">
+              <div className="flex items-center gap-2">
+                <Bell className="h-3.5 w-3.5 text-[#C9F85A]" />
+                <p className="text-[10px] text-[#C9F85A] font-semibold">Students are notified on assignment</p>
+              </div>
+            </div>
+
+            <button
+              onClick={handlePublish}
+              disabled={publishing}
+              className="w-full bg-[#C9F85A] text-black py-4 rounded-2xl font-bold text-sm flex items-center justify-center gap-2 hover:bg-[#d4ff60] active:scale-[0.98] transition-all disabled:opacity-50 shadow-[0_4px_20px_rgba(201,248,90,0.2)]"
+            >
+              {publishing ? (
+                "Assigning Plan..."
+              ) : (
+                <>Assign Plan <ChevronRight className="h-4 w-4" /></>
+              )}
+            </button>
           </motion.div>
         </div>
       </div>
