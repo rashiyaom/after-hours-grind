@@ -1,6 +1,10 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Search, Plus, Filter, X, Heart, MessageCircle, Share2, Send, Play, Image as ImageIcon } from "lucide-react";
+import {
+  Search, Plus, X, Heart, MessageCircle, Share2, Send,
+  Play, Image as ImageIcon, Filter, Bookmark, ArrowUpRight,
+  Flame, TrendingUp,
+} from "lucide-react";
 import FeedPostCard from "@/components/FeedPostCard";
 import { useStore } from "@/hooks/useStore";
 import { useCurrentUser, usePermissions } from "@/hooks/useStore";
@@ -11,16 +15,32 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { filterPostsByTab } from "@/lib/feedFilters";
 import { LUXURY_TWEEN_MEDIUM } from "@/lib/motionTokens";
 
+const TABS = ["All", "Videos", "Photos"] as const;
+
+function getInitials(name: string) {
+  return name.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2);
+}
+
+function timeAgo(ts: string) {
+  try {
+    const diff = Date.now() - new Date(ts).getTime();
+    const h = Math.floor(diff / 3600000);
+    if (h < 1) return "just now";
+    if (h < 24) return `${h}h ago`;
+    return `${Math.floor(h / 24)}d ago`;
+  } catch { return ts; }
+}
+
 export default function FeedPage() {
   const { posts, likePost, addComment, loading, setLoading } = useStore();
   const currentUser = useCurrentUser();
   const permissions = usePermissions();
   const canPostFeed = Boolean(currentUser && permissions[currentUser.role].post_feed);
-  const [activeTab, setActiveTab] = useState("All");
+  const [activeTab, setActiveTab] = useState<typeof TABS[number]>("All");
   const [selectedPost, setSelectedPost] = useState<Post | null>(null);
   const [commentText, setCommentText] = useState("");
 
-  const activePost = selectedPost ? posts.find(p => p.id === selectedPost.id) : null;
+  const activePost = selectedPost ? posts.find((p) => p.id === selectedPost.id) : null;
 
   useEffect(() => {
     setLoading(true);
@@ -31,7 +51,7 @@ export default function FeedPage() {
   const handleComment = () => {
     if (!commentText.trim() || !activePost) return;
     addComment(activePost.id, commentText);
-    toast.success("Engagement logged!");
+    toast.success("Comment posted!");
     setCommentText("");
   };
 
@@ -39,72 +59,25 @@ export default function FeedPage() {
 
   if (loading) {
     return (
-      <div className="p-4 sm:p-6 lg:p-8 max-w-2xl mx-auto space-y-8 animate-in fade-in duration-500 pb-20">
+      <div className="mx-auto max-w-2xl space-y-6 p-4 sm:p-6 lg:p-8">
         <div className="flex justify-between items-center">
-           <Skeleton className="h-10 w-48" />
-           <Skeleton className="h-12 w-12 rounded-full" />
+          <Skeleton className="h-10 w-44 rounded-2xl" />
+          <Skeleton className="h-11 w-11 rounded-full" />
         </div>
         <div className="flex gap-2">
-           {[1,2,3].map(i => <Skeleton key={i} className="h-10 w-24 rounded-xl" />)}
+          {[1, 2, 3].map((i) => <Skeleton key={i} className="h-10 w-24 rounded-full" />)}
         </div>
-        <div className="space-y-8">
-           {[1,2].map(i => <Skeleton key={i} className="h-[400px] w-full rounded-3xl" />)}
+        <div className="space-y-6">
+          {[1, 2].map((i) => <Skeleton key={i} className="h-[440px] w-full rounded-[28px]" />)}
         </div>
       </div>
     );
   }
 
   return (
-    <div className="p-4 sm:p-6 lg:p-8 max-w-2xl mx-auto space-y-6">
-      {/* Feed Header */}
-      <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="flex items-center justify-between">
-        <div>
-           <h1 className="text-3xl font-display font-black text-foreground tracking-tight">The Grind Feed</h1>
-           <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mt-1 px-1">Community Intelligence</p>
-        </div>
-        {canPostFeed && (
-          <Link
-            to="/student/upload"
-            className="p-4 rounded-[1.25rem] bg-neon-orange text-background hover:scale-105 active:scale-95 transition-all shadow-[0_10px_20px_rgba(255,165,0,0.3)] ring-offset-background focus:ring-2 ring-neon-orange"
-          >
-            <Plus className="h-5 w-5" />
-          </Link>
-        )}
-      </motion.div>
+    <div className="mx-auto max-w-2xl space-y-6 p-4 sm:p-6 lg:p-8">
 
-      {/* Tabs */}
-      <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ ...LUXURY_TWEEN_MEDIUM, delay: 0.1 }} className="flex gap-1.5 bg-accent/20 p-1.5 border border-white/5 rounded-2xl w-fit">
-        {["All", "Videos", "Photos"].map((tab) => (
-          <button
-            key={tab}
-            onClick={() => setActiveTab(tab)}
-            className={`px-6 py-2.5 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all ${
-              activeTab === tab ? "bg-card shadow-xl text-neon-orange border border-white/5" : "text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            {tab === "Videos" && <Play className="h-3 w-3 inline mr-2 opacity-50" />}
-            {tab === "Photos" && <ImageIcon className="h-3 w-3 inline mr-2 opacity-50" />}
-            {tab}
-          </button>
-        ))}
-      </motion.div>
-
-      {/* Posts */}
-      <div className="space-y-10 pb-24">
-        {filteredPosts.map((post, i) => (
-          <motion.div 
-             key={post.id} 
-             initial={{ opacity: 0, y: 20 }} 
-             animate={{ opacity: 1, y: 0 }} 
-             transition={{ ...LUXURY_TWEEN_MEDIUM, delay: i * 0.1 }}
-             onClick={() => setSelectedPost(post)}
-          >
-            <FeedPostCard post={post} />
-          </motion.div>
-        ))}
-      </div>
-
-      {/* Post Modal */}
+      {/* ── Post detail modal ────────────────────────────── */}
       <AnimatePresence>
         {activePost && (
           <>
@@ -113,146 +86,168 @@ export default function FeedPage() {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => setSelectedPost(null)}
-              className="fixed inset-0 bg-background/95 backdrop-blur-2xl z-[100] cursor-zoom-out"
+              className="fixed inset-0 bg-black/90 backdrop-blur-2xl z-[100] cursor-zoom-out"
             />
             <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: 40 }}
+              initial={{ opacity: 0, scale: 0.95, y: 32 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 40 }}
-              className="fixed inset-2 sm:inset-6 md:inset-auto md:top-1/2 md:left-1/2 md:-translate-x-1/2 md:-translate-y-1/2 md:w-[1100px] md:h-[90vh] bg-card border border-white/10 shadow-[0_0_100px_rgba(0,0,0,0.8)] z-[101] rounded-[2.5rem] overflow-hidden flex flex-col md:flex-row transition-all duration-500"
+              exit={{ opacity: 0, scale: 0.95, y: 32 }}
+              transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
+              className="fixed inset-2 sm:inset-6 md:inset-auto md:top-1/2 md:left-1/2 md:-translate-x-1/2 md:-translate-y-1/2 md:w-[1100px] md:h-[90vh] z-[101] rounded-[32px] overflow-hidden flex flex-col md:flex-row border border-white/10 bg-[#0D0D0D] shadow-[0_0_120px_rgba(0,0,0,0.9)]"
             >
-              {/* Media Part */}
-              <div className="flex-1 bg-black flex items-center justify-center relative group min-h-[350px] md:min-h-0 border-b md:border-b-0 md:border-r border-white/5">
-                <div className="absolute inset-0 bg-gradient-to-br from-zinc-900 to-black" />
-                <span className="text-white/5 text-[15rem] font-display font-black select-none pointer-events-none group-hover:scale-110 transition-transform duration-1000">TAH</span>
-                
-                {/* Media Content */}
+              {/* ─ Left: media ─────────────────────────── */}
+              <div className="flex-1 relative flex items-center justify-center bg-[#080808] min-h-[320px] md:min-h-0 border-b md:border-b-0 md:border-r border-white/5 overflow-hidden group">
+                <div className="absolute inset-0"
+                  style={{ backgroundImage: "linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px)", backgroundSize: "32px 32px" }}
+                />
+                <div className="absolute inset-0 bg-gradient-to-br from-[#C9F85A]/4 via-transparent to-[#4DD2FF]/4" />
+
+                {/* watermark */}
+                <span className="text-[18rem] font-black select-none pointer-events-none text-white/[0.025] group-hover:text-white/[0.04] transition-opacity duration-1000">
+                  TAH
+                </span>
+
+                {/* media icon center */}
                 <div className="absolute inset-0 flex items-center justify-center">
-                    <div className="text-center space-y-4 px-10 group-hover:translate-y-[-10px] transition-transform duration-700">
-                       <div className="w-24 h-24 rounded-full bg-neon-orange/10 border border-neon-orange/30 flex items-center justify-center mx-auto shadow-[0_0_30px_rgba(255,165,0,0.1)] group-hover:scale-125 group-hover:border-neon-orange group-hover:bg-neon-orange/20 transition-all duration-500">
-                          {activePost.type === 'reel' ? <Play className="h-10 w-10 text-neon-orange fill-neon-orange/20" /> : <ImageIcon className="h-10 w-10 text-neon-orange" />}
-                       </div>
-                       <div className="space-y-1">
-                          <p className="text-[10px] font-black text-white/40 tracking-[0.4em] uppercase">{activePost.type.toUpperCase()}_STREAM_001</p>
-                          <p className="text-xs font-bold text-white/20 uppercase">AUTHORIZED_GRIND_VISUAL</p>
-                       </div>
-                    </div>
+                  <motion.div
+                    whileHover={{ scale: 1.08 }}
+                    className="w-20 h-20 rounded-full bg-[#C9F85A]/10 border border-[#C9F85A]/25 flex items-center justify-center"
+                  >
+                    {activePost.type === "reel"
+                      ? <Play className="h-9 w-9 text-[#C9F85A] fill-[#C9F85A]/20 ml-1" />
+                      : <ImageIcon className="h-9 w-9 text-[#C9F85A]" />
+                    }
+                  </motion.div>
                 </div>
 
-                <div className="absolute top-8 left-8 flex items-center gap-4 z-10">
-                   <button
+                {/* close + type badge */}
+                <div className="absolute top-5 left-5 flex items-center gap-3 z-10">
+                  <button
                     onClick={() => setSelectedPost(null)}
-                    className="p-3.5 rounded-2xl bg-black/60 backdrop-blur-md text-foreground border border-white/10 hover:bg-white/10 transition-all active:scale-90"
-                   >
-                    <X className="h-5 w-5" />
-                   </button>
-                   <div className="px-4 py-2 rounded-2xl bg-black/60 backdrop-blur-md border border-white/10 hidden md:block">
-                      <p className="text-[9px] font-black uppercase tracking-widest text-neon-orange">System Overlay: Operational</p>
-                   </div>
+                    className="w-9 h-9 rounded-full bg-white/10 backdrop-blur-md border border-white/10 flex items-center justify-center text-white/70 hover:text-white hover:bg-white/20 transition-all"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                  <span className="rounded-full bg-[#C9F85A] px-3 py-1 text-[10px] font-bold text-black uppercase tracking-wider hidden md:block">
+                    {activePost.type === "reel" ? "Video" : "Photo"}
+                  </span>
                 </div>
               </div>
 
-              {/* Interaction Part */}
-              <div className="w-full md:w-[450px] flex flex-col bg-card h-[60vh] md:h-full relative">
-                <div className="p-6 border-b border-white/5 flex items-center justify-between flex-shrink-0 bg-gradient-to-r from-accent/10 to-transparent">
-                  <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 rounded-full bg-accent border-2 border-neon-orange/50 p-0.5 shadow-[0_0_15px_rgba(255,165,0,0.2)]">
-                       <div className="w-full h-full rounded-full bg-zinc-900 flex items-center justify-center text-xs font-black">
-                         {activePost.userName.split(" ").map(n => n[0]).join("")}
-                       </div>
+              {/* ─ Right: interaction panel ─────────────── */}
+              <div className="w-full md:w-[420px] flex flex-col bg-[#0F0F0F] h-[60vh] md:h-full">
+                {/* user info */}
+                <div className="px-6 py-5 border-b border-white/5 flex items-center gap-3 flex-shrink-0">
+                  <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-[#C9F85A] to-[#4DD2FF] p-[1.5px]">
+                    <div className="w-full h-full rounded-[13px] bg-[#1A1A1A] flex items-center justify-center text-[11px] font-bold text-white">
+                      {getInitials(activePost.userName)}
+                    </div>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-white">{activePost.userName}</p>
+                    <p className="text-[10px] text-white/35">{activePost.location} · {timeAgo(activePost.timestamp)}</p>
+                  </div>
+                  <button className="w-8 h-8 rounded-full bg-[#1D1D1D] border border-white/8 flex items-center justify-center text-white/40 hover:text-white transition-all">
+                    <ArrowUpRight className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+
+                {/* scroll area: caption + comments */}
+                <div className="flex-1 overflow-y-auto px-6 py-5 space-y-6">
+                  {/* caption */}
+                  <div className="flex gap-3">
+                    <div className="w-8 h-8 rounded-xl bg-[#1D1D1D] flex items-center justify-center text-[10px] font-bold text-white/50 flex-shrink-0">
+                      {getInitials(activePost.userName)}
                     </div>
                     <div>
-                      <p className="text-sm font-black text-foreground uppercase tracking-tight">{activePost.userName}</p>
-                      <p className="text-[9px] font-black text-neon-blue uppercase tracking-widest">{activePost.location}</p>
+                      <p className="text-sm text-white/80 leading-relaxed">
+                        <span className="font-semibold text-white mr-1">{activePost.userName}</span>
+                        {activePost.caption}
+                      </p>
+                      <div className="flex flex-wrap gap-1.5 mt-2">
+                        {["#AfterHours", "#Grind"].map((tag) => (
+                          <span key={tag} className="text-[10px] font-semibold text-[#C9F85A]/60">{tag}</span>
+                        ))}
+                      </div>
                     </div>
                   </div>
-                </div>
 
-                <div className="flex-1 overflow-y-auto p-6 custom-scrollbar bg-zinc-950/20">
-                  <div className="space-y-8">
-                    <div className="flex gap-4">
-                      <div className="w-9 h-9 rounded-full bg-accent border border-border flex items-center justify-center text-[10px] font-black flex-shrink-0">
-                        {activePost.userName.split(" ").map(n => n[0]).join("")}
-                      </div>
-                      <div className="space-y-1">
-                        <p className="text-xs leading-relaxed font-bold text-foreground/90">
-                          {activePost.caption}
-                        </p>
-                        <p className="text-[10px] font-black text-neon-orange uppercase tracking-widest font-mono opacity-50 mt-2">#AFTER_HOURS #GRIND</p>
-                      </div>
+                  {/* comments */}
+                  <div className="space-y-4 pt-4 border-t border-white/5">
+                    <div className="flex items-center justify-between">
+                      <p className="text-[10px] font-semibold text-white/30 uppercase tracking-wider">
+                        {activePost.comments} comments
+                      </p>
+                      <Filter className="h-3.5 w-3.5 text-white/20" />
                     </div>
-
-                    <div className="space-y-6 pt-8 border-t border-white/5">
-                      <div className="flex items-center justify-between">
-                         <p className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.2em]">Intel Feed: {activePost.comments}</p>
-                         <Filter className="h-3.5 w-3.5 text-muted-foreground/30 hover:text-foreground cursor-pointer" />
-                      </div>
-                      {[
-                        { user: "Coach Vikram", text: "Superior form on those reps. Keep the delta consistent. 🚀" },
-                        { user: "Rohan Patel", text: "Visual aesthetic is high. Sync up for the next session?" },
-                        { user: "Priya Sharma", text: "Unmatched consistency detected. 🔥" },
-                      ].map((c, i) => (
-                        <div key={i} className="flex gap-4 group">
-                          <div className="w-9 h-9 rounded-full bg-muted/40 border border-border flex items-center justify-center text-[10px] font-black flex-shrink-0 group-hover:border-neon-blue/50 transition-colors">
-                            {c.user.split(" ").map(n => n[0]).join("")}
-                          </div>
-                          <div className="space-y-1.5 flex-1 pt-1">
-                            <p className="text-xs font-bold leading-relaxed">
-                              <span className="text-neon-blue mr-2 font-black uppercase text-[10px] tracking-tight">{c.user}</span> 
-                              <span className="text-foreground/80">{c.text}</span>
-                            </p>
-                            <div className="flex items-center gap-4 text-[9px] font-black text-muted-foreground uppercase tracking-widest opacity-40 group-hover:opacity-100 transition-opacity">
-                              <span>0{i + 2}H AGO</span>
-                              <button className="hover:text-neon-blue font-black transition-colors">Relay Response</button>
-                            </div>
+                    {[
+                      { user: "Coach Vikram", text: "Superior form on those reps. Keep the delta consistent. 🚀" },
+                      { user: "Rohan Patel", text: "Visual aesthetic is high. Sync up for the next session?" },
+                      { user: "Priya Sharma", text: "Unmatched consistency. 🔥" },
+                    ].map((c, i) => (
+                      <div key={i} className="flex gap-3 group">
+                        <div className="w-8 h-8 rounded-xl bg-[#1D1D1D] border border-white/5 flex items-center justify-center text-[9px] font-bold text-white/50 flex-shrink-0 group-hover:border-[#C9F85A]/20 transition-colors">
+                          {getInitials(c.user)}
+                        </div>
+                        <div className="flex-1 pt-0.5">
+                          <p className="text-xs leading-relaxed text-white/70">
+                            <span className="font-semibold text-white mr-1.5">{c.user}</span>
+                            {c.text}
+                          </p>
+                          <div className="flex items-center gap-3 mt-1.5 text-[10px] text-white/25">
+                            <span>0{i + 2}h ago</span>
+                            <button className="hover:text-[#C9F85A] transition-colors font-medium">Reply</button>
                           </div>
                         </div>
-                      ))}
-                    </div>
+                      </div>
+                    ))}
                   </div>
                 </div>
 
-                <div className="p-8 border-t border-white/5 bg-gradient-to-b from-transparent to-accent/10 flex-shrink-0 space-y-6">
+                {/* actions + comment input */}
+                <div className="px-6 py-5 border-t border-white/5 space-y-4 flex-shrink-0">
+                  {/* action row */}
                   <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-6">
-                      <Heart 
-                        onClick={(e) => { e.stopPropagation(); likePost(activePost.id); }} 
-                        className={`h-7 w-7 cursor-pointer transition-all active:scale-[1.5] ${activePost.liked ? "text-neon-orange fill-neon-orange shadow-[0_0_20px_rgba(255,165,0,0.3)]" : "text-foreground hover:text-neon-orange"}`} 
-                      />
-                      <MessageCircle className="h-7 w-7 cursor-pointer text-foreground hover:text-neon-blue transition-colors" />
-                      <Share2 onClick={(e) => {
+                    <div className="flex items-center gap-4">
+                      <motion.button whileTap={{ scale: 0.85 }} onClick={(e) => { e.stopPropagation(); likePost(activePost.id); }}>
+                        <Heart className={`transition-all ${activePost.liked ? "text-[#FF4D00] fill-[#FF4D00]" : "text-white/50 hover:text-white"}`} style={{ width: 22, height: 22 }} />
+                      </motion.button>
+                      <motion.button whileTap={{ scale: 0.85 }}>
+                        <MessageCircle className="text-white/50 hover:text-white transition-colors" style={{ width: 22, height: 22 }} />
+                      </motion.button>
+                      <motion.button whileTap={{ scale: 0.85 }} onClick={(e) => {
                         e.stopPropagation();
                         navigator.clipboard.writeText(window.location.href);
-                        toast.success("Intel shared!");
-                      }} className="h-7 w-7 cursor-pointer text-foreground hover:text-neon-blue transition-colors" />
+                        toast.success("Link copied!");
+                      }}>
+                        <Share2 className="text-white/50 hover:text-white transition-colors" style={{ width: 22, height: 22 }} />
+                      </motion.button>
                     </div>
-                    <div className="text-right">
-                       <p className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.2em]">{activePost.timestamp}</p>
-                       <p className="text-[9px] font-black text-neon-orange uppercase mt-0.5 tracking-widest">Live Sync</p>
-                    </div>
-                  </div>
-                  
-                  <div className="flex items-center justify-between">
-                     <div className="text-lg font-display font-black text-foreground tracking-tight underline decoration-neon-orange decoration-2 underline-offset-4">{activePost.likes.toLocaleString()} <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Affirmations</span></div>
+                    <p className="text-sm font-bold text-white">{activePost.likes.toLocaleString()} <span className="text-white/30 font-normal text-xs">likes</span></p>
                   </div>
 
-                  <div className="relative group">
+                  {/* comment input */}
+                  <div className="relative">
                     <input
                       value={commentText}
                       onChange={(e) => setCommentText(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') handleComment();
-                      }}
-                      placeholder="Commit message to feed..."
-                      className="w-full bg-zinc-950/50 border border-white/5 rounded-2xl px-6 py-4 text-sm font-bold placeholder:text-muted-foreground/30 focus:outline-none focus:border-neon-orange/30 pr-16 transition-all group-hover:bg-zinc-950"
+                      onKeyDown={(e) => { if (e.key === "Enter") handleComment(); }}
+                      placeholder="Add a comment…"
+                      className="w-full bg-[#1A1A1A] border border-white/8 rounded-2xl px-5 py-3.5 text-sm text-white placeholder:text-white/25 focus:outline-none focus:border-[#C9F85A]/40 pr-14 transition-all"
                     />
-                    <button 
-                      onClick={handleComment}
-                      disabled={!commentText.trim()}
-                      className="absolute right-4 top-1/2 -translate-y-1/2 p-2 rounded-xl text-neon-orange disabled:opacity-0 transition-all hover:bg-neon-orange/10"
-                    >
-                      <Send className="h-5 w-5" />
-                    </button>
+                    <AnimatePresence>
+                      {commentText.trim() && (
+                        <motion.button
+                          initial={{ opacity: 0, scale: 0.8 }}
+                          animate={{ opacity: 1, scale: 1 }}
+                          exit={{ opacity: 0, scale: 0.8 }}
+                          onClick={handleComment}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-[#C9F85A] flex items-center justify-center text-black hover:bg-[#d4ff60] transition-all"
+                        >
+                          <Send className="h-3.5 w-3.5" />
+                        </motion.button>
+                      )}
+                    </AnimatePresence>
                   </div>
                 </div>
               </div>
@@ -260,6 +255,100 @@ export default function FeedPage() {
           </>
         )}
       </AnimatePresence>
+
+      {/* ── Feed header ──────────────────────────────────── */}
+      <motion.div
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={LUXURY_TWEEN_MEDIUM}
+        className="rounded-[32px] border border-white/10 bg-[#121212] p-5 sm:p-6 shadow-[0_20px_60px_rgba(0,0,0,0.4)] relative overflow-hidden"
+      >
+        <div className="absolute top-0 right-0 w-48 h-48 rounded-full bg-[#C9F85A]/4 translate-x-12 -translate-y-12 blur-3xl pointer-events-none" />
+
+        <div className="flex items-center justify-between gap-4 relative z-10">
+          <div>
+            <div className="inline-flex items-center gap-2 rounded-full bg-[#C9F85A]/10 border border-[#C9F85A]/20 px-3 py-1.5 mb-3">
+              <Flame className="h-3.5 w-3.5 text-[#C9F85A]" />
+              <span className="text-xs font-bold text-[#C9F85A] uppercase tracking-wider">Live Feed</span>
+            </div>
+            <h1 className="text-3xl font-bold text-white tracking-tight leading-none">The Grind Feed</h1>
+            <p className="text-sm text-white/40 mt-1">{filteredPosts.length} posts · Community activity</p>
+          </div>
+
+          {canPostFeed && (
+            <Link
+              to="/student/upload"
+              className="inline-flex items-center gap-2 rounded-full bg-[#C9F85A] text-black px-5 py-3 text-sm font-bold hover:bg-[#d4ff60] transition-all shadow-[0_8px_32px_rgba(201,248,90,0.25)] hover:shadow-[0_8px_40px_rgba(201,248,90,0.35)] flex-shrink-0"
+            >
+              <Plus className="h-4 w-4" />
+              <span className="hidden sm:block">Post</span>
+            </Link>
+          )}
+        </div>
+
+        {/* Stats strip */}
+        <div className="flex flex-wrap gap-3 mt-5 pt-4 border-t border-white/5 relative z-10">
+          {[
+            { label: "Posts today", value: String(filteredPosts.length), color: "#C9F85A" },
+            { label: "Total likes", value: filteredPosts.reduce((a, p) => a + p.likes, 0).toLocaleString(), color: "#FF4D00" },
+            { label: "Active members", value: new Set(filteredPosts.map((p) => p.userId)).size.toString(), color: "#4DD2FF" },
+          ].map((k) => (
+            <div key={k.label} className="rounded-xl bg-[#1A1A1A] border border-white/5 px-4 py-2.5 flex items-center gap-2">
+              <span className="text-base font-bold" style={{ color: k.color }}>{k.value}</span>
+              <span className="text-[10px] text-white/30 uppercase tracking-wider">{k.label}</span>
+            </div>
+          ))}
+        </div>
+      </motion.div>
+
+      {/* ── Tab filter ───────────────────────────────────── */}
+      <motion.div
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ ...LUXURY_TWEEN_MEDIUM, delay: 0.08 }}
+        className="flex gap-2"
+      >
+        {TABS.map((tab) => (
+          <button
+            key={tab}
+            onClick={() => setActiveTab(tab)}
+            className={`flex items-center gap-1.5 rounded-full px-5 py-2.5 text-sm font-semibold transition-all ${
+              activeTab === tab
+                ? "bg-[#C9F85A] text-black"
+                : "bg-[#1A1A1A] border border-white/8 text-white/50 hover:text-white hover:bg-[#202020]"
+            }`}
+          >
+            {tab === "Videos" && <Play className="h-3 w-3" />}
+            {tab === "Photos" && <ImageIcon className="h-3 w-3" />}
+            {tab}
+          </button>
+        ))}
+      </motion.div>
+
+      {/* ── Posts list ───────────────────────────────────── */}
+      {filteredPosts.length === 0 ? (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          className="rounded-[32px] border border-dashed border-white/10 bg-[#0D0D0D] p-16 text-center"
+        >
+          <TrendingUp className="h-10 w-10 text-white/15 mx-auto mb-3" />
+          <p className="text-sm text-white/30">No posts for this filter.</p>
+        </motion.div>
+      ) : (
+        <div className="space-y-6 pb-10">
+          {filteredPosts.map((post, i) => (
+            <motion.div
+              key={post.id}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ ...LUXURY_TWEEN_MEDIUM, delay: i * 0.07 }}
+            >
+              <FeedPostCard post={post} onClick={() => setSelectedPost(post)} />
+            </motion.div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

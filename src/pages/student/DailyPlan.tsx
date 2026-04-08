@@ -2,10 +2,10 @@ import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Check, Flame, Dumbbell, Utensils, Footprints, Droplets,
-  MessageSquare, Upload, ChevronRight, ChevronLeft, ChevronRight as ChevRight,
-  Play, Info, ListChecks, Clock, LayoutGrid, X, Search, Activity, Zap
+  Upload, ChevronRight, ChevronLeft, ChevronRight as ChevRight,
+  Play, Info, Clock, X, Activity, Zap, ArrowUpRight, Target,
+  ChevronDown
 } from "lucide-react";
-import SectionHeader from "@/components/SectionHeader";
 import { useCurrentUser, usePermissions, useStore } from "@/hooks/useStore";
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
@@ -21,6 +21,24 @@ const dayTypes = [
   "Cardio & Core",
 ];
 
+/* ─── Meal timing colors ─────────────────────────────── */
+const mealTimeColor = (time: string) => {
+  const t = time.toLowerCase();
+  if (t.includes("morning") || t.includes("7") || t.includes("8")) return "#FFD36E";
+  if (t.includes("lunch") || t.includes("12") || t.includes("1")) return "#4DD2FF";
+  if (t.includes("evening") || t.includes("5") || t.includes("6")) return "#C9F85A";
+  if (t.includes("night") || t.includes("9") || t.includes("10")) return "#A78BFA";
+  return "#C9F85A";
+};
+
+const macroBarVariants = {
+  hidden: { scaleX: 0 },
+  visible: (pct: number) => ({
+    scaleX: Math.min(1, pct / 100),
+    transition: { duration: 0.9, ease: [0.16, 1, 0.3, 1] as [number, number, number, number], delay: 0.2 },
+  }),
+};
+
 export default function DailyPlanPage() {
   const { student: s, getDayTask, completeTask, canStartCurrentPlan, currentStudentPlan } = useStore();
   const currentUser = useCurrentUser();
@@ -29,28 +47,34 @@ export default function DailyPlanPage() {
   const [selectedDay, setSelectedDay] = useState(s.currentDay);
   const todayTask = getDayTask(selectedDay);
   const [selectedExercise, setSelectedExercise] = useState<typeof todayTask.workout[0] | null>(null);
+  const [expandedMeal, setExpandedMeal] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<"workout" | "diet">("workout");
 
   const workouts = todayTask.workout;
   const meals = todayTask.diet;
 
   const toggleWorkout = (id: string) => {
-    if(!workouts.find(w => w.id === id)?.completed) {
-      completeTask('workout', id, selectedDay);
+    if (!workouts.find((w) => w.id === id)?.completed) {
+      completeTask("workout", id, selectedDay);
       toast.success("Workout logged.");
     }
   };
 
   const toggleMeal = (id: string) => {
-    if(!meals.find(m => m.id === id)?.completed) {
-      completeTask('diet', id, selectedDay);
+    if (!meals.find((m) => m.id === id)?.completed) {
+      completeTask("diet", id, selectedDay);
       toast.success("Meal logged.");
     }
   };
 
   const totalTasks = workouts.length + meals.length;
-  const completedTasks =
-    workouts.filter((w) => w.completed).length + meals.filter((m) => m.completed).length;
+  const completedTasks = workouts.filter((w) => w.completed).length + meals.filter((m) => m.completed).length;
   const pct = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
+
+  const workoutDone = workouts.filter((w) => w.completed).length;
+  const mealsDone = meals.filter((m) => m.completed).length;
+  const totalCalories = meals.reduce((acc, m) => acc + Number(m.calories || 0), 0);
+  const doneCalories = meals.filter((m) => m.completed).reduce((acc, m) => acc + Number(m.calories || 0), 0);
 
   const dayType = dayTypes[(selectedDay - 1) % 7];
   const isToday = selectedDay === s.currentDay;
@@ -58,14 +82,21 @@ export default function DailyPlanPage() {
 
   if (!canStartCurrentPlan) {
     return (
-      <div className="p-6 sm:p-8 lg:p-12 max-w-3xl mx-auto space-y-6">
-        <div className="bg-card border border-white/10 rounded-3xl p-8 space-y-4">
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">Plan Access</p>
-          <h1 className="text-3xl font-display font-semibold text-foreground tracking-tight">Waiting for trainer approval</h1>
-          <p className="text-sm text-muted-foreground">
-            Your auto-generated plan status is <span className="text-foreground font-semibold">{currentStudentPlan?.status}</span>. You cannot start daily tasks until the plan becomes active.
+      <div className="mx-auto max-w-3xl space-y-6 p-4 sm:p-6 lg:p-8">
+        <div className="rounded-[32px] border border-white/10 bg-[#121212] p-8 space-y-5 shadow-[0_20px_60px_rgba(0,0,0,0.4)]">
+          <div className="inline-flex items-center gap-2 rounded-full bg-[#6F5CFF]/20 px-3 py-1.5 border border-[#6F5CFF]/30">
+            <Clock className="h-3.5 w-3.5 text-[#6F5CFF]" />
+            <span className="text-xs font-semibold text-[#6F5CFF]">Plan Access</span>
+          </div>
+          <h1 className="text-3xl font-semibold text-white tracking-tight">Waiting for trainer approval</h1>
+          <p className="text-sm text-white/60 leading-relaxed">
+            Your auto-generated plan status is{" "}
+            <span className="text-white font-semibold">{currentStudentPlan?.status}</span>. You cannot start daily tasks until the plan becomes active.
           </p>
-          <Link to="/student/plan-status" className="inline-flex items-center gap-2 rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-black">
+          <Link
+            to="/student/plan-status"
+            className="inline-flex items-center gap-2 rounded-full bg-[#C9F85A] px-5 py-2.5 text-sm font-semibold text-black"
+          >
             View plan status
             <ChevRight className="h-4 w-4" />
           </Link>
@@ -75,263 +106,677 @@ export default function DailyPlanPage() {
   }
 
   return (
-    <div className="p-6 sm:p-8 lg:p-12 max-w-4xl mx-auto space-y-12">
-      {/* Exercise Detail Overlay */}
+    <div className="mx-auto max-w-7xl space-y-6 p-4 sm:p-6 lg:p-8">
+
+      {/* ── Exercise Detail Modal ─────────────────────────── */}
       <AnimatePresence>
         {selectedExercise && (
           <div className="fixed inset-0 flex items-center justify-center p-4 z-[100]">
-            <motion.div 
-               initial={{ opacity: 0 }} 
-               animate={{ opacity: 1 }} 
-               exit={{ opacity: 0 }} 
-               onClick={() => setSelectedExercise(null)} 
-               className="absolute inset-0 bg-black/80 backdrop-blur-md" 
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setSelectedExercise(null)}
+              className="absolute inset-0 bg-black/85 backdrop-blur-md"
             />
-            <motion.div 
-               initial={{ opacity: 0, scale: 0.95, y: 20 }} 
-               animate={{ opacity: 1, scale: 1, y: 0 }} 
-               exit={{ opacity: 0, scale: 0.95, y: 20 }} 
-               className="w-full max-w-xl bg-card border border-white/10 shadow-2xl relative rounded-[2.5rem] overflow-hidden max-h-[90vh] flex flex-col"
+            <motion.div
+              initial={{ opacity: 0, scale: 0.94, y: 24 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.94, y: 24 }}
+              transition={{ duration: 0.32, ease: [0.16, 1, 0.3, 1] }}
+              className="w-full max-w-lg relative z-10 rounded-[32px] overflow-hidden max-h-[90vh] flex flex-col border border-white/10 bg-[#111111] shadow-[0_40px_120px_rgba(0,0,0,0.7)]"
             >
-               <div className="aspect-video bg-muted relative flex items-center justify-center group flex-shrink-0">
-                 <div className="absolute inset-0 bg-gradient-to-br from-zinc-900 to-black" />
-                 <div className="absolute inset-0 opacity-20 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')]" />
-                 <div className="w-16 h-16 rounded-full bg-primary/20 flex items-center justify-center border border-primary/30 group-hover:scale-110 transition-all z-10">
-                    <Play className="h-6 w-6 text-primary fill-primary/20" />
-                 </div>
-                 <button onClick={() => setSelectedExercise(null)} className="absolute top-6 right-6 p-2 rounded-xl bg-black/40 text-muted-foreground hover:text-white transition-all z-20">
-                    <X className="h-5 w-5" />
-                 </button>
-               </div>
-               <div className="p-8 space-y-8 overflow-y-auto custom-scrollbar">
-                  <div>
-                    <h3 className="text-2xl font-display font-semibold text-foreground tracking-tight">{selectedExercise.name}</h3>
-                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest mt-2 flex items-center gap-2">
-                       <Zap className="h-4 w-4 text-primary" /> Primary Goal: Hypertrophy
-                    </p>
-                  </div>
-                  <div className="grid grid-cols-3 gap-4">
-                    <div className="bg-background border border-white/5 p-4 rounded-2xl text-center">
-                      <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider mb-1">Sets</p>
-                      <p className="text-lg font-semibold text-foreground">{selectedExercise.sets}</p>
+              {/* video placeholder */}
+              <div className="aspect-video relative flex items-center justify-center bg-[#080808] flex-shrink-0 overflow-hidden">
+                <div className="absolute inset-0 bg-gradient-to-br from-[#C9F85A]/5 via-transparent to-[#4DD2FF]/5" />
+                <div className="absolute inset-0 opacity-10"
+                  style={{ backgroundImage: "linear-gradient(rgba(255,255,255,0.04) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.04) 1px, transparent 1px)", backgroundSize: "32px 32px" }}
+                />
+                <motion.div
+                  whileHover={{ scale: 1.08 }}
+                  className="w-16 h-16 rounded-full bg-[#C9F85A]/15 flex items-center justify-center border border-[#C9F85A]/30 cursor-pointer z-10"
+                >
+                  <Play className="h-6 w-6 text-[#C9F85A] fill-[#C9F85A]/20 ml-0.5" />
+                </motion.div>
+                <button
+                  onClick={() => setSelectedExercise(null)}
+                  className="absolute top-4 right-4 p-2 rounded-full bg-white/10 text-white/70 hover:bg-white/20 hover:text-white transition-all z-20"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+                <div className="absolute bottom-4 left-4 z-10">
+                  <span className="rounded-full bg-[#C9F85A] px-2.5 py-0.5 text-[10px] font-bold text-black uppercase tracking-wider">
+                    Exercise Guide
+                  </span>
+                </div>
+              </div>
+
+              {/* content */}
+              <div className="p-7 space-y-6 overflow-y-auto">
+                <div>
+                  <h3 className="text-2xl font-semibold text-white tracking-tight">{selectedExercise.name}</h3>
+                  <p className="text-xs font-semibold text-white/40 uppercase tracking-widest mt-1 flex items-center gap-1.5">
+                    <Zap className="h-3.5 w-3.5 text-[#C9F85A]" /> Primary Goal: Hypertrophy
+                  </p>
+                </div>
+
+                {/* stats grid */}
+                <div className="grid grid-cols-3 gap-3">
+                  {[
+                    { label: "Sets", value: selectedExercise.sets, color: "#C9F85A" },
+                    { label: "Reps", value: selectedExercise.reps, color: "#4DD2FF" },
+                    { label: "Rest", value: selectedExercise.rest, color: "#A78BFA" },
+                  ].map((item) => (
+                    <div key={item.label} className="rounded-2xl bg-[#1A1A1A] border border-white/5 p-4 text-center">
+                      <p className="text-[10px] font-semibold uppercase tracking-wider text-white/40 mb-1.5">{item.label}</p>
+                      <p className="text-xl font-bold" style={{ color: item.color }}>{item.value}</p>
                     </div>
-                    <div className="bg-background border border-white/5 p-4 rounded-2xl text-center">
-                      <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider mb-1">Reps</p>
-                      <p className="text-lg font-semibold text-foreground">{selectedExercise.reps}</p>
-                    </div>
-                    <div className="bg-background border border-white/5 p-4 rounded-2xl text-center">
-                      <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider mb-1">Rest</p>
-                      <p className="text-lg font-semibold text-foreground">{selectedExercise.rest}</p>
-                    </div>
-                  </div>
-                  <div className="space-y-3 bg-card p-6 rounded-2xl border border-white/5">
-                    <p className="text-xs font-semibold text-primary uppercase tracking-wider flex items-center gap-2">
-                       <Info className="h-4 w-4" /> Coach Notes
-                    </p>
-                    <p className="text-sm text-foreground leading-relaxed">"Focus on the eccentric phase. Control the weight for 3 seconds on the way down. Keep your intensity high."</p>
-                  </div>
-                  <button onClick={() => { setSelectedExercise(null); toggleWorkout(selectedExercise.id); }} className="w-full bg-primary text-black py-4 rounded-xl font-semibold text-sm transition-all shadow-md active:scale-95">
-                    Complete Set
-                  </button>
-               </div>
+                  ))}
+                </div>
+
+                {/* coach notes */}
+                <div className="rounded-2xl bg-[#141414] border border-[#C9F85A]/15 p-5 relative overflow-hidden">
+                  <div className="absolute top-0 left-0 w-1 h-full bg-[#C9F85A] rounded-l-2xl" />
+                  <p className="text-[10px] font-bold text-[#C9F85A] uppercase tracking-widest flex items-center gap-1.5 mb-3 pl-2">
+                    <Info className="h-3.5 w-3.5" /> Coach Notes
+                  </p>
+                  <p className="text-sm text-white/70 leading-relaxed pl-2">
+                    "Focus on the eccentric phase. Control the weight for 3 seconds on the way down. Keep your intensity high."
+                  </p>
+                </div>
+
+                <motion.button
+                  whileTap={{ scale: 0.97 }}
+                  onClick={() => { setSelectedExercise(null); toggleWorkout(selectedExercise.id); }}
+                  className="w-full bg-[#C9F85A] text-[#0F0F0F] py-4 rounded-2xl font-bold text-sm tracking-wide transition-all shadow-[0_8px_32px_rgba(201,248,90,0.25)] hover:shadow-[0_8px_40px_rgba(201,248,90,0.35)] hover:bg-[#d4ff60]"
+                >
+                  ✓ Mark as Complete
+                </motion.button>
+              </div>
             </motion.div>
           </div>
         )}
       </AnimatePresence>
 
-      {/* Header */}
-      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col md:flex-row md:items-end justify-between gap-6 pb-6 border-b border-white/5">
-        <div className="space-y-3">
-          <div className="flex items-center gap-3">
-            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-primary/10 border border-primary/20">
-              <Flame className="h-4 w-4 text-primary" />
-              <span className="text-xs font-semibold text-primary">{s.streak} Day Streak</span>
+      {/* ── Top Summary Bar ───────────────────────────────── */}
+      <motion.section
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={LUXURY_TWEEN_MEDIUM}
+        className="rounded-[32px] border border-white/10 bg-[#121212] p-5 sm:p-6 shadow-[0_20px_60px_rgba(0,0,0,0.4)]"
+      >
+        {/* Header row */}
+        <div className="flex flex-wrap items-start justify-between gap-4 mb-6">
+          <div className="space-y-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="inline-flex items-center gap-2 rounded-full bg-[#FF4D00]/15 border border-[#FF4D00]/25 px-3 py-1.5">
+                <Flame className="h-3.5 w-3.5 text-[#FF4D00]" />
+                <span className="text-xs font-bold text-[#FF4D00]">{s.streak} Day Streak</span>
+              </div>
+              {isToday && (
+                <span className="text-[10px] px-2.5 py-1.5 rounded-full bg-[#C9F85A] text-black font-bold uppercase tracking-widest">
+                  Today
+                </span>
+              )}
+              {isPast && (
+                <span className="text-[10px] px-2.5 py-1.5 rounded-full bg-white/10 text-white/60 font-semibold uppercase tracking-wider">
+                  Past Day
+                </span>
+              )}
             </div>
-            {isToday && (
-              <span className="text-xs px-2.5 py-1 rounded-md bg-foreground text-background font-bold uppercase tracking-wider">Today</span>
-            )}
+            <div>
+              <p className="text-xs font-semibold text-white/40 uppercase tracking-wider mb-1">Current Plan</p>
+              <h1 className="text-4xl font-bold text-white tracking-tight leading-none">
+                Day {selectedDay}
+                <span className="text-white/30 text-2xl font-medium ml-2">/ {s.totalDays}</span>
+              </h1>
+              <p className="text-sm text-white/50 mt-1.5">{dayType}</p>
+            </div>
           </div>
-          <div>
-            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">Current Plan</p>
-            <h1 className="text-4xl font-display font-semibold text-foreground tracking-tight">
-              Day {selectedDay} <span className="text-muted-foreground text-2xl font-bold">/ {s.totalDays}</span>
-            </h1>
-          </div>
-        </div>
-        <div className="text-left md:text-right">
-           <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">Focus</p>
-           <p className="text-lg font-semibold text-foreground tracking-tight">{dayType}</p>
-        </div>
-      </motion.div>
 
-      {/* 28-Day Timeline */}
-      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ ...LUXURY_TWEEN_MEDIUM, delay: 0.1 }} className="bg-card border border-white/5 p-6 sm:p-8 rounded-3xl relative overflow-hidden group">
-        <div className="absolute top-0 right-0 p-6 flex gap-2">
-           <button onClick={() => setSelectedDay((d) => Math.max(1, d - 7))} disabled={selectedDay <= 7} className="p-2 rounded-lg bg-white/5 hover:bg-white/10 transition-all disabled:opacity-30"><ChevronLeft className="h-5 w-5" /></button>
-           <button onClick={() => setSelectedDay((d) => Math.min(s.totalDays, d + 7))} disabled={selectedDay > s.totalDays - 7} className="p-2 rounded-lg bg-white/5 hover:bg-white/10 transition-all disabled:opacity-30"><ChevronRight className="h-5 w-5" /></button>
+          {/* Day nav arrows */}
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setSelectedDay((d) => Math.max(1, d - 1))}
+              disabled={selectedDay <= 1}
+              className="p-2.5 rounded-full bg-[#1D1D1D] border border-white/10 text-white/60 hover:text-white hover:bg-[#282828] disabled:opacity-25 transition-all"
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </button>
+            <button
+              onClick={() => setSelectedDay((d) => Math.min(s.totalDays, d + 1))}
+              disabled={selectedDay >= s.totalDays}
+              className="p-2.5 rounded-full bg-[#1D1D1D] border border-white/10 text-white/60 hover:text-white hover:bg-[#282828] disabled:opacity-25 transition-all"
+            >
+              <ChevronRight className="h-4 w-4" />
+            </button>
+          </div>
         </div>
-        <div className="mb-6">
-           <p className="text-sm font-semibold text-foreground">Timeline</p>
+
+        {/* KPI grid */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          {[
+            { label: "Day Progress", value: `${pct}%`, sub: `${completedTasks}/${totalTasks} tasks`, color: "#C9F85A", bg: "bg-[#C9F85A]", dark: true },
+            { label: "Workouts Done", value: `${workoutDone}/${workouts.length}`, sub: "exercises logged", color: "#4DD2FF", bg: "bg-[#1A1A1A]", dark: false },
+            { label: "Meals Logged", value: `${mealsDone}/${meals.length}`, sub: "nutrition tracked", color: "#FFD36E", bg: "bg-[#1A1A1A]", dark: false },
+            { label: "Calories", value: `${doneCalories}`, sub: `of ${totalCalories} kcal`, color: "#A78BFA", bg: "bg-[#1A1A1A]", dark: false },
+          ].map((kpi) => (
+            <div key={kpi.label} className={`${kpi.bg} rounded-2xl border border-white/5 p-4 relative overflow-hidden`}>
+              <p className={`text-[10px] font-semibold uppercase tracking-wider mb-2 ${kpi.dark ? "text-black/60" : "text-white/40"}`}>{kpi.label}</p>
+              <p className={`text-2xl font-bold tracking-tight leading-none ${kpi.dark ? "text-black" : ""}`} style={!kpi.dark ? { color: kpi.color } : {}}>{kpi.value}</p>
+              <p className={`text-[10px] mt-1.5 ${kpi.dark ? "text-black/50" : "text-white/35"}`}>{kpi.sub}</p>
+            </div>
+          ))}
         </div>
-        <div className="grid grid-cols-7 sm:grid-cols-14 gap-3">
+
+        {/* Progress bar */}
+        <div className="mt-5">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-xs font-semibold text-white/40 uppercase tracking-wider">Daily Completion</span>
+            <span className="text-xs font-bold text-[#C9F85A]">{pct}%</span>
+          </div>
+          <div className="h-2 bg-[#1D1D1D] rounded-full overflow-hidden border border-white/5">
+            <motion.div
+              initial={{ width: 0 }}
+              animate={{ width: `${pct}%` }}
+              transition={{ duration: 1.1, ease: [0.16, 1, 0.3, 1] }}
+              className="h-full rounded-full"
+              style={{ background: "linear-gradient(90deg, #C9F85A, #4DD2FF)" }}
+            />
+          </div>
+        </div>
+      </motion.section>
+
+      {/* ── 28-Day Timeline ───────────────────────────────── */}
+      <motion.div
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ ...LUXURY_TWEEN_MEDIUM, delay: 0.06 }}
+        className="rounded-[32px] border border-white/10 bg-[#121212] p-5 sm:p-6 shadow-[0_20px_60px_rgba(0,0,0,0.4)]"
+      >
+        <div className="flex items-center justify-between mb-5">
+          <div className="flex items-center gap-2">
+            <div className="w-2 h-2 rounded-full bg-[#C9F85A]" />
+            <p className="text-sm font-semibold text-white">Plan Timeline</p>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setSelectedDay((d) => Math.max(1, d - 7))}
+              disabled={selectedDay <= 7}
+              className="p-1.5 rounded-lg bg-[#1D1D1D] hover:bg-[#282828] text-white/60 hover:text-white disabled:opacity-25 transition-all"
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </button>
+            <span className="text-xs text-white/40 font-medium px-1">Week {Math.ceil(selectedDay / 7)}</span>
+            <button
+              onClick={() => setSelectedDay((d) => Math.min(s.totalDays, d + 7))}
+              disabled={selectedDay > s.totalDays - 7}
+              className="p-1.5 rounded-lg bg-[#1D1D1D] hover:bg-[#282828] text-white/60 hover:text-white disabled:opacity-25 transition-all"
+            >
+              <ChevronRight className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-7 sm:grid-cols-14 gap-2">
           {Array.from({ length: s.totalDays }, (_, i) => {
             const day = i + 1;
             const isSelected = day === selectedDay;
             const isDone = day < s.currentDay;
             const isTodayDay = day === s.currentDay;
             return (
-              <button
+              <motion.button
                 key={day}
+                whileTap={{ scale: 0.92 }}
                 onClick={() => setSelectedDay(day)}
-                className={`aspect-square rounded-xl flex flex-col items-center justify-center transition-all relative border ${
-                  isSelected ? "bg-primary border-primary text-black translate-y-[-2px] shadow-sm" :
-                  isTodayDay ? "bg-primary/10 border-primary/30 text-primary" :
-                  isDone ? "bg-card border-white/5 text-muted-foreground opacity-70" : "bg-transparent border-white/5 text-muted-foreground/30 hover:border-white/10"
+                className={`aspect-square rounded-xl flex flex-col items-center justify-center relative transition-all text-xs font-bold border ${
+                  isSelected
+                    ? "bg-[#C9F85A] border-[#C9F85A] text-black shadow-[0_4px_20px_rgba(201,248,90,0.3)]"
+                    : isTodayDay
+                    ? "bg-[#C9F85A]/10 border-[#C9F85A]/30 text-[#C9F85A]"
+                    : isDone
+                    ? "bg-[#1A1A1A] border-white/5 text-white/30"
+                    : "bg-transparent border-white/5 text-white/20 hover:border-white/15 hover:text-white/40"
                 }`}
               >
-                <span className="text-xs font-semibold">{day}</span>
-                {isDone && !isSelected && <div className="absolute top-1 right-1 w-2 h-2 bg-green-500 rounded-full" />}
-              </button>
+                {day}
+                {isDone && !isSelected && (
+                  <div className="absolute top-0.5 right-0.5 w-1.5 h-1.5 bg-[#C9F85A] rounded-full" />
+                )}
+              </motion.button>
             );
           })}
         </div>
+
+        {/* legend */}
+        <div className="mt-4 flex flex-wrap items-center gap-4 text-[10px] text-white/35">
+          {[
+            { dot: "bg-[#C9F85A]", label: "Today" },
+            { dot: "bg-[#C9F85A]", label: "Selected", small: true },
+            { dot: "bg-white/20", label: "Completed" },
+            { dot: "bg-white/10", label: "Upcoming" },
+          ].map((item, i) => (
+            <div key={i} className="flex items-center gap-1.5">
+              <div className={`w-2 h-2 rounded-full ${item.dot}`} />
+              <span>{item.label}</span>
+            </div>
+          ))}
+        </div>
       </motion.div>
 
-      {/* Main Grid: Workout & Diet */}
-      <div className="grid lg:grid-cols-2 gap-6">
-        {/* Workout Section */}
-        <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ ...LUXURY_TWEEN_MEDIUM, delay: 0.2 }} className="bg-card border border-white/5 p-6 sm:p-8 rounded-3xl space-y-6 relative overflow-hidden">
-          <div className="flex items-center gap-4 relative z-10">
-             <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center border border-primary/20">
-                <Dumbbell className="h-5 w-5 text-primary" />
-             </div>
-             <div>
-                <h2 className="text-lg font-display font-semibold text-foreground tracking-tight">Workout Plan</h2>
-                <p className="text-xs font-medium text-muted-foreground mt-1">{workouts.filter(w=>w.completed).length} / {workouts.length} acts done</p>
-             </div>
-          </div>
-          <div className="space-y-3 relative z-10">
-            {workouts.map((w) => (
-              <div key={w.id} className="group">
-                <div
-                  className={`flex items-center gap-4 p-4 rounded-2xl transition-all border ${
-                    w.completed ? "bg-primary/5 border-primary/20" : "bg-background border-white/5 hover:border-white/10"
-                  }`}
-                >
-                  <button
-                    onClick={() => isToday && toggleWorkout(w.id)}
-                    className={`w-7 h-7 rounded-lg border flex items-center justify-center transition-all ${w.completed ? "bg-primary border-primary":"border-white/10 group-hover:border-primary/50"}`}
-                  >
-                    {w.completed && <Check className="h-4 w-4 text-black" />}
-                  </button>
-                  <div className="flex-1 min-w-0">
-                    <p className={`text-sm font-semibold tracking-tight ${w.completed ? "text-foreground opacity-80":""}`}>{w.name}</p>
-                    <p className="text-xs font-medium text-muted-foreground mt-0.5">{w.sets} Sets × {w.reps} Reps</p>
-                    <p className="mt-1 text-[11px] text-muted-foreground">{w.focus}</p>
-                    <div className="mt-2 flex flex-wrap gap-1.5">
-                      <span className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[10px] uppercase tracking-wide text-muted-foreground">
-                        {w.equipmentMode.replace(/_/g, " ")}
-                      </span>
-                      {w.alternatives.slice(0, 2).map((alt) => (
-                        <span key={alt} className="rounded-full border border-primary/25 bg-primary/10 px-2 py-0.5 text-[10px] text-primary">
-                          Alt: {alt}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                  <button onClick={() => setSelectedExercise(w)} className="p-2.5 rounded-xl bg-white/5 text-muted-foreground hover:text-primary hover:bg-primary/10 transition-all opacity-0 group-hover:opacity-100">
-                    <Play className="h-4 w-4" />
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-        </motion.div>
+      {/* ── Tab switcher: Workout / Diet ──────────────────── */}
+      <motion.div
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ ...LUXURY_TWEEN_MEDIUM, delay: 0.1 }}
+        className="flex gap-2"
+      >
+        {(["workout", "diet"] as const).map((tab) => (
+          <button
+            key={tab}
+            onClick={() => setActiveTab(tab)}
+            className={`flex-1 sm:flex-none flex items-center justify-center gap-2 rounded-full px-6 py-3 text-sm font-semibold transition-all ${
+              activeTab === tab
+                ? tab === "workout"
+                  ? "bg-[#C9F85A] text-black"
+                  : "bg-[#4DD2FF] text-black"
+                : "bg-[#1A1A1A] border border-white/10 text-white/60 hover:bg-[#222]"
+            }`}
+          >
+            {tab === "workout" ? <Dumbbell className="h-4 w-4" /> : <Utensils className="h-4 w-4" />}
+            {tab === "workout" ? "Workout" : "Nutrition"}
+            <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold ${
+              activeTab === tab ? "bg-black/15" : "bg-white/10 text-white/50"
+            }`}>
+              {tab === "workout"
+                ? `${workoutDone}/${workouts.length}`
+                : `${mealsDone}/${meals.length}`}
+            </span>
+          </button>
+        ))}
+      </motion.div>
 
-        {/* Diet Section */}
-        <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ ...LUXURY_TWEEN_MEDIUM, delay: 0.3 }} className="bg-card border border-white/5 p-6 sm:p-8 rounded-3xl space-y-6 relative overflow-hidden">
-          <div className="flex items-center gap-4 relative z-10">
-             <div className="w-12 h-12 rounded-xl bg-emerald-500/10 flex items-center justify-center border border-emerald-500/20">
-                <Utensils className="h-5 w-5 text-emerald-500" />
-             </div>
-             <div>
-                <h2 className="text-lg font-display font-semibold text-foreground tracking-tight">Nutrition Plan</h2>
-                <p className="text-xs font-medium text-muted-foreground mt-1">{meals.filter(m=>m.completed).length} / {meals.length} meals logged</p>
-             </div>
-          </div>
-          <div className="space-y-3 relative z-10">
-            {meals.map((m) => (
-              <button
-                key={m.id}
-                onClick={() => isToday && toggleMeal(m.id)}
-                className={`w-full flex items-center gap-4 p-4 rounded-2xl transition-all border text-left group ${
-                  m.completed ? "bg-emerald-500/5 border-emerald-500/20" : "bg-background border-white/5 hover:border-white/10"
+      {/* ── Workout Panel ─────────────────────────────────── */}
+      <AnimatePresence mode="wait">
+        {activeTab === "workout" && (
+          <motion.section
+            key="workout"
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -20 }}
+            transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+            className="space-y-3"
+          >
+            {workouts.map((w, idx) => (
+              <motion.div
+                key={w.id}
+                initial={{ opacity: 0, y: 16 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1], delay: idx * 0.06 }}
+                className={`rounded-[24px] border transition-all overflow-hidden group ${
+                  w.completed
+                    ? "bg-[#141E0F] border-[#C9F85A]/25"
+                    : "bg-[#121212] border-white/8 hover:border-white/15"
                 }`}
               >
-                <div className={`w-7 h-7 rounded-lg border flex items-center justify-center transition-all ${m.completed ? "bg-emerald-500 border-emerald-500":"border-white/10 group-hover:border-emerald-500/50"}`}>
-                  {m.completed && <Check className="h-4 w-4 text-black" />}
+                <div className="flex items-center gap-4 p-5">
+                  {/* complete toggle */}
+                  <motion.button
+                    whileTap={{ scale: 0.88 }}
+                    onClick={() => isToday && toggleWorkout(w.id)}
+                    className={`w-8 h-8 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-all ${
+                      w.completed
+                        ? "bg-[#C9F85A] border-[#C9F85A]"
+                        : "border-white/20 hover:border-[#C9F85A]/60"
+                    }`}
+                  >
+                    {w.completed && <Check className="h-4 w-4 text-black" strokeWidth={3} />}
+                  </motion.button>
+
+                  {/* exercise number */}
+                  <div className="w-8 h-8 rounded-xl bg-[#1D1D1D] border border-white/5 flex items-center justify-center flex-shrink-0">
+                    <span className="text-[10px] font-bold text-white/40">
+                      {String(idx + 1).padStart(2, "0")}
+                    </span>
+                  </div>
+
+                  {/* info */}
+                  <div className="flex-1 min-w-0">
+                    <p className={`text-sm font-semibold tracking-tight ${w.completed ? "text-white/50 line-through" : "text-white"}`}>
+                      {w.name}
+                    </p>
+                    <div className="flex flex-wrap items-center gap-3 mt-1">
+                      <span className="text-xs text-white/40">{w.sets} sets × {w.reps} reps</span>
+                      <span className="text-xs text-white/30">·</span>
+                      <span className="text-xs text-white/40">{w.focus}</span>
+                    </div>
+                  </div>
+
+                  {/* tags */}
+                  <div className="hidden sm:flex items-center gap-2 flex-shrink-0">
+                    <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[10px] uppercase tracking-wider text-white/40">
+                      {w.equipmentMode.replace(/_/g, " ")}
+                    </span>
+                  </div>
+
+                  {/* play button */}
+                  <motion.button
+                    whileHover={{ scale: 1.08 }}
+                    whileTap={{ scale: 0.94 }}
+                    onClick={() => setSelectedExercise(w)}
+                    className="w-9 h-9 rounded-full bg-[#1D1D1D] border border-white/10 flex items-center justify-center text-white/50 hover:text-[#C9F85A] hover:border-[#C9F85A]/30 hover:bg-[#C9F85A]/10 transition-all flex-shrink-0"
+                  >
+                    <Play className="h-3.5 w-3.5 ml-0.5" />
+                  </motion.button>
                 </div>
-                <div className="flex-1">
-                  <p className={`text-sm font-semibold tracking-tight ${m.completed ? "text-foreground opacity-80":""}`}>{m.meal}</p>
-                  <p className="text-xs font-medium text-muted-foreground mt-0.5">{m.time} · {m.calories} kcal</p>
-                  <p className="mt-1 text-[11px] text-muted-foreground">{m.description}</p>
-                  <div className="mt-2 flex flex-wrap gap-1.5">
-                    {m.foods.map((f) => (
-                      <span key={`${m.id}-${f.item}`} className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[10px] text-emerald-400">
-                        {f.item}: {f.grams}g
+
+                {/* Bottom bar: alternatives */}
+                {w.alternatives.length > 0 && (
+                  <div className="px-5 pb-4 flex flex-wrap gap-1.5">
+                    {w.alternatives.slice(0, 3).map((alt) => (
+                      <span key={alt} className="rounded-full border border-[#4DD2FF]/20 bg-[#4DD2FF]/8 px-2.5 py-0.5 text-[10px] text-[#4DD2FF]/80">
+                        Alt: {alt}
                       </span>
                     ))}
                   </div>
-                  <div className="mt-2 text-[10px] text-muted-foreground">
-                    Protein {m.macros.protein}g · Carbs {m.macros.carbs}g · Fats {m.macros.fats}g
-                  </div>
-                </div>
-              </button>
+                )}
+              </motion.div>
             ))}
-          </div>
-        </motion.div>
-      </div>
 
-      {/* Activity Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ ...LUXURY_TWEEN_MEDIUM, delay: 0.4 }} className="bg-card border border-white/5 p-8 rounded-3xl relative overflow-hidden group">
-           <p className="text-xs font-semibold text-muted-foreground mb-4 relative z-10">Steps</p>
-           <p className="text-4xl font-display font-semibold text-foreground mb-2 relative z-10 tracking-tight">{s.todaySteps.toLocaleString()}</p>
-           <p className="text-xs font-medium text-muted-foreground relative z-10 flex items-center gap-2">
-              <Activity className="h-3 w-3 text-primary" /> Target: {todayTask.stepTarget.toLocaleString()}
-           </p>
-           <div className="h-1.5 bg-background rounded-full mt-6 overflow-hidden relative z-10 border border-white/5">
-              <motion.div initial={{ width: 0 }} animate={{ width: "75%" }} transition={LUXURY_TWEEN_SLOW} className="h-full bg-primary rounded-full" />
-           </div>
-        </motion.div>
-        
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ ...LUXURY_TWEEN_MEDIUM, delay: 0.5 }} className="bg-card border border-white/5 p-8 rounded-3xl relative overflow-hidden group">
-           <p className="text-xs font-semibold text-muted-foreground mb-4 relative z-10">Hydration</p>
-           <p className="text-4xl font-display font-semibold text-foreground mb-2 relative z-10 tracking-tight">2.4L</p>
-           <p className="text-xs font-medium text-muted-foreground relative z-10 flex items-center gap-2">
-              <Droplets className="h-3 w-3 text-sky-400" /> Goal: {todayTask.hydrationGoal}
-           </p>
-           <div className="h-1.5 bg-background rounded-full mt-6 overflow-hidden relative z-10 border border-white/5">
-              <motion.div initial={{ width: 0 }} animate={{ width: "65%" }} transition={LUXURY_TWEEN_SLOW} className="h-full bg-sky-400 rounded-full" />
-           </div>
-        </motion.div>
-      </div>
-
-      {/* Upload Check-in CTA */}
-      <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ ...LUXURY_TWEEN_MEDIUM, delay: 0.6 }} className="bg-card border border-white/5 p-12 rounded-3xl text-center relative overflow-hidden group">
-         <div className="relative z-10">
-            <div className="w-16 h-16 rounded-2xl bg-background border border-white/5 flex items-center justify-center mx-auto mb-6 transition-all duration-500">
-              <Upload className="h-6 w-6 text-foreground" />
+            {/* Workout summary footer */}
+            <div className="rounded-2xl bg-[#1A1A1A] border border-white/5 p-4 flex flex-wrap items-center justify-between gap-3">
+              <div className="flex items-center gap-2">
+                <Dumbbell className="h-4 w-4 text-[#C9F85A]" />
+                <span className="text-sm font-semibold text-white">{workoutDone} of {workouts.length} workouts complete</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="h-1.5 w-32 bg-[#111] rounded-full overflow-hidden border border-white/5">
+                  <motion.div
+                    initial={{ width: 0 }}
+                    animate={{ width: `${workouts.length > 0 ? (workoutDone / workouts.length) * 100 : 0}%` }}
+                    transition={LUXURY_TWEEN_SLOW}
+                    className="h-full bg-[#C9F85A] rounded-full"
+                  />
+                </div>
+                <span className="text-xs font-bold text-[#C9F85A]">
+                  {workouts.length > 0 ? Math.round((workoutDone / workouts.length) * 100) : 0}%
+                </span>
+              </div>
             </div>
-            <h2 className="text-3xl font-display font-semibold tracking-tight">Daily Check-In</h2>
-            <p className="text-sm font-medium mt-3 text-muted-foreground max-w-sm mx-auto">Submit your daily progress and photos for your trainer to review.</p>
+          </motion.section>
+        )}
+
+        {/* ── Diet/Nutrition Panel ──────────────────────── */}
+        {activeTab === "diet" && (
+          <motion.section
+            key="diet"
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: 20 }}
+            transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+            className="space-y-3"
+          >
+            {meals.map((m, idx) => {
+              const isExpanded = expandedMeal === m.id;
+              const accentColor = mealTimeColor(m.time);
+              const totalMacros = m.macros.protein + m.macros.carbs + m.macros.fats;
+
+              return (
+                <motion.div
+                  key={m.id}
+                  initial={{ opacity: 0, y: 16 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1], delay: idx * 0.07 }}
+                  className={`rounded-[24px] border transition-all overflow-hidden ${
+                    m.completed
+                      ? "bg-[#0D1A0D] border-emerald-500/25"
+                      : "bg-[#121212] border-white/8"
+                  }`}
+                >
+                  {/* Main row */}
+                  <div className="flex items-center gap-4 p-5">
+                    {/* check */}
+                    <motion.button
+                      whileTap={{ scale: 0.88 }}
+                      onClick={() => isToday && toggleMeal(m.id)}
+                      className={`w-8 h-8 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-all ${
+                        m.completed
+                          ? "bg-emerald-500 border-emerald-500"
+                          : "border-white/20 hover:border-emerald-500/60"
+                      }`}
+                    >
+                      {m.completed && <Check className="h-4 w-4 text-black" strokeWidth={3} />}
+                    </motion.button>
+
+                    {/* time color dot */}
+                    <div
+                      className="w-2.5 h-2.5 rounded-full flex-shrink-0"
+                      style={{ background: accentColor, boxShadow: `0 0 6px ${accentColor}60` }}
+                    />
+
+                    {/* info */}
+                    <div className="flex-1 min-w-0">
+                      <p className={`text-sm font-semibold tracking-tight ${m.completed ? "text-white/50 line-through" : "text-white"}`}>
+                        {m.meal}
+                      </p>
+                      <div className="flex flex-wrap items-center gap-2 mt-0.5">
+                        <span className="text-xs text-white/40">{m.time}</span>
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full"
+                          style={{ background: `${accentColor}18`, color: accentColor }}>
+                          {m.calories} kcal
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* expand toggle */}
+                    <motion.button
+                      animate={{ rotate: isExpanded ? 180 : 0 }}
+                      transition={{ duration: 0.22 }}
+                      onClick={() => setExpandedMeal(isExpanded ? null : m.id)}
+                      className="w-8 h-8 rounded-full bg-[#1D1D1D] border border-white/8 flex items-center justify-center text-white/40 hover:text-white hover:bg-[#252525] transition-all flex-shrink-0"
+                    >
+                      <ChevronDown className="h-4 w-4" />
+                    </motion.button>
+                  </div>
+
+                  {/* Expanded details */}
+                  <AnimatePresence>
+                    {isExpanded && (
+                      <motion.div
+                        initial={{ height: 0, opacity: 0 }}
+                        animate={{ height: "auto", opacity: 1 }}
+                        exit={{ height: 0, opacity: 0 }}
+                        transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+                        className="overflow-hidden"
+                      >
+                        <div className="px-5 pb-5 space-y-5 border-t border-white/5 pt-4">
+                          {/* description */}
+                          <p className="text-xs text-white/50 leading-relaxed">{m.description}</p>
+
+                          {/* Food items */}
+                          <div className="flex flex-wrap gap-2">
+                            {m.foods.map((f) => (
+                              <div
+                                key={`${m.id}-${f.item}`}
+                                className="rounded-full px-3 py-1 text-[10px] font-semibold border"
+                                style={{
+                                  background: `${accentColor}12`,
+                                  borderColor: `${accentColor}30`,
+                                  color: accentColor,
+                                }}
+                              >
+                                {f.item}: {f.grams}g
+                              </div>
+                            ))}
+                          </div>
+
+                          {/* Macro bars */}
+                          <div className="space-y-3">
+                            <p className="text-[10px] font-bold text-white/30 uppercase tracking-widest">Macronutrients</p>
+                            {[
+                              { label: "Protein", value: m.macros.protein, color: "#4DD2FF", pct: totalMacros > 0 ? (m.macros.protein / totalMacros) * 100 : 0 },
+                              { label: "Carbs", value: m.macros.carbs, color: "#FFD36E", pct: totalMacros > 0 ? (m.macros.carbs / totalMacros) * 100 : 0 },
+                              { label: "Fats", value: m.macros.fats, color: "#FF7AE5", pct: totalMacros > 0 ? (m.macros.fats / totalMacros) * 100 : 0 },
+                            ].map((macro) => (
+                              <div key={macro.label}>
+                                <div className="flex items-center justify-between mb-1.5">
+                                  <span className="text-[10px] font-semibold text-white/40">{macro.label}</span>
+                                  <span className="text-[10px] font-bold" style={{ color: macro.color }}>{macro.value}g</span>
+                                </div>
+                                <div className="h-1.5 bg-[#1A1A1A] rounded-full overflow-hidden">
+                                  <motion.div
+                                    initial={{ scaleX: 0 }}
+                                    animate={{ scaleX: macro.pct / 100 }}
+                                    transition={{ duration: 0.75, ease: [0.16, 1, 0.3, 1], delay: 0.1 }}
+                                    style={{ background: macro.color, transformOrigin: "left" }}
+                                    className="h-full rounded-full"
+                                  />
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+
+                          {/* Log button */}
+                          {isToday && !m.completed && (
+                            <motion.button
+                              whileTap={{ scale: 0.97 }}
+                              onClick={() => toggleMeal(m.id)}
+                              className="w-full py-3 rounded-xl text-xs font-bold border border-emerald-500/30 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 transition-all tracking-wide"
+                            >
+                              ✓ Log This Meal
+                            </motion.button>
+                          )}
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </motion.div>
+              );
+            })}
+
+            {/* Nutrition summary footer */}
+            <div className="rounded-2xl bg-[#1A1A1A] border border-white/5 p-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Utensils className="h-4 w-4 text-emerald-400" />
+                  <span className="text-sm font-semibold text-white">Nutrition Summary</span>
+                </div>
+                <span className="text-xs font-bold text-emerald-400">{doneCalories} / {totalCalories} kcal</span>
+              </div>
+              <div className="h-1.5 bg-[#111] rounded-full overflow-hidden border border-white/5">
+                <motion.div
+                  initial={{ width: 0 }}
+                  animate={{ width: `${totalCalories > 0 ? (doneCalories / totalCalories) * 100 : 0}%` }}
+                  transition={LUXURY_TWEEN_SLOW}
+                  className="h-full bg-emerald-500 rounded-full"
+                />
+              </div>
+            </div>
+          </motion.section>
+        )}
+      </AnimatePresence>
+
+      {/* ── Activity Stats ────────────────────────────────── */}
+      <motion.div
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ ...LUXURY_TWEEN_MEDIUM, delay: 0.25 }}
+        className="grid grid-cols-1 sm:grid-cols-2 gap-4"
+      >
+        {/* Steps */}
+        <div className="rounded-[24px] bg-[#121212] border border-white/8 p-6 relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-32 h-32 rounded-full bg-[#C9F85A]/4 translate-x-8 -translate-y-8 blur-xl" />
+          <div className="relative z-10">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-xl bg-[#C9F85A]/10 border border-[#C9F85A]/20 flex items-center justify-center">
+                  <Activity className="h-4 w-4 text-[#C9F85A]" />
+                </div>
+                <span className="text-sm font-semibold text-white">Steps</span>
+              </div>
+              <span className="text-[10px] font-semibold text-white/30 uppercase tracking-wider">Daily Target</span>
+            </div>
+            <p className="text-4xl font-bold text-white tracking-tight">{s.todaySteps.toLocaleString()}</p>
+            <p className="text-xs text-white/40 mt-1">Target: {todayTask.stepTarget.toLocaleString()}</p>
+            <div className="mt-4 h-1.5 bg-[#1D1D1D] rounded-full overflow-hidden border border-white/5">
+              <motion.div
+                initial={{ width: 0 }}
+                animate={{ width: `${Math.min(100, (s.todaySteps / todayTask.stepTarget) * 100)}%` }}
+                transition={LUXURY_TWEEN_SLOW}
+                className="h-full bg-[#C9F85A] rounded-full"
+              />
+            </div>
+            <p className="text-[10px] text-[#C9F85A] font-bold mt-2">
+              {Math.round(Math.min(100, (s.todaySteps / todayTask.stepTarget) * 100))}% of goal
+            </p>
+          </div>
+        </div>
+
+        {/* Hydration */}
+        <div className="rounded-[24px] bg-[#121212] border border-white/8 p-6 relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-32 h-32 rounded-full bg-[#4DD2FF]/4 translate-x-8 -translate-y-8 blur-xl" />
+          <div className="relative z-10">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-xl bg-[#4DD2FF]/10 border border-[#4DD2FF]/20 flex items-center justify-center">
+                  <Droplets className="h-4 w-4 text-[#4DD2FF]" />
+                </div>
+                <span className="text-sm font-semibold text-white">Hydration</span>
+              </div>
+              <span className="text-[10px] font-semibold text-white/30 uppercase tracking-wider">Daily Goal</span>
+            </div>
+            <p className="text-4xl font-bold text-white tracking-tight">2.4<span className="text-2xl text-white/40 font-medium">L</span></p>
+            <p className="text-xs text-white/40 mt-1">Goal: {todayTask.hydrationGoal}</p>
+            <div className="mt-4 h-1.5 bg-[#1D1D1D] rounded-full overflow-hidden border border-white/5">
+              <motion.div
+                initial={{ width: 0 }}
+                animate={{ width: "65%" }}
+                transition={LUXURY_TWEEN_SLOW}
+                className="h-full bg-[#4DD2FF] rounded-full"
+              />
+            </div>
+            <p className="text-[10px] text-[#4DD2FF] font-bold mt-2">65% of goal</p>
+          </div>
+        </div>
+      </motion.div>
+
+      {/* ── Daily Check-In CTA ────────────────────────────── */}
+      <motion.div
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ ...LUXURY_TWEEN_MEDIUM, delay: 0.35 }}
+        className="rounded-[32px] border border-white/10 bg-[#121212] relative overflow-hidden"
+      >
+        {/* Bg decoration */}
+        <div className="absolute inset-0 opacity-40"
+          style={{ backgroundImage: "linear-gradient(rgba(201,248,90,0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(201,248,90,0.03) 1px, transparent 1px)", backgroundSize: "32px 32px" }}
+        />
+        <div className="absolute right-0 top-0 w-64 h-64 rounded-full bg-[#C9F85A]/5 translate-x-16 -translate-y-16 blur-3xl" />
+
+        <div className="relative z-10 p-8 sm:p-12 flex flex-col sm:flex-row items-center gap-8 text-center sm:text-left">
+          <div className="w-16 h-16 rounded-2xl bg-[#1A1A1A] border border-white/10 flex items-center justify-center flex-shrink-0 shadow-[0_8px_32px_rgba(0,0,0,0.4)]">
+            <Upload className="h-7 w-7 text-white/70" />
+          </div>
+          <div className="flex-1">
+            <p className="text-xs font-bold text-[#C9F85A] uppercase tracking-widest mb-2">Daily Accountability</p>
+            <h2 className="text-2xl font-bold text-white tracking-tight">Submit Your Check-In</h2>
+            <p className="text-sm text-white/50 mt-2 leading-relaxed max-w-md">
+              Upload your daily progress photos and notes for your trainer to review. Consistency is proof.
+            </p>
+          </div>
           {canPostFeed && (
-            <Link to="/student/upload" className="mt-8 inline-flex items-center gap-2 bg-foreground text-background px-8 py-4 rounded-xl font-semibold text-sm transition-all hover:bg-primary hover:text-black">
-              <Upload className="h-4 w-4" /> Submit Check-in
+            <Link
+              to="/student/upload"
+              className="inline-flex items-center gap-2.5 bg-[#C9F85A] text-black px-7 py-3.5 rounded-full font-bold text-sm transition-all hover:bg-[#d4ff60] shadow-[0_8px_32px_rgba(201,248,90,0.25)] hover:shadow-[0_8px_40px_rgba(201,248,90,0.35)] flex-shrink-0"
+            >
+              <Upload className="h-4 w-4" />
+              Submit Check-in
+              <ArrowUpRight className="h-4 w-4" />
             </Link>
           )}
-         </div>
+        </div>
       </motion.div>
+
     </div>
   );
 }

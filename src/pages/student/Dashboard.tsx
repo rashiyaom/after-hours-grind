@@ -425,57 +425,73 @@ export default function StudentDashboard() {
           transition={{ ...LUXURY_TWEEN_MEDIUM, delay: 0.12 }}
           className="rounded-3xl border border-white/10 bg-[#151515] p-5 lg:col-span-4"
         >
+          {/* Header */}
           <div className="mb-5 flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <Flame className="h-4 w-4 text-[#C9F85A]" />
+              <div className="p-1.5 rounded-lg bg-[#C9F85A]/10 border border-[#C9F85A]/20">
+                <Flame className="h-3.5 w-3.5 text-[#C9F85A]" />
+              </div>
               <h2 className="text-base font-semibold text-white">Daily Streak</h2>
+              <span className="rounded-full bg-[#C9F85A] px-2 py-0.5 text-[10px] font-bold text-black">{s.streak}d</span>
             </div>
             <button
               type="button"
               onClick={() => setStreakWindow((v) => (v === "5w" ? "10w" : "5w"))}
-              className="inline-flex items-center rounded-full bg-white px-3 py-1.5 text-xs font-semibold text-black"
+              className="inline-flex items-center rounded-full bg-[#1D1D1D] border border-white/10 px-3 py-1.5 text-xs font-semibold text-white/60 hover:text-white transition-colors"
             >
               {streakWindow === "5w" ? "5 weeks" : "10 weeks"}
             </button>
           </div>
 
-          <div className="mb-2 flex justify-between px-1 text-[10px] text-white/40">
-            <span>Mon</span>
-            <span>Wed</span>
-            <span>Fri</span>
-            <span>Sun</span>
+          {/* Day labels */}
+          <div className="mb-2 flex justify-between px-1 text-[10px] text-white/25">
+            <span>Mon</span><span>Wed</span><span>Fri</span><span>Sun</span>
           </div>
 
+          {/* Heatmap grid */}
           <div className="overflow-x-auto pb-1">
             <div className="grid min-w-[280px] grid-flow-col grid-rows-7 gap-1">
               {streakCells.map((level, idx) => {
-                const shades = ["bg-[#232323]", "bg-[#355628]", "bg-[#5D9338]", "bg-[#9ED94F]", "bg-[#D8FF78]"];
-                return <div key={idx} className={`h-4 w-4 rounded-sm ${shades[level]}`} />;
+                const shades = [
+                  "bg-[#1A1A1A] border border-white/5",
+                  "bg-[#2A4020] border border-[#C9F85A]/10",
+                  "bg-[#3D6030] border border-[#C9F85A]/20",
+                  "bg-[#6B9E3F] border border-[#C9F85A]/30",
+                  "bg-[#C9F85A] border border-[#C9F85A]/50 shadow-[0_0_4px_rgba(201,248,90,0.3)]",
+                ];
+                return <div key={idx} className={`h-4 w-4 rounded-sm transition-all ${shades[level]}`} />;
               })}
             </div>
           </div>
 
-          <div className="mt-4 flex items-center gap-3 text-[10px] text-white/55">
+          {/* Legend */}
+          <div className="mt-3 flex items-center gap-2 text-[10px] text-white/30">
             <span>Less</span>
             {[0, 1, 2, 3, 4].map((level) => {
-              const shades = ["bg-[#232323]", "bg-[#355628]", "bg-[#5D9338]", "bg-[#9ED94F]", "bg-[#D8FF78]"];
-              return <div key={level} className={`h-3.5 w-3.5 rounded-sm ${shades[level]}`} />;
+              const shades = ["bg-[#1A1A1A]", "bg-[#2A4020]", "bg-[#3D6030]", "bg-[#6B9E3F]", "bg-[#C9F85A]"];
+              return <div key={level} className={`h-3 w-3 rounded-sm ${shades[level]}`} />;
             })}
             <span>More</span>
           </div>
 
-          <div className="mt-5 grid grid-cols-2 gap-2 text-xs text-white/65">
-            <div className="rounded-xl bg-[#1E1E1E] p-3">
-              <p>Current streak</p>
-              <p className="mt-1 text-lg font-semibold text-white">{s.streak} days</p>
+          {/* Stats */}
+          <div className="mt-4 grid grid-cols-2 gap-2">
+            <div className="rounded-2xl bg-[#C9F85A]/8 border border-[#C9F85A]/20 p-3">
+              <p className="text-[10px] text-[#C9F85A]/60 uppercase tracking-wider">Current streak</p>
+              <p className="mt-1 text-xl font-bold text-[#C9F85A]">{s.streak} <span className="text-sm font-normal">days</span></p>
             </div>
-            <div className="rounded-xl bg-[#1E1E1E] p-3">
-              <p>Longest streak</p>
-              <p className="mt-1 text-lg font-semibold text-white">{longestStreak} days</p>
+            <div className="rounded-2xl bg-[#1D1D1D] border border-white/5 p-3">
+              <p className="text-[10px] text-white/30 uppercase tracking-wider">Longest</p>
+              <p className="mt-1 text-xl font-bold text-white">{longestStreak} <span className="text-sm font-normal text-white/40">days</span></p>
             </div>
-            <div className="rounded-xl bg-[#1E1E1E] p-3 col-span-2">
-              <p>Active days in view</p>
-              <p className="mt-1 text-lg font-semibold text-white">{activeStreakDays} / {streakCellCount}</p>
+            <div className="rounded-2xl bg-[#1D1D1D] border border-white/5 p-3 col-span-2">
+              <p className="text-[10px] text-white/30 uppercase tracking-wider">Active days in view</p>
+              <div className="mt-1 flex items-center justify-between">
+                <p className="text-xl font-bold text-white">{activeStreakDays} <span className="text-sm font-normal text-white/40">/ {streakCellCount}</span></p>
+                <div className="h-1.5 w-24 bg-[#1A1A1A] rounded-full overflow-hidden border border-white/5">
+                  <div className="h-full bg-[#C9F85A] rounded-full transition-all" style={{ width: `${Math.round((activeStreakDays / streakCellCount) * 100)}%` }} />
+                </div>
+              </div>
             </div>
           </div>
         </motion.div>
@@ -486,67 +502,85 @@ export default function StudentDashboard() {
           transition={{ ...LUXURY_TWEEN_MEDIUM, delay: 0.18 }}
           className="rounded-3xl border border-white/10 bg-[#151515] p-5 lg:col-span-3"
         >
+          {/* Header */}
           <div className="mb-4 flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <Trophy className="h-4 w-4 text-[#C9F85A]" />
+              <div className="p-1.5 rounded-lg bg-[#FFD36E]/10 border border-[#FFD36E]/20">
+                <Trophy className="h-3.5 w-3.5 text-[#FFD36E]" />
+              </div>
               <h2 className="text-base font-semibold text-white">Leaderboard</h2>
             </div>
-            <Link to="/student/leaderboard" className="text-xs font-semibold text-[#C9F85A]">View all</Link>
+            <Link to="/student/leaderboard" className="text-xs font-semibold text-[#C9F85A] hover:text-[#d4ff60] transition-colors">View all →</Link>
           </div>
-          <input
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search athlete"
-            className="mb-4 w-full rounded-xl border border-white/10 bg-[#1C1C1C] px-3 py-2 text-sm text-white/80 outline-none placeholder:text-white/40"
-          />
 
-          <div className="space-y-3">
-            {filteredLeaderboard.slice(0, 6).map((entry) => (
-              <div key={entry.userId} className="flex items-center gap-3 rounded-2xl bg-[#1B1B1B] p-3">
-                <div className="grid h-9 w-9 place-items-center rounded-full bg-[#242424] text-xs font-semibold text-white/75">
-                  {entry.rank}
+          {/* Search */}
+          <div className="relative mb-4">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-white/25" />
+            <input
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search athlete…"
+              className="w-full rounded-xl border border-white/8 bg-[#1A1A1A] pl-9 pr-3 py-2.5 text-sm text-white/80 outline-none placeholder:text-white/25 focus:border-[#C9F85A]/30 transition-colors"
+            />
+          </div>
+
+          {/* Entries */}
+          <div className="space-y-2">
+            {filteredLeaderboard.slice(0, 6).map((entry) => {
+              const RANK_COLORS: Record<number, { bg: string; text: string; ring: string }> = {
+                1: { bg: "bg-gradient-to-br from-[#FFD36E] to-[#FF9500]", text: "text-black", ring: "" },
+                2: { bg: "bg-gradient-to-br from-[#C0C0C0] to-[#888]", text: "text-black", ring: "" },
+                3: { bg: "bg-gradient-to-br from-[#CD7F32] to-[#8B5523]", text: "text-white", ring: "" },
+              };
+              const AVATAR_GRADS = ["from-[#C9F85A] to-[#4DD2FF]","from-[#FF7AE5] to-[#A78BFA]","from-[#FFD36E] to-[#FF4D00]","from-[#4DD2FF] to-[#6F5CFF]","from-[#C9F85A] to-[#FFD36E]"];
+              const rankStyle = RANK_COLORS[entry.rank];
+              const gradIdx = entry.userId.charCodeAt(0) % AVATAR_GRADS.length;
+              const initials = entry.name.split(" ").map((n: string) => n[0]).join("").slice(0, 2);
+              return (
+                <div key={entry.userId} className="flex items-center gap-3 rounded-2xl bg-[#1B1B1B] hover:bg-[#212121] transition-colors px-3 py-2.5 group">
+                  {/* Avatar */}
+                  <div className={`w-8 h-8 rounded-xl p-[1.5px] flex-shrink-0 bg-gradient-to-br ${AVATAR_GRADS[gradIdx]}`}>
+                    <div className="w-full h-full rounded-[10px] bg-[#1D1D1D] flex items-center justify-center text-[10px] font-bold text-white">
+                      {initials}
+                    </div>
+                  </div>
+                  {/* Info */}
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium text-white group-hover:text-[#C9F85A] transition-colors">{entry.name}</p>
+                    <p className="text-[10px] text-white/35">{entry.score.toLocaleString()} pts</p>
+                  </div>
+                  {/* Rank badge */}
+                  {rankStyle ? (
+                    <div className={`w-6 h-6 rounded-full flex-shrink-0 flex items-center justify-center text-[10px] font-bold ${rankStyle.bg} ${rankStyle.text}`}>
+                      {entry.rank}
+                    </div>
+                  ) : (
+                    <span className="text-[11px] font-bold text-white/30">#{entry.rank}</span>
+                  )}
                 </div>
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium text-white">{entry.name}</p>
-                  <p className="text-[10px] text-white/50">{entry.score.toLocaleString()} points</p>
-                </div>
-                <span className="rounded-full bg-[#C9F85A] px-2 py-1 text-[10px] font-semibold text-black">
-                  #{entry.rank}
-                </span>
-              </div>
-            ))}
+              );
+            })}
             {filteredLeaderboard.length === 0 && (
-              <p className="rounded-xl bg-[#1B1B1B] px-3 py-4 text-center text-xs text-white/55">
-                No athletes match your search.
+              <p className="rounded-xl bg-[#1B1B1B] px-3 py-4 text-center text-xs text-white/40">
+                No athletes match.
               </p>
             )}
           </div>
 
+          {/* Quick links */}
           <div className="mt-4 grid grid-cols-2 gap-2">
             {canPostFeed && (
-              <Link
-                to="/student/upload"
-                className="rounded-xl bg-[#C9F85A] px-3 py-2 text-center text-xs font-semibold text-[#111]"
-              >
+              <Link to="/student/upload" className="rounded-xl bg-[#C9F85A] px-3 py-2 text-center text-xs font-bold text-black hover:bg-[#d4ff60] transition-colors">
                 Upload Proof
               </Link>
             )}
-            <Link
-              to="/student/feed"
-              className="rounded-xl bg-[#232323] px-3 py-2 text-center text-xs font-semibold text-white"
-            >
+            <Link to="/student/feed" className="rounded-xl bg-[#1D1D1D] border border-white/8 px-3 py-2 text-center text-xs font-semibold text-white/70 hover:text-white hover:bg-[#252525] transition-all">
               Open Feed
             </Link>
-            <Link
-              to="/student/daily-plan"
-              className="rounded-xl bg-[#232323] px-3 py-2 text-center text-xs font-semibold text-white"
-            >
+            <Link to="/student/daily-plan" className="rounded-xl bg-[#1D1D1D] border border-white/8 px-3 py-2 text-center text-xs font-semibold text-white/70 hover:text-white hover:bg-[#252525] transition-all">
               Daily Plan
             </Link>
-            <Link
-              to="/student/leaderboard"
-              className="rounded-xl bg-[#232323] px-3 py-2 text-center text-xs font-semibold text-white"
-            >
+            <Link to="/student/leaderboard" className="rounded-xl bg-[#1D1D1D] border border-white/8 px-3 py-2 text-center text-xs font-semibold text-white/70 hover:text-white hover:bg-[#252525] transition-all">
               Leaderboard
             </Link>
           </div>

@@ -14,22 +14,22 @@ export default function PublicLayout() {
 
   return (
     <div className="min-h-screen bg-background">
-      <nav className="fixed top-0 left-0 right-0 z-50 border-b border-border/50 bg-background/80 backdrop-blur-xl">
+      <nav className="fixed top-0 left-0 right-0 z-50 border-b border-white/10 bg-[linear-gradient(180deg,rgba(10,10,12,0.72)_0%,rgba(10,10,12,0.46)_100%)] backdrop-blur-2xl supports-[backdrop-filter]:bg-[linear-gradient(180deg,rgba(10,10,12,0.62)_0%,rgba(10,10,12,0.38)_100%)] shadow-[0_10px_40px_rgba(0,0,0,0.35)]">
         <div className="max-w-7xl mx-auto flex items-center justify-between h-16 px-4 sm:px-6">
           <Link to="/" className="flex items-center gap-2">
-            <Flame className="h-6 w-6 text-streak" />
-            <span className="font-display font-bold text-lg tracking-tight text-foreground">AFTER HOURS GRIND</span>
+            <Flame className="h-6 w-6 text-[#ff5f1f] drop-shadow-[0_0_14px_rgba(255,95,31,0.35)]" />
+            <span className="font-display font-bold text-lg tracking-tight text-white">AFTER HOURS GRIND</span>
           </Link>
           <div className="hidden md:flex items-center gap-8">
             {navLinks.map((l) => (
-              <a key={l.path} href={l.path} className="text-sm text-muted-foreground hover:text-foreground transition-colors">
+              <a key={l.path} href={l.path} className="text-sm text-white/70 hover:text-white transition-colors">
                 {l.label}
               </a>
             ))}
           </div>
           <div className="flex items-center gap-3">
-            <Link to="/login" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Log in</Link>
-            <Link to="/signup" className="text-sm bg-foreground text-background px-4 py-2 rounded-lg font-medium hover:bg-foreground/90 transition-colors">
+            <Link to="/login" className="text-sm text-white/65 hover:text-white transition-colors">Log in</Link>
+            <Link to="/signup" className="text-sm bg-white text-black px-4 py-2 rounded-lg font-medium hover:bg-white/90 transition-colors shadow-[0_8px_24px_rgba(255,255,255,0.18)]">
               Get Started
             </Link>
           </div>
@@ -40,7 +40,7 @@ export default function PublicLayout() {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={LUXURY_TWEEN_MEDIUM}
-        className="pt-16"
+        className={location.pathname === "/" ? "pt-0" : "pt-16"}
       >
         <Outlet />
       </motion.main>

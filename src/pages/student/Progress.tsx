@@ -1,153 +1,274 @@
 import { motion } from "framer-motion";
-import { Flame, Target, TrendingUp, Upload, Footprints, Award, Activity, ShieldCheck, Zap, Hash, ChevronRight } from "lucide-react";
-import StatCard from "@/components/StatCard";
+import {
+  Flame, TrendingUp, Upload, Footprints, Award, Activity,
+  ShieldCheck, Zap, ChevronRight,
+} from "lucide-react";
 import ProgressRing from "@/components/ProgressRing";
 import WeeklyChart from "@/components/WeeklyChart";
-import SectionHeader from "@/components/SectionHeader";
 import { Link } from "react-router-dom";
 import { useStore } from "@/hooks/useStore";
 import { LUXURY_TWEEN_MEDIUM, LUXURY_TWEEN_SLOW } from "@/lib/motionTokens";
 
 const monthlyData = [
-  { label: "Week 1", value: 92 },
-  { label: "Week 2", value: 88 },
-  { label: "Week 3", value: 95 },
-  { label: "Week 4", value: 78 },
+  { label: "Week 1", value: 92, color: "#C9F85A" },
+  { label: "Week 2", value: 88, color: "#4DD2FF" },
+  { label: "Week 3", value: 95, color: "#FFD36E" },
+  { label: "Week 4", value: 78, color: "#A78BFA" },
 ];
+
+const stepData = [
+  { day: "Mon", steps: 9240 },
+  { day: "Tue", steps: 11350 },
+  { day: "Wed", steps: 8720 },
+  { day: "Thu", steps: 10100 },
+  { day: "Fri", steps: 9800 },
+  { day: "Sat", steps: 7650 },
+];
+const maxSteps = Math.max(...stepData.map((d) => d.steps));
 
 export default function ProgressPage() {
   const { student: s, weeklyData } = useStore();
 
+  const kpis = [
+    { label: "Current Streak", value: `${s.streak}`, unit: "days", icon: Flame, color: "#FF4D00", bg: "bg-[#FF4D00]", dark: false },
+    { label: "Plans Done", value: String(s.totalPlansCompleted), unit: "plans", icon: ShieldCheck, color: "#C9F85A", bg: "bg-[#1A1A1A]", dark: false },
+    { label: "Check-Ins", value: "30", unit: "sessions", icon: Upload, color: "#4DD2FF", bg: "bg-[#1A1A1A]", dark: false },
+    { label: "Total Steps", value: "58.2k", unit: "steps", icon: Footprints, color: "#A78BFA", bg: "bg-[#1A1A1A]", dark: false },
+  ];
+
   return (
-    <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto space-y-10 pb-28 relative">
-       <div className="absolute top-0 right-0 w-64 h-64 bg-primary/5 blur-3xl pointer-events-none" />
-       
-      <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }}>
-        <div className="flex items-center gap-3 mb-2">
-           <div className="p-2 rounded-lg bg-primary/10 border border-primary/20">
-              <TrendingUp className="h-4 w-4 text-primary" />
-           </div>
-           <p className="text-xs font-semibold text-primary uppercase tracking-wider">Performance Analytics</p>
+    <div className="mx-auto max-w-7xl space-y-6 p-4 sm:p-6 lg:p-8 pb-10">
+
+      {/* ── Header card ─────────────────────────────────── */}
+      <motion.div
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={LUXURY_TWEEN_MEDIUM}
+        className="rounded-[32px] border border-white/10 bg-[#121212] p-6 sm:p-8 shadow-[0_20px_60px_rgba(0,0,0,0.4)] relative overflow-hidden"
+      >
+        <div className="absolute top-0 right-0 w-64 h-64 rounded-full bg-[#C9F85A]/4 translate-x-16 -translate-y-16 blur-3xl pointer-events-none" />
+        <div className="relative z-10 space-y-2">
+          <div className="inline-flex items-center gap-2 rounded-full bg-[#C9F85A]/10 border border-[#C9F85A]/20 px-3 py-1.5">
+            <TrendingUp className="h-3.5 w-3.5 text-[#C9F85A]" />
+            <span className="text-xs font-bold text-[#C9F85A] uppercase tracking-wider">Analytics</span>
+          </div>
+          <h1 className="text-4xl font-bold text-white tracking-tight">Your Progress</h1>
+          <p className="text-sm text-white/40 flex items-center gap-2">
+            <Activity className="h-3.5 w-3.5 text-[#C9F85A]" />
+            Tracking {s.totalDays}-day programme · Day {s.currentDay}
+          </p>
         </div>
-        <h1 className="text-4xl font-display font-semibold text-foreground tracking-tight">Your Progress</h1>
-        <p className="text-sm font-medium text-muted-foreground mt-2 flex items-center gap-2">
-           <Activity className="h-4 w-4 text-muted-foreground" /> Analyzing recent tracking data
-        </p>
       </motion.div>
 
-      {/* Stats Row */}
+      {/* ── KPI row ─────────────────────────────────────── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard label="Current Streak" value={s.streak} icon={Flame} accent />
-        <StatCard label="Plans Completed" value={s.totalPlansCompleted} icon={ShieldCheck} />
-        <StatCard label="Total Log Ins" value={30} icon={Upload} />
-        <StatCard label="Total Steps" value="58.2K" icon={Footprints} />
+        {kpis.map((k, i) => (
+          <motion.div
+            key={k.label}
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ ...LUXURY_TWEEN_MEDIUM, delay: i * 0.06 }}
+            className={`${k.bg} rounded-[24px] border border-white/5 p-5 relative overflow-hidden`}
+          >
+            <div className="flex items-center justify-between mb-3">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-white/40">{k.label}</p>
+              <k.icon className="h-4 w-4" style={{ color: k.color }} />
+            </div>
+            <p className="text-3xl font-bold text-white tracking-tight">{k.value}</p>
+            <p className="text-[10px] text-white/30 mt-1">{k.unit}</p>
+          </motion.div>
+        ))}
       </div>
 
-      <div className="grid lg:grid-cols-3 gap-10">
-        <div className="lg:col-span-2 space-y-10">
-          {/* Weekly */}
-          <div className="glass-card p-6 sm:p-8 border border-white/5 bg-card">
-            <SectionHeader title="Consistency" subtitle="Activity output over the last 7 days" />
-            <div className="h-[300px] w-full mt-8">
-               <WeeklyChart data={weeklyData} />
-            </div>
-          </div>
+      {/* ── Main grid ───────────────────────────────────── */}
+      <div className="grid lg:grid-cols-3 gap-6">
+        {/* Left column — charts */}
+        <div className="lg:col-span-2 space-y-6">
 
-          {/* Monthly Adherence */}
-          <div className="glass-card p-6 sm:p-8 border border-white/5 bg-card">
-            <SectionHeader title="Adherence" subtitle="Completion by week" />
-            <div className="space-y-6 mt-8">
+          {/* Weekly chart */}
+          <motion.div
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ ...LUXURY_TWEEN_MEDIUM, delay: 0.15 }}
+            className="rounded-[32px] border border-white/10 bg-[#121212] p-6 sm:p-8 shadow-[0_20px_60px_rgba(0,0,0,0.4)]"
+          >
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <p className="text-[10px] font-semibold text-white/30 uppercase tracking-wider mb-1">7-day view</p>
+                <h2 className="text-base font-semibold text-white">Weekly Consistency</h2>
+              </div>
+              <div className="w-2 h-2 rounded-full bg-[#C9F85A] animate-pulse" />
+            </div>
+            <div className="h-[260px] w-full">
+              <WeeklyChart data={weeklyData} />
+            </div>
+          </motion.div>
+
+          {/* Monthly adherence bars */}
+          <motion.div
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ ...LUXURY_TWEEN_MEDIUM, delay: 0.2 }}
+            className="rounded-[32px] border border-white/10 bg-[#121212] p-6 sm:p-8 shadow-[0_20px_60px_rgba(0,0,0,0.4)]"
+          >
+            <div className="mb-6">
+              <p className="text-[10px] font-semibold text-white/30 uppercase tracking-wider mb-1">Monthly view</p>
+              <h2 className="text-base font-semibold text-white">Plan Adherence</h2>
+            </div>
+
+            <div className="space-y-5">
               {monthlyData.map((w, i) => (
-                <div key={w.label} className="group">
-                  <div className="flex justify-between text-xs font-semibold tracking-wider mb-2 text-muted-foreground transition-colors group-hover:text-foreground">
-                    <span className="flex items-center gap-2">
-                       <div className="w-1.5 h-1.5 rounded-full bg-primary" />
-                       {w.label}
-                    </span>
-                    <span>{w.value}%</span>
+                <div key={w.label}>
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <div className="w-1.5 h-1.5 rounded-full" style={{ background: w.color }} />
+                      <span className="text-xs font-semibold text-white">{w.label}</span>
+                    </div>
+                    <span className="text-xs font-bold" style={{ color: w.color }}>{w.value}%</span>
                   </div>
-                  <div className="h-2.5 bg-zinc-950 rounded-full overflow-hidden border border-white/5 p-0.5">
-                    <motion.div initial={{ width: 0 }} animate={{ width: `${w.value}%` }} transition={{ ...LUXURY_TWEEN_SLOW, delay: i * 0.1 }} className="h-full bg-foreground rounded-full shadow-[0_0_10px_rgba(255,255,255,0.1)]" />
+                  <div className="h-2 bg-[#1A1A1A] rounded-full overflow-hidden border border-white/5">
+                    <motion.div
+                      initial={{ width: 0 }}
+                      animate={{ width: `${w.value}%` }}
+                      transition={{ ...LUXURY_TWEEN_SLOW, delay: i * 0.1 }}
+                      className="h-full rounded-full"
+                      style={{ background: w.color, opacity: 0.8 }}
+                    />
                   </div>
                 </div>
               ))}
             </div>
-          </div>
+          </motion.div>
 
-          {/* Streak History */}
-          <div className="glass-card p-6 sm:p-8 border border-white/5 bg-card">
-            <SectionHeader title="History" subtitle="Your activity map" />
-            <div className="grid grid-cols-7 sm:grid-cols-10 md:grid-cols-14 gap-2 mt-8">
+          {/* Activity heatmap */}
+          <motion.div
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ ...LUXURY_TWEEN_MEDIUM, delay: 0.25 }}
+            className="rounded-[32px] border border-white/10 bg-[#121212] p-6 sm:p-8 shadow-[0_20px_60px_rgba(0,0,0,0.4)]"
+          >
+            <div className="mb-6">
+              <p className="text-[10px] font-semibold text-white/30 uppercase tracking-wider mb-1">28-day view</p>
+              <h2 className="text-base font-semibold text-white">Activity Map</h2>
+            </div>
+
+            <div className="grid grid-cols-7 sm:grid-cols-14 gap-1.5">
               {Array.from({ length: 28 }, (_, i) => {
                 const active = i < s.currentDay;
                 const streakDay = i >= s.currentDay - s.streak && i < s.currentDay;
                 return (
-                  <motion.div 
-                    key={i} 
-                    initial={{ scale: 0 }}
-                    animate={{ scale: 1 }}
-                    transition={{ ...LUXURY_TWEEN_MEDIUM, delay: i * 0.02 }}
-                    className={`aspect-square rounded-md flex items-center justify-center text-xs font-semibold border transition-all ${
-                    streakDay ? "bg-primary text-black border-primary shadow-sm" : 
-                    active ? "bg-white/5 border-white/10 text-muted-foreground" : 
-                    "bg-transparent border-white/5 text-muted-foreground/30"
-                  }`}>
+                  <motion.div
+                    key={i}
+                    initial={{ scale: 0, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    transition={{ ...LUXURY_TWEEN_MEDIUM, delay: i * 0.015 }}
+                    className={`aspect-square rounded-lg flex items-center justify-center text-[10px] font-bold border transition-all ${
+                      streakDay
+                        ? "bg-[#C9F85A] border-[#C9F85A] text-black shadow-[0_2px_8px_rgba(201,248,90,0.3)]"
+                        : active
+                        ? "bg-[#1A1A1A] border-white/10 text-white/40"
+                        : "bg-transparent border-white/5 text-white/15"
+                    }`}
+                  >
                     {i + 1}
                   </motion.div>
                 );
               })}
             </div>
-          </div>
+
+            <div className="flex gap-4 mt-4 text-[10px] text-white/30">
+              <div className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-sm bg-[#C9F85A]" />Streak days</div>
+              <div className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-sm bg-[#1A1A1A] border border-white/10" />Active</div>
+              <div className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-sm border border-white/5" />Upcoming</div>
+            </div>
+          </motion.div>
         </div>
 
+        {/* Right column */}
         <div className="space-y-6">
-          <div className="glass-card p-8 flex flex-col items-center bg-card shadow-sm border border-white/5">
-            <ProgressRing percentage={s.completionPercentage} size={180} label="Mastery Level" />
-            <div className="mt-8 flex items-center gap-3 bg-primary/10 px-4 py-2 rounded-lg border border-primary/20">
-               <Zap className="h-4 w-4 text-primary fill-primary" />
-               <span className="text-xs font-bold text-primary">Level {Math.floor(s.completionPercentage/20) + 1} Unlocked</span>
+          {/* Completion ring */}
+          <motion.div
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ ...LUXURY_TWEEN_MEDIUM, delay: 0.12 }}
+            className="rounded-[32px] border border-white/10 bg-[#121212] p-8 flex flex-col items-center shadow-[0_20px_60px_rgba(0,0,0,0.4)]"
+          >
+            <p className="text-[10px] font-semibold text-white/30 uppercase tracking-wider mb-6">Overall</p>
+            <ProgressRing percentage={s.completionPercentage} size={180} label="Mastery" />
+            <div className="mt-6 flex items-center gap-2 bg-[#C9F85A]/10 px-4 py-2.5 rounded-full border border-[#C9F85A]/20">
+              <Zap className="h-4 w-4 text-[#C9F85A] fill-[#C9F85A]/30" />
+              <span className="text-xs font-bold text-[#C9F85A]">Level {Math.floor(s.completionPercentage / 20) + 1} Unlocked</span>
             </div>
-          </div>
+          </motion.div>
 
-          {/* Steps Trend */}
-          <div className="glass-card p-6 sm:p-8 bg-card border border-white/5">
-            <SectionHeader title="Step Activity" />
-            <div className="space-y-4 mt-6">
-              {[
-                { day: "MON", steps: 9240 },
-                { day: "TUE", steps: 11350 },
-                { day: "WED", steps: 8720 },
-                { day: "THU", steps: 10100 },
-                { day: "FRI", steps: 9800 },
-                { day: "SAT", steps: 7650 },
-              ].map((d) => (
-                <div key={d.day} className="flex items-center justify-between group">
-                  <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider group-hover:text-primary transition-colors">{d.day}</span>
-                  <div className="flex-1 mx-4 h-px bg-white/5" />
-                  <span className="text-sm font-semibold text-foreground tabular-nums group-hover:text-primary transition-colors">{d.steps.toLocaleString()}</span>
-                </div>
-              ))}
+          {/* Step activity */}
+          <motion.div
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ ...LUXURY_TWEEN_MEDIUM, delay: 0.18 }}
+            className="rounded-[32px] border border-white/10 bg-[#121212] p-6 shadow-[0_20px_60px_rgba(0,0,0,0.4)]"
+          >
+            <div className="flex items-center gap-2 mb-5">
+              <Footprints className="h-4 w-4 text-[#A78BFA]" />
+              <h2 className="text-sm font-semibold text-white">Step Activity</h2>
             </div>
-          </div>
+            <div className="space-y-3">
+              {stepData.map((d) => {
+                const pct = (d.steps / maxSteps) * 100;
+                return (
+                  <div key={d.day} className="flex items-center gap-3">
+                    <span className="text-[10px] font-semibold text-white/40 w-8 uppercase">{d.day}</span>
+                    <div className="flex-1 h-1.5 bg-[#1A1A1A] rounded-full overflow-hidden border border-white/5">
+                      <motion.div
+                        initial={{ width: 0 }}
+                        animate={{ width: `${pct}%` }}
+                        transition={LUXURY_TWEEN_SLOW}
+                        className="h-full rounded-full bg-[#A78BFA]/70"
+                      />
+                    </div>
+                    <span className="text-[10px] font-bold text-white/50 tabular-nums w-12 text-right">
+                      {d.steps.toLocaleString()}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          </motion.div>
 
-          {/* Badges */}
-          <div className="glass-card p-6 sm:p-8 bg-card border border-white/5">
-            <SectionHeader title="Earned Badges" />
-            <div className="grid grid-cols-3 gap-3 mt-6">
-              {s.badges.slice(0, 6).map((b) => (
-                <div key={b.id} className={`aspect-square rounded-xl flex flex-col items-center justify-center p-2 transition-all border ${b.earned ? "bg-primary/5 border-primary/20 text-primary shadow-sm hover:scale-105" : "bg-transparent border-white/5 opacity-40 grayscale"}`}>
-                  <Award className={`h-6 w-6 mb-1 ${b.earned ? "text-primary" : "text-muted-foreground"}`} />
-                  <span className="text-[10px] text-center font-semibold tracking-tight leading-tight">{b.name}</span>
+          {/* Badges mini */}
+          <motion.div
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ ...LUXURY_TWEEN_MEDIUM, delay: 0.22 }}
+            className="rounded-[32px] border border-white/10 bg-[#121212] p-6 shadow-[0_20px_60px_rgba(0,0,0,0.4)]"
+          >
+            <div className="flex items-center gap-2 mb-5">
+              <Award className="h-4 w-4 text-[#FFD36E]" />
+              <h2 className="text-sm font-semibold text-white">Earned Badges</h2>
+            </div>
+            <div className="grid grid-cols-3 gap-2">
+              {s.badges.slice(0, 6).map((b, i) => (
+                <div
+                  key={b.id}
+                  className={`aspect-square rounded-2xl flex flex-col items-center justify-center p-2 border transition-all ${
+                    b.earned
+                      ? "bg-[#C9F85A]/8 border-[#C9F85A]/20 hover:scale-105"
+                      : "bg-transparent border-white/5 opacity-30 grayscale"
+                  }`}
+                >
+                  <Award className={`h-5 w-5 mb-1 ${b.earned ? "text-[#C9F85A]" : "text-white/20"}`} />
+                  <span className="text-[9px] text-center font-semibold tracking-tight leading-tight text-white/50">{b.name}</span>
                 </div>
               ))}
             </div>
             <Link
               to="/student/achievements"
-              className="mt-6 flex items-center justify-center text-xs font-semibold text-muted-foreground hover:text-primary transition-all p-3 border border-white/5 rounded-xl hover:border-primary/30 hover:bg-primary/5 group"
+              className="mt-4 flex items-center justify-center gap-1 text-xs font-semibold text-white/30 hover:text-[#C9F85A] transition-colors p-3 border border-white/5 rounded-2xl hover:border-[#C9F85A]/20 group"
             >
-              View All Badges <ChevronRight className="h-4 w-4 ml-1 group-hover:translate-x-1 transition-transform" />
+              View All Badges
+              <ChevronRight className="h-3.5 w-3.5 group-hover:translate-x-0.5 transition-transform" />
             </Link>
-          </div>
+          </motion.div>
         </div>
       </div>
     </div>

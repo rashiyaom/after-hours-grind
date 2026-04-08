@@ -1,22 +1,76 @@
 import { Link } from "react-router-dom";
-import { motion, useScroll, useTransform } from "framer-motion";
+import {
+  motion,
+  useMotionValue,
+  useScroll,
+  useSpring,
+  useTransform,
+  useInView,
+  animate,
+} from "framer-motion";
 import { ArrowRight, ArrowUpRight, Zap, Lock, BarChart3, Clock, ChevronDown } from "lucide-react";
-import { useRef } from "react";
+import { useRef, useEffect, useState } from "react";
 
-/* ─── motion helpers ─────────────────────────────────── */
-const fadeUp = (delay = 0) => ({
-  initial: { opacity: 0, y: 24 },
-  animate: { opacity: 1, y: 0 },
-  transition: { duration: 0.7, ease: [0.22, 1, 0.36, 1] as [number, number, number, number], delay },
+/* ─── easing curves ──────────────────────────────────── */
+const smoothEase: [number, number, number, number] = [0.22, 1, 0.36, 1];
+const snappyEase: [number, number, number, number] = [0.16, 1, 0.3, 1];
+
+/* ─── reusable scroll-reveal helpers ────────────────── */
+const revealUp = (delay = 0, distance = 32) => ({
+  initial: { opacity: 0, y: distance },
+  whileInView: { opacity: 1, y: 0 },
+  viewport: { once: true, amount: 0.12 },
+  transition: { duration: 0.75, ease: snappyEase, delay },
+});
+
+const revealLeft = (delay = 0) => ({
+  initial: { opacity: 0, x: -36 },
+  whileInView: { opacity: 1, x: 0 },
+  viewport: { once: true, amount: 0.15 },
+  transition: { duration: 0.7, ease: snappyEase, delay },
+});
+
+const revealRight = (delay = 0) => ({
+  initial: { opacity: 0, x: 36 },
+  whileInView: { opacity: 1, x: 0 },
+  viewport: { once: true, amount: 0.15 },
+  transition: { duration: 0.7, ease: snappyEase, delay },
 });
 
 const fadeIn = (delay = 0) => ({
   initial: { opacity: 0 },
-  animate: { opacity: 1 },
-  transition: { duration: 0.9, ease: "easeOut" as const, delay },
+  whileInView: { opacity: 1 },
+  viewport: { once: true, amount: 0.12 },
+  transition: { duration: 0.9, ease: smoothEase, delay },
 });
 
-/* ─── data ───────────────────────────────────────────── */
+/* hero-only — fires immediately, not on scroll */
+const heroUp = (delay = 0) => ({
+  initial: { opacity: 0, y: 24 },
+  animate: { opacity: 1, y: 0 },
+  transition: { duration: 0.7, ease: smoothEase, delay },
+});
+
+/* ─── Animated counter hook ─────────────────────────── */
+function useCounter(target: number, duration = 1.4) {
+  const [count, setCount] = useState(0);
+  const ref = useRef<HTMLDivElement>(null);
+  const inView = useInView(ref, { once: true, amount: 0.5 });
+
+  useEffect(() => {
+    if (!inView) return;
+    const controls = animate(0, target, {
+      duration,
+      ease: "easeOut",
+      onUpdate: (v) => setCount(Math.round(v)),
+    });
+    return () => controls.stop();
+  }, [inView, target, duration]);
+
+  return { count, ref };
+}
+
+/* ─── Data ───────────────────────────────────────────── */
 const pillars = [
   {
     num: "01",
@@ -61,231 +115,270 @@ const manifesto = [
   "WHEN THE EXCUSES STOP — WE BEGIN.",
 ];
 
-/* ─── component ──────────────────────────────────────── */
+/* ─── Pillar card — self-contained for clean stagger ── */
+function PillarCard({ p, idx }: { p: typeof pillars[0]; idx: number }) {
+  const cardRef = useRef<HTMLDivElement>(null);
+  const inView = useInView(cardRef, { once: true, amount: 0.18 });
+
+  return (
+    <motion.div
+      ref={cardRef}
+      animate={inView ? { opacity: 1, y: 0 } : { opacity: 0, y: 32 }}
+      initial={{ opacity: 0, y: 32 }}
+      transition={{ duration: 0.68, ease: snappyEase }}
+      style={{
+        background: "#000",
+        padding: "clamp(1.8rem,5vw,2.5rem)",
+        display: "flex",
+        flexDirection: "column",
+        gap: "1.4rem",
+        cursor: "default",
+      }}
+      whileHover={{ backgroundColor: "rgba(255,255,255,0.025)" }}
+    >
+      {/* number + icon */}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+        <motion.span
+          animate={inView ? { opacity: 1 } : { opacity: 0 }}
+          transition={{ duration: 0.4, delay: 0.18 }}
+          style={{ fontSize: "0.65rem", fontWeight: 700, letterSpacing: "0.2em", color: "rgba(255,255,255,0.18)" }}
+        >
+          {p.num}
+        </motion.span>
+        <motion.div
+          animate={inView ? { scale: 1, rotate: 0 } : { scale: 0, rotate: -20 }}
+          transition={{ duration: 0.42, ease: snappyEase, delay: 0.12 }}
+          style={{ width: 36, height: 36, background: p.accent, display: "flex", alignItems: "center", justifyContent: "center" }}
+        >
+          <p.icon size={16} color="#fff" />
+        </motion.div>
+      </div>
+
+      {/* title */}
+      <motion.h2
+        animate={inView ? { opacity: 1, y: 0 } : { opacity: 0, y: 10 }}
+        transition={{ duration: 0.5, ease: snappyEase, delay: 0.22 }}
+        style={{ fontSize: "1.05rem", fontWeight: 700, letterSpacing: "0.06em", color: "#EFEFEF", textTransform: "uppercase", margin: 0 }}
+      >
+        {p.title}
+      </motion.h2>
+
+      {/* body */}
+      <motion.p
+        animate={inView ? { opacity: 1, y: 0 } : { opacity: 0, y: 8 }}
+        transition={{ duration: 0.5, ease: snappyEase, delay: 0.32 }}
+        style={{ fontSize: "0.875rem", fontWeight: 300, lineHeight: 1.75, color: "rgba(239,239,239,0.42)", margin: 0 }}
+      >
+        {p.body}
+      </motion.p>
+
+      {/* accent bar grows */}
+      <motion.div
+        animate={inView ? { scaleX: 1 } : { scaleX: 0 }}
+        transition={{ duration: 0.55, ease: snappyEase, delay: 0.4 }}
+        style={{ height: 1, background: `linear-gradient(90deg, ${p.accent}55, transparent)`, transformOrigin: "left" }}
+      />
+    </motion.div>
+  );
+}
+
+/* ─── Main component ─────────────────────────────────── */
 export default function LandingPage() {
+  /* scroll progress for the page-wide indicator */
+  const { scrollYProgress: pageProgress } = useScroll();
+  const scaleX = useSpring(pageProgress, { stiffness: 200, damping: 30, mass: 0.5 });
+
   const heroRef = useRef<HTMLDivElement>(null);
   const { scrollYProgress } = useScroll({ target: heroRef, offset: ["start start", "end start"] });
   const heroY = useTransform(scrollYProgress, [0, 1], ["0%", "20%"]);
 
+  const mouseX = useMotionValue(-240);
+  const mouseY = useMotionValue(-240);
+  const smoothMouseX = useSpring(mouseX, { stiffness: 140, damping: 24, mass: 0.35 });
+  const smoothMouseY = useSpring(mouseY, { stiffness: 140, damping: 24, mass: 0.35 });
+
+  const handlePointerMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    mouseX.set(e.clientX - 240);
+    mouseY.set(e.clientY - 240);
+  };
+
+  /* animated counters */
+  const { count: count94, ref: ref94 } = useCounter(94);
+  const { count: count100, ref: ref100 } = useCounter(100, 1.6);
+
   return (
     <div
       className="min-h-screen overflow-x-hidden"
-      style={{
-        background: "#000",
-        color: "#EFEFEF",
-        fontFamily: "'Outfit', 'Inter', system-ui, sans-serif",
-      }}
+      onMouseMove={handlePointerMove}
+      style={{ background: "#000", color: "#EFEFEF", fontFamily: "'Outfit', 'Inter', system-ui, sans-serif" }}
     >
 
-      {/* ── NAV ──────────────────────────────────────────── */}
-      <motion.nav
-        {...fadeIn(0)}
-        className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-6 md:px-12 py-5"
-        style={{ background: "rgba(0,0,0,0.85)", backdropFilter: "blur(12px)", borderBottom: "1px solid rgba(255,255,255,0.06)" }}
-      >
-        <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-          <span
-            style={{
-              width: 28, height: 28,
-              background: "linear-gradient(135deg, #FF4D00 0%, #6B21FF 100%)",
-              display: "inline-block",
-              flexShrink: 0,
-            }}
-          />
-          <span style={{ fontWeight: 800, fontSize: "0.875rem", letterSpacing: "0.18em", color: "#fff" }}>
-            AFTER HOURS
-          </span>
-        </div>
-
-        <div style={{ display: "flex", gap: "32px", alignItems: "center" }}>
-          <Link to="/login" style={{ fontSize: "0.8rem", fontWeight: 500, color: "rgba(255,255,255,0.5)", letterSpacing: "0.06em", textDecoration: "none", transition: "color 0.2s" }}
-            onMouseEnter={e => (e.currentTarget.style.color = "#fff")}
-            onMouseLeave={e => (e.currentTarget.style.color = "rgba(255,255,255,0.5)")}
-          >
-            SIGN IN
-          </Link>
-          <Link
-            to="/signup"
-            style={{
-              fontSize: "0.8rem", fontWeight: 700, letterSpacing: "0.1em",
-              padding: "8px 20px",
-              background: "#FF4D00",
-              color: "#fff",
-              textDecoration: "none",
-              transition: "opacity 0.2s",
-            }}
-            onMouseEnter={e => (e.currentTarget.style.opacity = "0.85")}
-            onMouseLeave={e => (e.currentTarget.style.opacity = "1")}
-          >
-            GET STARTED
-          </Link>
-        </div>
-      </motion.nav>
+      {/* ── SCROLL PROGRESS BAR ───────────────────────────── */}
+      <motion.div
+        style={{
+          scaleX,
+          position: "fixed",
+          top: 0,
+          left: 0,
+          right: 0,
+          height: 2,
+          background: "linear-gradient(90deg, #FF4D00, #6B21FF)",
+          transformOrigin: "left",
+          zIndex: 100,
+        }}
+      />
 
       {/* ── HERO ─────────────────────────────────────────── */}
-      <div ref={heroRef} style={{ position: "relative", minHeight: "100vh", display: "flex", flexDirection: "column", justifyContent: "flex-end", overflow: "hidden" }}>
-
-        {/* Background grid pattern */}
+      <div
+        ref={heroRef}
+        className="relative flex flex-col justify-start overflow-hidden sm:min-h-screen"
+      >
+        {/* Bg grid */}
         <div style={{
           position: "absolute", inset: 0, zIndex: 0,
           backgroundImage: "linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px)",
-          backgroundSize: "80px 80px",
+          backgroundSize: "clamp(88px,14vw,112px) clamp(88px,14vw,112px)",
         }} />
 
-        {/* Gradient blob */}
+        {/* Gradient blobs */}
         <motion.div style={{ y: heroY, position: "absolute", inset: 0, zIndex: 1, pointerEvents: "none" }}>
-          <div style={{
-            position: "absolute",
-            top: "10%", left: "-10%",
-            width: "60vw", height: "60vw",
-            borderRadius: "50%",
-            background: "radial-gradient(circle, rgba(255,77,0,0.12) 0%, transparent 70%)",
-            filter: "blur(40px)",
-          }} />
-          <div style={{
-            position: "absolute",
-            top: "20%", right: "-10%",
-            width: "50vw", height: "50vw",
-            borderRadius: "50%",
-            background: "radial-gradient(circle, rgba(107,33,255,0.1) 0%, transparent 70%)",
-            filter: "blur(40px)",
-          }} />
+          <div style={{ position: "absolute", top: "10%", left: "-10%", width: "60vw", height: "60vw", borderRadius: "50%", background: "radial-gradient(circle, rgba(255,77,0,0.12) 0%, transparent 70%)", filter: "blur(40px)" }} />
+          <div style={{ position: "absolute", top: "20%", right: "-10%", width: "50vw", height: "50vw", borderRadius: "50%", background: "radial-gradient(circle, rgba(107,33,255,0.1) 0%, transparent 70%)", filter: "blur(40px)" }} />
+          <motion.div
+            className="hidden sm:block"
+            style={{ x: smoothMouseX, y: smoothMouseY, position: "absolute", width: 480, height: 480, borderRadius: "50%", background: "radial-gradient(circle, rgba(57,255,20,0.24) 0%, rgba(57,255,20,0.1) 28%, rgba(57,255,20,0) 72%)", filter: "blur(18px)", mixBlendMode: "screen" }}
+          />
         </motion.div>
 
-        {/* hero content */}
-        <div style={{ position: "relative", zIndex: 2, padding: "0 6vw 10vh", maxWidth: 1400, width: "100%" }}>
+        {/* Hero content */}
+        <div style={{ position: "relative", zIndex: 2, padding: "calc(64px + clamp(1.8rem,5vw,1.9rem)) clamp(1.5rem,5vw,6vw) clamp(2.5rem,6vh,3rem)", maxWidth: 1400, width: "100%", flex: 1 }}>
 
-          {/* Eyebrow */}
-          <motion.div {...fadeUp(0.1)} style={{ marginBottom: "2rem" }}>
-            <span style={{
-              display: "inline-block",
-              fontSize: "0.7rem", fontWeight: 700,
-              letterSpacing: "0.28em",
-              color: "#FF4D00",
-              padding: "6px 14px",
-              border: "1px solid rgba(255,77,0,0.3)",
-            }}>
+          {/* Eyebrow — desktop only */}
+          <motion.div {...heroUp(0.1)} className="hidden sm:block" style={{ marginBottom: "1.6rem" }}>
+            <span style={{ display: "inline-block", fontSize: "clamp(0.58rem,1.9vw,0.7rem)", fontWeight: 700, letterSpacing: "0.18em", color: "#FF4D00", padding: "5px 10px", border: "1px solid rgba(255,77,0,0.3)" }}>
               AFTER HOURS GRIND — EST. THE GRIND NEVER STOPS
             </span>
           </motion.div>
 
-          {/* Big headline */}
+          {/* Headline lines */}
           <div style={{ overflow: "hidden" }}>
-            <motion.h1
-              {...fadeUp(0.18)}
-              style={{
-                fontSize: "clamp(3.5rem, 10vw, 9rem)",
-                fontWeight: 800,
-                lineHeight: 0.92,
-                letterSpacing: "-0.03em",
-                color: "#EFEFEF",
-                margin: 0,
-                textTransform: "uppercase",
-              }}
-            >
+            <motion.h1 {...heroUp(0.18)} style={{ fontSize: "clamp(2.6rem,9.6vw,9rem)", fontWeight: 800, lineHeight: 0.9, letterSpacing: "-0.03em", color: "#EFEFEF", margin: 0, textTransform: "uppercase" }}>
               NO FLUFF.
             </motion.h1>
           </div>
-          <div style={{ overflow: "hidden" }}>
-            <motion.h1
-              {...fadeUp(0.24)}
-              style={{
-                fontSize: "clamp(3.5rem, 10vw, 9rem)",
-                fontWeight: 800,
-                lineHeight: 0.92,
-                letterSpacing: "-0.03em",
-                margin: 0,
-                textTransform: "uppercase",
-                WebkitTextStroke: "1px rgba(255,255,255,0.2)",
-                color: "transparent",
-              }}
-            >
+          <div className="hidden sm:block" style={{ overflow: "hidden" }}>
+            <motion.h1 {...heroUp(0.24)} style={{ fontSize: "clamp(3.5rem,10vw,9rem)", fontWeight: 800, lineHeight: 0.92, letterSpacing: "-0.03em", margin: 0, textTransform: "uppercase", WebkitTextStroke: "1px rgba(255,255,255,0.2)", color: "transparent" }}>
               JUST EXECUTION.
             </motion.h1>
           </div>
           <div style={{ overflow: "hidden" }}>
-            <motion.h1
-              {...fadeUp(0.30)}
-              style={{
-                fontSize: "clamp(3.5rem, 10vw, 9rem)",
-                fontWeight: 800,
-                lineHeight: 0.92,
-                letterSpacing: "-0.03em",
-                color: "#FF4D00",
-                margin: 0,
-                textTransform: "uppercase",
-              }}
-            >
+            <motion.h1 {...heroUp(0.30)} style={{ fontSize: "clamp(2.9rem,10vw,9rem)", fontWeight: 800, lineHeight: 0.9, letterSpacing: "-0.03em", color: "#FF4D00", margin: 0, textTransform: "uppercase" }}>
               AFTER HOURS.
             </motion.h1>
           </div>
 
-          {/* sub copy + CTA row */}
+          {/* Sub copy + CTA */}
           <motion.div
-            {...fadeUp(0.42)}
-            style={{ marginTop: "3.5rem", display: "flex", flexWrap: "wrap", gap: "3rem", alignItems: "flex-end" }}
+            {...heroUp(0.42)}
+            className="mt-6 flex flex-col items-start gap-6 sm:mt-[clamp(1.2rem,2.4vh,2.5rem)] sm:flex-row sm:flex-wrap sm:items-end sm:gap-[clamp(1rem,3vw,3rem)]"
           >
-            <p style={{
-              maxWidth: 400,
-              fontSize: "1rem",
-              fontWeight: 300,
-              lineHeight: 1.75,
-              color: "rgba(239,239,239,0.55)",
-              margin: 0,
-              borderLeft: "2px solid #FF4D00",
-              paddingLeft: "1.25rem",
-            }}>
+            <p style={{ maxWidth: 420, fontSize: "clamp(0.88rem,2.6vw,1rem)", fontWeight: 300, lineHeight: 1.7, color: "rgba(239,239,239,0.5)", margin: 0, borderLeft: "2px solid rgba(255,77,0,0.6)", paddingLeft: "1rem" }}>
               A precision coaching platform built for people who train when the rest of the world is asleep.
-              Smart plans. Expert sign-off. Daily proof. No excuses accepted.
+              Smart plans. Expert sign-off. Daily proof.
             </p>
 
-            <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: "1rem", width: "100%" }}>
+              {/* CTA — shimmer effect via keyframe */}
               <Link
                 to="/signup"
+                className="sm:w-auto"
                 style={{
-                  display: "inline-flex", alignItems: "center", gap: 10,
+                  position: "relative",
+                  display: "flex", alignItems: "center", justifyContent: "center", gap: 10,
                   background: "#FF4D00",
                   color: "#fff",
                   textDecoration: "none",
-                  padding: "16px 32px",
-                  fontSize: "0.85rem",
+                  padding: "17px 28px",
+                  fontSize: "0.83rem",
                   fontWeight: 700,
                   letterSpacing: "0.12em",
                   textTransform: "uppercase",
                   transition: "transform 0.2s, background 0.2s",
+                  width: "100%",
+                  overflow: "hidden",
                 }}
                 onMouseEnter={e => { e.currentTarget.style.transform = "translateY(-2px)"; e.currentTarget.style.background = "#e64400"; }}
                 onMouseLeave={e => { e.currentTarget.style.transform = "translateY(0)"; e.currentTarget.style.background = "#FF4D00"; }}
               >
+                {/* shimmer layer */}
+                <motion.span
+                  style={{
+                    position: "absolute", inset: 0,
+                    background: "linear-gradient(105deg, transparent 40%, rgba(255,255,255,0.18) 50%, transparent 60%)",
+                    backgroundSize: "200% 100%",
+                  }}
+                  animate={{ backgroundPosition: ["200% 0", "-200% 0"] }}
+                  transition={{ duration: 2.4, repeat: Infinity, ease: "linear", repeatDelay: 1.2 }}
+                />
                 Start Your Grind
                 <ArrowRight size={16} />
               </Link>
               <Link
                 to="/login"
-                style={{
-                  display: "inline-flex", alignItems: "center", gap: 8,
-                  color: "rgba(239,239,239,0.45)",
-                  textDecoration: "none",
-                  fontSize: "0.75rem",
-                  fontWeight: 500,
-                  letterSpacing: "0.1em",
-                  textTransform: "uppercase",
-                  transition: "color 0.2s",
-                }}
+                style={{ display: "inline-flex", alignItems: "center", gap: 8, color: "rgba(239,239,239,0.38)", textDecoration: "none", fontSize: "0.73rem", fontWeight: 400, letterSpacing: "0.1em", textTransform: "uppercase", transition: "color 0.2s" }}
                 onMouseEnter={e => (e.currentTarget.style.color = "#EFEFEF")}
-                onMouseLeave={e => (e.currentTarget.style.color = "rgba(239,239,239,0.45)")}
+                onMouseLeave={e => (e.currentTarget.style.color = "rgba(239,239,239,0.38)")}
               >
                 Already grinding? Sign in
-                <ArrowUpRight size={14} />
+                <ArrowUpRight size={13} />
               </Link>
             </div>
           </motion.div>
+
+          {/* Mobile: animated counter stats */}
+          <motion.div
+            {...heroUp(0.65)}
+            className="flex sm:hidden"
+            style={{ marginTop: "3.5rem", paddingTop: "2rem", borderTop: "1px solid rgba(255,255,255,0.06)", gap: "3rem", alignItems: "flex-start" }}
+          >
+            <div ref={ref94}>
+              <div style={{ fontSize: "2.1rem", fontWeight: 800, color: "#FF4D00", lineHeight: 1, fontVariantNumeric: "tabular-nums" }}>
+                {count94}%
+              </div>
+              <div style={{ marginTop: "0.45rem", fontSize: "0.6rem", letterSpacing: "0.14em", color: "rgba(239,239,239,0.28)", textTransform: "uppercase" }}>Plan completion</div>
+            </div>
+            <div style={{ width: 1, height: 36, background: "rgba(255,255,255,0.08)", alignSelf: "center" }} />
+            <div ref={ref100}>
+              <div style={{ fontSize: "2.1rem", fontWeight: 800, color: "#6B21FF", lineHeight: 1, fontVariantNumeric: "tabular-nums" }}>
+                {count100}%
+              </div>
+              <div style={{ marginTop: "0.45rem", fontSize: "0.6rem", letterSpacing: "0.14em", color: "rgba(239,239,239,0.28)", textTransform: "uppercase" }}>Trainer-reviewed</div>
+            </div>
+          </motion.div>
+
+          {/* Mobile scroll hint — bouncing chevron */}
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 1.4, duration: 0.8 }}
+            className="flex sm:hidden"
+            style={{ marginTop: "2.5rem", alignItems: "center", gap: 6 }}
+          >
+            <span style={{ fontSize: "0.6rem", letterSpacing: "0.2em", color: "rgba(255,255,255,0.2)", textTransform: "uppercase" }}>Scroll</span>
+            <motion.div
+              animate={{ y: [0, 5, 0] }}
+              transition={{ repeat: Infinity, duration: 1.5, ease: "easeInOut" }}
+            >
+              <ChevronDown size={13} color="rgba(255,255,255,0.22)" />
+            </motion.div>
+          </motion.div>
         </div>
 
-        {/* scroll hint */}
+        {/* Desktop scroll hint */}
         <motion.div
           initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 1.2, duration: 0.8 }}
-          style={{ position: "absolute", bottom: "2rem", right: "6vw", zIndex: 2, display: "flex", alignItems: "center", gap: 8 }}
+          className="hidden sm:flex"
+          style={{ position: "absolute", bottom: "2rem", right: "6vw", zIndex: 2, alignItems: "center", gap: 8 }}
         >
           <span style={{ fontSize: "0.65rem", letterSpacing: "0.2em", color: "rgba(255,255,255,0.25)" }}>SCROLL</span>
           <motion.div animate={{ y: [0, 6, 0] }} transition={{ repeat: Infinity, duration: 1.6, ease: "easeInOut" }}>
@@ -294,54 +387,48 @@ export default function LandingPage() {
         </motion.div>
       </div>
 
-      {/* ── STATS BAR ────────────────────────────────────── */}
-      <div style={{ borderTop: "1px solid rgba(255,255,255,0.06)", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 0 }}>
+      {/* ── STATS BAR (desktop only) ──────────────────────── */}
+      <motion.section
+        className="hidden sm:block"
+        {...fadeIn(0)}
+        style={{ borderTop: "1px solid rgba(255,255,255,0.06)", borderBottom: "1px solid rgba(255,255,255,0.06)" }}
+      >
+        <div className="grid grid-cols-4 border-l border-white/10" style={{ gap: 0 }}>
           {stats.map((s, i) => (
             <motion.div
               key={s.label}
-              initial={{ opacity: 0, y: 16 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true, amount: 0.5 }}
-              transition={{ duration: 0.6, delay: i * 0.08, ease: [0.22, 1, 0.36, 1] }}
-              style={{
-                padding: "2.5rem 2rem",
-                borderRight: i < 3 ? "1px solid rgba(255,255,255,0.06)" : "none",
-                textAlign: "center",
-              }}
+              {...revealUp(i * 0.08)}
+              className="border-r border-b border-white/10"
+              style={{ padding: "clamp(1.1rem,3.2vw,2.2rem) clamp(1rem,3vw,2rem)", textAlign: "center" }}
             >
-              <div style={{ fontSize: "clamp(1.8rem, 3vw, 2.8rem)", fontWeight: 800, color: i % 2 === 0 ? "#FF4D00" : "#6B21FF", lineHeight: 1 }}>
-                {s.value}
-              </div>
-              <div style={{ marginTop: "0.5rem", fontSize: "0.7rem", fontWeight: 400, letterSpacing: "0.12em", color: "rgba(239,239,239,0.35)", textTransform: "uppercase" }}>
-                {s.label}
-              </div>
+              <div style={{ fontSize: "clamp(1.8rem,3vw,2.8rem)", fontWeight: 800, color: i % 2 === 0 ? "#FF4D00" : "#6B21FF", lineHeight: 1 }}>{s.value}</div>
+              <div style={{ marginTop: "0.5rem", fontSize: "0.7rem", fontWeight: 400, letterSpacing: "0.12em", color: "rgba(239,239,239,0.35)", textTransform: "uppercase" }}>{s.label}</div>
             </motion.div>
           ))}
         </div>
-      </div>
+      </motion.section>
 
-      {/* ── MANIFESTO TICKER ─────────────────────────────── */}
-      <div style={{ padding: "5rem 6vw", overflow: "hidden" }}>
+      {/* ── MANIFESTO ─────────────────────────────────────── */}
+      <div style={{ padding: "clamp(3.5rem,10vw,6.5rem) clamp(1.5rem,6vw,6vw)", overflow: "hidden" }}>
         {manifesto.map((line, i) => (
           <motion.div
             key={i}
-            initial={{ opacity: 0, x: i % 2 === 0 ? -40 : 40 }}
+            /* Each line triggers independently as it enters view */
+            initial={{ opacity: 0, x: i % 2 === 0 ? -44 : 44 }}
             whileInView={{ opacity: 1, x: 0 }}
-            viewport={{ once: true, amount: 0.4 }}
-            transition={{ duration: 0.9, delay: i * 0.1, ease: [0.22, 1, 0.36, 1] }}
+            viewport={{ once: true, amount: 0.6 }}
+            transition={{ duration: 0.8, ease: snappyEase }}
             style={{
-              fontSize: "clamp(1.5rem, 4.5vw, 4rem)",
-              fontWeight: 200,
-              letterSpacing: "0.05em",
-              lineHeight: 1.2,
-              color: i === 1 ? "rgba(239,239,239,0.15)" : "rgba(239,239,239,0.6)",
+              fontSize: "clamp(1.05rem,5.3vw,4rem)",
+              fontWeight: 300,
+              letterSpacing: "0.04em",
+              lineHeight: 1.25,
+              color: i === 1 ? "rgba(239,239,239,0.14)" : "rgba(239,239,239,0.62)",
               textAlign: i === 1 ? "right" : "left",
               textTransform: "uppercase",
-              paddingLeft: i === 1 ? "0" : "0",
               borderBottom: i < manifesto.length - 1 ? "1px solid rgba(255,255,255,0.04)" : "none",
-              paddingBottom: "2rem",
-              marginBottom: i < manifesto.length - 1 ? "2rem" : 0,
+              paddingBottom: "clamp(1.4rem,4vw,2.8rem)",
+              marginBottom: i < manifesto.length - 1 ? "clamp(1.4rem,4vw,2.8rem)" : 0,
             }}
           >
             {line}
@@ -350,221 +437,173 @@ export default function LandingPage() {
       </div>
 
       {/* ── PILLARS ──────────────────────────────────────── */}
-      <section style={{ padding: "2rem 6vw 6rem", borderTop: "1px solid rgba(255,255,255,0.06)" }}>
-        {/* section label */}
-        <div style={{ display: "flex", alignItems: "center", gap: "1rem", marginBottom: "4rem" }}>
-          <span style={{ width: 32, height: 1, background: "#FF4D00", display: "inline-block" }} />
-          <span style={{ fontSize: "0.65rem", letterSpacing: "0.25em", color: "rgba(255,255,255,0.35)", textTransform: "uppercase" }}>
-            The System
-          </span>
-        </div>
+      <section style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}>
 
+        {/* Section label */}
+        <motion.div
+          {...revealLeft(0)}
+          style={{ display: "flex", alignItems: "center", gap: "1rem", padding: "2.5rem clamp(1.5rem,6vw,6vw) 0", marginBottom: "2.5rem" }}
+        >
+          <motion.span
+            initial={{ scaleX: 0 }}
+            whileInView={{ scaleX: 1 }}
+            viewport={{ once: true, amount: 0.5 }}
+            transition={{ duration: 0.5, ease: snappyEase }}
+            style={{ width: 32, height: 1, background: "#FF4D00", display: "inline-block", transformOrigin: "left" }}
+          />
+          <span style={{ fontSize: "0.65rem", letterSpacing: "0.25em", color: "rgba(255,255,255,0.35)", textTransform: "uppercase" }}>The System</span>
+        </motion.div>
+
+        {/* Each pillar card handles its own trigger */}
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: "1px", background: "rgba(255,255,255,0.06)" }}>
           {pillars.map((p, idx) => (
-            <motion.div
-              key={p.num}
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true, amount: 0.3 }}
-              transition={{ duration: 0.7, delay: idx * 0.1, ease: [0.22, 1, 0.36, 1] }}
-              style={{
-                background: "#000",
-                padding: "2.5rem",
-                display: "flex",
-                flexDirection: "column",
-                gap: "1.5rem",
-                cursor: "default",
-                transition: "background 0.3s",
-              }}
-              whileHover={{ backgroundColor: "rgba(255,255,255,0.02)" }}
-            >
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-                <span style={{ fontSize: "0.65rem", fontWeight: 700, letterSpacing: "0.2em", color: "rgba(255,255,255,0.2)" }}>
-                  {p.num}
-                </span>
-                <div style={{
-                  width: 36, height: 36,
-                  background: p.accent,
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                }}>
-                  <p.icon size={16} color="#fff" />
-                </div>
-              </div>
-
-              <h2 style={{
-                fontSize: "1.05rem",
-                fontWeight: 700,
-                letterSpacing: "0.06em",
-                color: "#EFEFEF",
-                textTransform: "uppercase",
-                margin: 0,
-              }}>
-                {p.title}
-              </h2>
-
-              <p style={{
-                fontSize: "0.875rem",
-                fontWeight: 300,
-                lineHeight: 1.75,
-                color: "rgba(239,239,239,0.45)",
-                margin: 0,
-              }}>
-                {p.body}
-              </p>
-
-              <div style={{ height: 1, background: `linear-gradient(90deg, ${p.accent}40, transparent)` }} />
-            </motion.div>
+            <PillarCard key={p.num} p={p} idx={idx} />
           ))}
         </div>
       </section>
 
       {/* ── IDENTITY SECTION ─────────────────────────────── */}
-      <section style={{ display: "grid", gridTemplateColumns: "1fr 1fr", minHeight: "60vh", borderTop: "1px solid rgba(255,255,255,0.06)" }}>
-        {/* Left: brand statement */}
+      <section style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", minHeight: "60vh", borderTop: "1px solid rgba(255,255,255,0.06)" }}>
+
+        {/* Left — orange */}
         <motion.div
-          initial={{ opacity: 0 }}
-          whileInView={{ opacity: 1 }}
-          viewport={{ once: true, amount: 0.3 }}
-          transition={{ duration: 1 }}
-          style={{
-            background: "#FF4D00",
-            padding: "5rem 4rem",
-            display: "flex",
-            flexDirection: "column",
-            justifyContent: "space-between",
-          }}
+          {...revealUp(0, 40)}
+          style={{ background: "#FF4D00", padding: "clamp(2.5rem,7vw,5rem) clamp(1.5rem,6vw,4rem)", display: "flex", flexDirection: "column", justifyContent: "space-between" }}
         >
-          <span style={{ fontSize: "0.65rem", fontWeight: 700, letterSpacing: "0.25em", color: "rgba(0,0,0,0.5)", textTransform: "uppercase" }}>
+          <motion.span {...fadeIn(0.2)} style={{ fontSize: "0.65rem", fontWeight: 700, letterSpacing: "0.25em", color: "rgba(0,0,0,0.5)", textTransform: "uppercase" }}>
             After Hours Grind
-          </span>
+          </motion.span>
           <div>
-            <div style={{ fontSize: "clamp(2.5rem, 5vw, 4.5rem)", fontWeight: 800, lineHeight: 0.9, letterSpacing: "-0.03em", color: "#000", textTransform: "uppercase" }}>
-              BUILT FOR THOSE WHO SHOW UP.
-            </div>
-            <Link
-              to="/signup"
-              style={{
-                display: "inline-flex", alignItems: "center", gap: 10,
-                marginTop: "2.5rem",
-                background: "#000",
-                color: "#fff",
-                textDecoration: "none",
-                padding: "14px 28px",
-                fontSize: "0.8rem",
-                fontWeight: 700,
-                letterSpacing: "0.12em",
-                textTransform: "uppercase",
-                transition: "opacity 0.2s",
-              }}
-              onMouseEnter={e => (e.currentTarget.style.opacity = "0.8")}
-              onMouseLeave={e => (e.currentTarget.style.opacity = "1")}
+            <motion.div
+              {...revealUp(0.15, 24)}
+              style={{ fontSize: "clamp(2.2rem,5vw,4.5rem)", fontWeight: 800, lineHeight: 0.9, letterSpacing: "-0.03em", color: "#000", textTransform: "uppercase" }}
             >
-              Start Now <ArrowRight size={15} />
-            </Link>
+              BUILT FOR THOSE WHO SHOW UP.
+            </motion.div>
+            <motion.div {...revealUp(0.3)}>
+              <Link
+                to="/signup"
+                style={{ display: "inline-flex", alignItems: "center", gap: 10, marginTop: "2.5rem", background: "#000", color: "#fff", textDecoration: "none", padding: "14px 28px", fontSize: "0.8rem", fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", transition: "opacity 0.2s" }}
+                onMouseEnter={e => (e.currentTarget.style.opacity = "0.8")}
+                onMouseLeave={e => (e.currentTarget.style.opacity = "1")}
+              >
+                Start Now <ArrowRight size={15} />
+              </Link>
+            </motion.div>
           </div>
         </motion.div>
 
-        {/* Right: gradient + copy */}
+        {/* Right — green */}
         <motion.div
-          initial={{ opacity: 0 }}
-          whileInView={{ opacity: 1 }}
-          viewport={{ once: true, amount: 0.3 }}
-          transition={{ duration: 1, delay: 0.15 }}
-          style={{
-            background: "linear-gradient(135deg, #6B21FF 0%, #FF4D00 100%)",
-            padding: "5rem 4rem",
-            display: "flex",
-            flexDirection: "column",
-            justifyContent: "flex-end",
-            gap: "1.5rem",
-          }}
+          {...revealUp(0.12, 40)}
+          style={{ background: "#2CFF05", padding: "clamp(2.5rem,7vw,5rem) clamp(1.5rem,6vw,4rem)", display: "flex", flexDirection: "column", justifyContent: "flex-end", gap: "1.5rem", boxShadow: "inset 0 0 0 1px rgba(3,22,0,0.2), 0 0 45px rgba(44,255,5,0.38)", borderLeft: "1px solid rgba(3,22,0,0.28)" }}
         >
-          <span style={{ fontSize: "0.65rem", fontWeight: 700, letterSpacing: "0.25em", color: "rgba(255,255,255,0.5)", textTransform: "uppercase" }}>
+          <motion.span {...fadeIn(0.25)} style={{ fontSize: "0.65rem", fontWeight: 700, letterSpacing: "0.25em", color: "rgba(3,22,0,0.72)", textTransform: "uppercase" }}>
             The Identity
-          </span>
-          <p style={{ fontSize: "1.25rem", fontWeight: 300, lineHeight: 1.7, color: "rgba(255,255,255,0.9)", margin: 0 }}>
-            "After hours" isn't a time — it's a <strong style={{ fontWeight: 700, color: "#fff" }}>mindset</strong>. It's the version of yourself that trades late-night scrolling for structured reps, discipline for excuses, and proof for promises.
-          </p>
-          <div style={{ display: "flex", gap: "2rem", marginTop: "0.5rem" }}>
-            {["GRIND", "PROVE", "GROW"].map(w => (
-              <span key={w} style={{ fontSize: "0.65rem", fontWeight: 700, letterSpacing: "0.25em", color: "rgba(255,255,255,0.35)" }}>{w}</span>
+          </motion.span>
+          <motion.p
+            {...revealUp(0.2, 16)}
+            style={{ fontSize: "clamp(1.05rem,2.6vw,1.8rem)", fontWeight: 400, lineHeight: 1.7, color: "#031600", margin: 0 }}
+          >
+            "After hours" isn't a time — it's a <strong style={{ fontWeight: 800, color: "#000" }}>mindset</strong>. It's the version of yourself that trades late-night scrolling for structured reps, discipline for excuses, and proof for promises.
+          </motion.p>
+          <motion.div {...revealUp(0.3)} style={{ display: "flex", flexWrap: "wrap", gap: "0.75rem", marginTop: "0.5rem" }}>
+            {["GRIND", "PROVE", "GROW"].map((w, i) => (
+              <motion.span
+                key={w}
+                initial={{ opacity: 0, scale: 0.8 }}
+                whileInView={{ opacity: 1, scale: 1 }}
+                viewport={{ once: true, amount: 0.2 }}
+                transition={{ duration: 0.35, ease: snappyEase, delay: 0.35 + i * 0.07 }}
+                style={{ fontSize: "0.65rem", fontWeight: 800, letterSpacing: "0.25em", color: "#031600", background: "rgba(3,22,0,0.1)", border: "1px solid rgba(3,22,0,0.2)", padding: "6px 10px" }}
+              >
+                {w}
+              </motion.span>
             ))}
-          </div>
+          </motion.div>
         </motion.div>
       </section>
 
       {/* ── FINAL CTA ────────────────────────────────────── */}
-      <section style={{ padding: "8rem 6vw", textAlign: "center", borderTop: "1px solid rgba(255,255,255,0.06)" }}>
-        <motion.div
-          initial={{ opacity: 0, y: 30 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true, amount: 0.4 }}
-          transition={{ duration: 0.9, ease: [0.22, 1, 0.36, 1] }}
+      <section style={{ padding: "clamp(3.5rem,9vw,8rem) clamp(1.5rem,6vw,6vw)", textAlign: "center", borderTop: "1px solid rgba(255,255,255,0.06)" }}>
+
+        <motion.span
+          {...fadeIn(0)}
+          style={{ fontSize: "0.65rem", fontWeight: 700, letterSpacing: "0.28em", color: "rgba(255,255,255,0.25)", textTransform: "uppercase" }}
         >
-          <span style={{ fontSize: "0.65rem", fontWeight: 700, letterSpacing: "0.28em", color: "rgba(255,255,255,0.25)", textTransform: "uppercase" }}>
-            Ready?
-          </span>
-          <h2 style={{
-            fontSize: "clamp(2.5rem, 7vw, 6rem)",
-            fontWeight: 800,
-            letterSpacing: "-0.03em",
-            lineHeight: 0.95,
-            textTransform: "uppercase",
-            margin: "1rem 0 2.5rem",
-            color: "#EFEFEF",
-          }}>
-            YOUR PLAN. YOUR PROOF.<br />
-            <span style={{ color: "#FF4D00" }}>YOUR GRIND.</span>
-          </h2>
-          <p style={{ maxWidth: 460, margin: "0 auto 3rem", fontSize: "0.9rem", fontWeight: 300, lineHeight: 1.8, color: "rgba(239,239,239,0.4)" }}>
-            Join the platform where accountability isn't optional and progress is measurable. From day one to day thirty — we watch every rep.
-          </p>
-          <div style={{ display: "flex", justifyContent: "center", gap: "1rem", flexWrap: "wrap" }}>
-            <Link
-              to="/signup"
-              style={{
-                display: "inline-flex", alignItems: "center", gap: 10,
-                background: "#FF4D00",
-                color: "#fff",
-                textDecoration: "none",
-                padding: "18px 40px",
-                fontSize: "0.85rem",
-                fontWeight: 700,
-                letterSpacing: "0.12em",
-                textTransform: "uppercase",
-                transition: "transform 0.2s, opacity 0.2s",
-              }}
-              onMouseEnter={e => (e.currentTarget.style.opacity = "0.85")}
-              onMouseLeave={e => (e.currentTarget.style.opacity = "1")}
-            >
-              Create Free Account
-              <ArrowRight size={16} />
-            </Link>
-            <Link
-              to="/login"
-              style={{
-                display: "inline-flex", alignItems: "center", gap: 8,
-                border: "1px solid rgba(255,255,255,0.12)",
-                color: "rgba(239,239,239,0.5)",
-                textDecoration: "none",
-                padding: "18px 40px",
-                fontSize: "0.85rem",
-                fontWeight: 500,
-                letterSpacing: "0.1em",
-                textTransform: "uppercase",
-                transition: "border-color 0.2s, color 0.2s",
-              }}
-              onMouseEnter={e => { e.currentTarget.style.borderColor = "rgba(255,255,255,0.3)"; e.currentTarget.style.color = "#EFEFEF"; }}
-              onMouseLeave={e => { e.currentTarget.style.borderColor = "rgba(255,255,255,0.12)"; e.currentTarget.style.color = "rgba(239,239,239,0.5)"; }}
-            >
-              Sign In
-            </Link>
-          </div>
+          Ready?
+        </motion.span>
+
+        <motion.h2
+          {...revealUp(0.08, 36)}
+          style={{ fontSize: "clamp(2.4rem,7vw,6rem)", fontWeight: 800, letterSpacing: "-0.03em", lineHeight: 0.95, textTransform: "uppercase", margin: "1.2rem 0 2rem", color: "#EFEFEF" }}
+        >
+          YOUR PLAN. YOUR PROOF.<br />
+          <motion.span
+            initial={{ color: "#EFEFEF" }}
+            whileInView={{ color: "#FF4D00" }}
+            viewport={{ once: true, amount: 0.5 }}
+            transition={{ duration: 0.65, delay: 0.3 }}
+          >
+            YOUR GRIND.
+          </motion.span>
+        </motion.h2>
+
+        <motion.p
+          {...revealUp(0.18)}
+          style={{ maxWidth: 460, margin: "0 auto 2.5rem", fontSize: "0.9rem", fontWeight: 300, lineHeight: 1.8, color: "rgba(239,239,239,0.4)" }}
+        >
+          Join the platform where accountability isn't optional and progress is measurable. From day one to day thirty — we watch every rep.
+        </motion.p>
+
+        {/* Buttons — full-width stack on mobile */}
+        <motion.div
+          {...revealUp(0.26)}
+          className="flex flex-col sm:flex-row justify-center items-stretch sm:items-center gap-3 sm:gap-4"
+        >
+          <Link
+            to="/signup"
+            style={{
+              position: "relative",
+              display: "flex", alignItems: "center", justifyContent: "center", gap: 10,
+              background: "#FF4D00",
+              color: "#fff",
+              textDecoration: "none",
+              padding: "18px 40px",
+              fontSize: "0.85rem",
+              fontWeight: 700,
+              letterSpacing: "0.12em",
+              textTransform: "uppercase",
+              transition: "opacity 0.2s",
+              overflow: "hidden",
+            }}
+            onMouseEnter={e => (e.currentTarget.style.opacity = "0.85")}
+            onMouseLeave={e => (e.currentTarget.style.opacity = "1")}
+          >
+            <motion.span
+              style={{ position: "absolute", inset: 0, background: "linear-gradient(105deg, transparent 35%, rgba(255,255,255,0.16) 50%, transparent 65%)", backgroundSize: "200% 100%" }}
+              animate={{ backgroundPosition: ["200% 0", "-200% 0"] }}
+              transition={{ duration: 2.6, repeat: Infinity, ease: "linear", repeatDelay: 1.5 }}
+            />
+            Create Free Account
+            <ArrowRight size={16} />
+          </Link>
+          <Link
+            to="/login"
+            style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, border: "1px solid rgba(255,255,255,0.12)", color: "rgba(239,239,239,0.5)", textDecoration: "none", padding: "18px 40px", fontSize: "0.85rem", fontWeight: 500, letterSpacing: "0.1em", textTransform: "uppercase", transition: "border-color 0.2s, color 0.2s" }}
+            onMouseEnter={e => { e.currentTarget.style.borderColor = "rgba(255,255,255,0.3)"; e.currentTarget.style.color = "#EFEFEF"; }}
+            onMouseLeave={e => { e.currentTarget.style.borderColor = "rgba(255,255,255,0.12)"; e.currentTarget.style.color = "rgba(239,239,239,0.5)"; }}
+          >
+            Sign In
+          </Link>
         </motion.div>
       </section>
 
       {/* ── FOOTER ───────────────────────────────────────── */}
-      <footer style={{ borderTop: "1px solid rgba(255,255,255,0.06)", padding: "2.5rem 6vw", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "1rem" }}>
+      <motion.footer
+        {...fadeIn(0)}
+        style={{ borderTop: "1px solid rgba(255,255,255,0.06)", padding: "2rem clamp(1rem,6vw,6vw)", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "1rem" }}
+      >
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <span style={{ width: 20, height: 20, background: "linear-gradient(135deg, #FF4D00, #6B21FF)", display: "inline-block" }} />
           <span style={{ fontSize: "0.7rem", fontWeight: 700, letterSpacing: "0.18em", color: "rgba(255,255,255,0.3)" }}>AFTER HOURS GRIND</span>
@@ -572,7 +611,7 @@ export default function LandingPage() {
         <span style={{ fontSize: "0.65rem", color: "rgba(255,255,255,0.15)", letterSpacing: "0.1em" }}>
           © 2025 — GRIND NEVER STOPS
         </span>
-      </footer>
+      </motion.footer>
 
     </div>
   );

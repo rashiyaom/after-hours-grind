@@ -112,15 +112,15 @@ export default function AppLayout() {
         <div className="flex items-center justify-between h-20 px-6 border-b border-white/5">
           {!collapsed && (
             <Link to="/" className="flex items-center gap-3 group">
-              <div className="w-8 h-8 rounded-lg bg-primary/20 flex items-center justify-center border border-primary/30 transition-transform group-hover:scale-105">
-                 <Flame className="h-5 w-5 text-primary" />
+              <div className="w-8 h-8 rounded-lg bg-[#C9F85A]/15 flex items-center justify-center border border-[#C9F85A]/25 transition-transform group-hover:scale-105">
+                 <Flame className="h-5 w-5 text-[#C9F85A]" />
               </div>
               <span className="font-display font-bold text-sm tracking-widest text-foreground uppercase">After Hours</span>
             </Link>
           )}
           {collapsed && (
-             <div className="mx-auto w-10 h-10 rounded-xl bg-primary/20 flex items-center justify-center border border-primary/30">
-                <Flame className="h-6 w-6 text-primary" />
+             <div className="mx-auto w-10 h-10 rounded-xl bg-[#C9F85A]/15 flex items-center justify-center border border-[#C9F85A]/25">
+                <Flame className="h-6 w-6 text-[#C9F85A]" />
              </div>
           )}
         </div>
@@ -129,7 +129,7 @@ export default function AppLayout() {
           <div className={!collapsed ? "px-6 pt-8 pb-4" : "px-3 pt-8 pb-4"}>
             <Link 
               to={topAction.to} 
-              className={`flex items-center justify-center gap-2 w-full py-3.5 bg-primary text-black rounded-xl font-semibold text-sm transition-all hover:opacity-90 active:scale-95 group overflow-hidden relative`}
+              className={`flex items-center justify-center gap-2 w-full py-3.5 bg-[#C9F85A] text-black rounded-xl font-bold text-sm transition-all hover:bg-[#d4ff60] active:scale-95 group overflow-hidden relative shadow-[0_4px_20px_rgba(201,248,90,0.2)]`}
             >
               <Plus className="h-4 w-4 relative z-10 transition-transform group-hover:rotate-90" />
               {!collapsed && <span className="relative z-10">{topAction.label}</span>}
@@ -146,14 +146,14 @@ export default function AppLayout() {
                 to={item.path}
                 className={`flex items-center gap-4 px-4 py-3 rounded-xl text-xs font-semibold tracking-wide transition-all relative group ${
                   active
-                    ? "bg-zinc-900 text-foreground border border-white/5 shadow-sm"
-                    : "text-muted-foreground hover:text-foreground hover:bg-white/[0.02]"
+                    ? "bg-[#C9F85A]/8 text-white border border-[#C9F85A]/20"
+                    : "text-white/40 hover:text-white hover:bg-white/[0.03]"
                 } ${collapsed ? "justify-center" : ""}`}
               >
-                <item.icon className={`h-[18px] w-[18px] flex-shrink-0 transition-all ${active ? "text-primary" : "group-hover:text-primary"}`} />
+                <item.icon className={`h-[18px] w-[18px] flex-shrink-0 transition-all ${active ? "text-[#C9F85A]" : "group-hover:text-[#C9F85A]"}`} />
                 {!collapsed && <span>{item.label}</span>}
                 {active && (
-                   <motion.div layoutId="nav-glow" className="absolute left-[-12px] w-1.5 h-6 bg-primary rounded-full shadow-[0_0_15px_rgba(255,255,255,0.4)]" />
+                   <motion.div layoutId="nav-glow" className="absolute left-[-12px] w-1 h-5 bg-[#C9F85A] rounded-full shadow-[0_0_10px_rgba(201,248,90,0.5)]" />
                 )}
               </Link>
             );
@@ -172,19 +172,19 @@ export default function AppLayout() {
       </aside>
 
       {/* Mobile Header */}
-      <div className="lg:hidden fixed top-0 left-0 right-0 h-16 bg-background/80 backdrop-blur-2xl border-b border-white/5 z-40 flex items-center justify-between px-6">
+      <div className="lg:hidden fixed top-0 left-0 right-0 h-16 bg-[#0D0D0D]/90 backdrop-blur-2xl border-b border-white/5 z-40 flex items-center justify-between px-6">
         <Link to="/" className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-primary/20 flex items-center justify-center border border-primary/30">
-             <Flame className="h-5 w-5 text-primary" />
+          <div className="w-8 h-8 rounded-lg bg-[#C9F85A]/15 flex items-center justify-center border border-[#C9F85A]/25">
+             <Flame className="h-5 w-5 text-[#C9F85A]" />
           </div>
-          <span className="font-display font-bold text-xs tracking-widest text-foreground uppercase border border-white/10 rounded-md bg-zinc-900 px-2 py-0.5">After Hours</span>
+          <span className="font-bold text-xs tracking-widest text-white uppercase">After Hours</span>
         </Link>
         <div className="flex items-center gap-4">
           {!isTrainer && (
-            <Link to={isTrainer ? "/trainer/dashboard" : "/student/notifications"} className="relative text-muted-foreground hover:text-primary transition-all active:scale-90">
+            <Link to={isTrainer ? "/trainer/dashboard" : "/student/notifications"} className="relative text-white/50 hover:text-[#C9F85A] transition-all active:scale-90">
               <Bell className="h-5 w-5" />
               {!isTrainer && unreadCount > 0 && (
-                <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-primary text-[9px] font-bold text-black flex items-center justify-center">
+                <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-[#C9F85A] text-[9px] font-bold text-black flex items-center justify-center">
                   {unreadCount}
                 </span>
               )}
@@ -214,10 +214,10 @@ export default function AppLayout() {
                         key={item.path} 
                         to={item.path} 
                         onClick={() => setMobileOpen(false)} 
-                        className={`flex items-center justify-between p-4 rounded-xl text-sm font-medium transition-all border ${active ? "bg-primary/10 border-primary/30 text-foreground" : "bg-transparent border-transparent text-muted-foreground hover:text-foreground"}`}
+                        className={`flex items-center justify-between p-4 rounded-xl text-sm font-medium transition-all border ${active ? "bg-[#C9F85A]/8 border-[#C9F85A]/20 text-white" : "bg-transparent border-transparent text-white/40 hover:text-white"}`}
                       >
                         <div className="flex items-center gap-4">
-                           <item.icon className={`h-5 w-5 ${active ? "text-primary" : ""}`} />
+                           <item.icon className={`h-5 w-5 ${active ? "text-[#C9F85A]" : ""}`} />
                            <span>{item.label}</span>
                         </div>
                       </Link>
@@ -248,14 +248,14 @@ export default function AppLayout() {
             return (
               <Link key={item.path} to={item.path} className="relative flex flex-col items-center justify-center w-full h-full group">
                 {item.isAction ? (
-                  <div className="absolute -top-6 w-14 h-14 rounded-full bg-primary flex items-center justify-center shadow-lg border-4 border-card hover:scale-105 active:scale-95 transition-transform">
+                  <div className="absolute -top-6 w-14 h-14 rounded-full bg-[#C9F85A] flex items-center justify-center shadow-[0_4px_20px_rgba(201,248,90,0.35)] border-4 border-[#0D0D0D] hover:scale-105 active:scale-95 transition-transform">
                     <item.icon className="h-6 w-6 text-black" />
                   </div>
                 ) : (
                   <div className={`flex flex-col items-center gap-1.5 transition-all relative ${active ? "scale-110" : "scale-90 opacity-40 hover:opacity-100"}`}>
-                    <item.icon className={`h-6 w-6 ${active ? "text-primary" : "text-foreground"}`} />
+                    <item.icon className={`h-6 w-6 ${active ? "text-[#C9F85A]" : "text-white/60"}`} />
                     {active && (
-                       <motion.div layoutId="bottom-glow" className="w-1.2 w-1.2 h-1.2 rounded-full bg-primary shadow-[0_0_10px_rgba(255,255,255,0.5)] mt-1" />
+                       <motion.div layoutId="bottom-glow" className="w-1 h-1 rounded-full bg-[#C9F85A] shadow-[0_0_8px_rgba(201,248,90,0.6)] mt-0.5" />
                     )}
                   </div>
                 )}
@@ -268,7 +268,7 @@ export default function AppLayout() {
       {/* Main content */}
       <main className={`flex-1 transition-all duration-300 ${collapsed ? "lg:ml-[80px]" : "lg:ml-64"} pt-16 lg:pt-0 pb-24 lg:pb-0 relative`}>
         {/* Cinematic background glow */}
-        <div className="fixed inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,165,0,0.03),transparent_40%),radial-gradient(circle_at_bottom_left,rgba(0,255,170,0.02),transparent_40%)] pointer-events-none" />
+        <div className="fixed inset-0 bg-[radial-gradient(circle_at_top_right,rgba(201,248,90,0.025),transparent_40%),radial-gradient(circle_at_bottom_left,rgba(77,210,255,0.015),transparent_40%)] pointer-events-none" />
         
         <div className="relative z-10 min-h-screen">
            <MotionConfig transition={LUXURY_TWEEN_MEDIUM}>
