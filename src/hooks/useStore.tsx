@@ -1078,10 +1078,12 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
         const updatedStudent: Student = {
           ...student,
           currentPlanId: planId,
+          onboardingStatus: 'completed',
           currentDay: 1,
           totalDays: duration,
           completionPercentage: 0,
           taskCompletions: {},
+          trainerId: trainer?.id ?? student.trainerId,
         };
         nextUsers = {
           ...nextUsers,
@@ -1165,9 +1167,7 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
   completeOnboardingAndGeneratePlan: (studentId, payload) => {
     const generatedPlan: Plan = {
       ...generateAutoPlan(studentId, payload),
-      status: 'active',
-      reviewedAt: new Date().toISOString(),
-      reviewFeedback: 'Auto-activated after onboarding completion.',
+      status: 'pending_trainer_approval',
     };
 
     set((state) => {
@@ -1249,8 +1249,43 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
         },
       };
 
+      let nextUsers = state.users;
+      let nextSessionUser = state.session.currentUser;
+
+      if (decision === 'approve' && nextSessionUser?.role === 'trainer') {
+        const trainer = nextSessionUser as Trainer;
+        
+        // Find the student whose currentPlanId is planId
+        const student = Object.values(nextUsers).find((u) => u.role === 'student' && (u as Student).currentPlanId === planId) as Student | undefined;
+
+        if (student) {
+          const isNewStudent = student.trainerId !== trainer.id;
+          
+          const updatedStudent: Student = {
+            ...student,
+            trainerId: trainer.id,
+            onboardingStatus: 'completed',
+          };
+          
+          const updatedTrainer: Trainer = {
+            ...trainer,
+            activePlans: trainer.activePlans + 1,
+            totalStudents: isNewStudent ? trainer.totalStudents + 1 : trainer.totalStudents,
+          };
+
+          nextUsers = {
+            ...nextUsers,
+            [student.id]: updatedStudent,
+            [trainer.id]: updatedTrainer,
+          };
+          nextSessionUser = updatedTrainer;
+        }
+      }
+
       return {
         ...state,
+        users: nextUsers,
+        session: { ...state.session, currentUser: nextSessionUser },
         plans: {
           ...state.plans,
           [planId]: updatedPlan,

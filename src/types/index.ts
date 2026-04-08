@@ -284,9 +284,14 @@ export interface NotificationItem {
 
 export interface Submission {
   id: string;
+  studentId?: string;
+  trainerId?: string;
   studentName: string;
-  studentAvatar: string;
-  planName: string;
+  studentAvatar?: string;
+  planName?: string;
+  taskName?: string;
+  taskType?: 'workout' | 'diet' | 'checkin';
+  points?: number;
   timestamp: string;
   status: "pending" | "approved" | "rejected";
   mediaUrl: string;

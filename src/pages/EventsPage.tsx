@@ -32,7 +32,7 @@ function FieldRenderer({ field, value, onChange }: { field: EventFormField; valu
 
 function RegModal({ event, onClose }: { event: AHGEvent; onClose: () => void }) {
   const submit = useAppStore((s) => s.submitEventEntry);
-  const [res, setRes] = useState<Record<string, string | string[]>>(Object.fromEntries(event.formFields.map((f) => [f.id, f.type === "checkbox" ? [] : ""])));
+  const [res, setRes] = useState<Record<string, string | string[]>>(Object.fromEntries(event.formFields.map((f): [string, string | string[]] => [f.id, f.type === "checkbox" ? [] : ""])));
   const [done, setDone] = useState(false);
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose} style={{ position: "fixed", inset: 0, zIndex: 100, background: "rgba(0,0,0,0.85)", backdropFilter: "blur(12px)", display: "flex", alignItems: "center", justifyContent: "center", padding: "1rem" }}>
