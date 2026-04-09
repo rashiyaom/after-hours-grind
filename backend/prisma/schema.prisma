@@ -1,0 +1,270 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  STUDENT
+  TRAINER
+  ADMIN
+}
+
+enum SubmissionStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum PlanStatus {
+  DRAFT
+  PENDING_APPROVAL
+  ACTIVE
+  REJECTED
+}
+
+// ─── USERS ───────────────────────────────────────────────
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  name         String
+  avatar       String   @default("")
+  role         Role     @default(STUDENT)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  studentProfile StudentProfile?
+  trainerProfile TrainerProfile?
+
+  posts        Post[]
+  comments     Comment[]
+  likes        Like[]
+  submissions  Submission[]     @relation("SubmittedBy")
+  reviewed     Submission[]     @relation("ReviewedBy")
+  notifications Notification[]
+
+  followers    Follow[]  @relation("Following")
+  following    Follow[]  @relation("Follower")
+
+  sentMessages ChatMessage[]
+  threadParticipants ThreadParticipant[]
+
+  refreshTokens RefreshToken[]
+
+  @@index([role])
+}
+
+model RefreshToken {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
+
+model StudentProfile {
+  id                   String  @id @default(cuid())
+  userId               String  @unique
+  user                 User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  collegeId            String  @default("")
+  heightCm             Float   @default(170)
+  weightKg             Float   @default(70)
+  fitnessGoal          String  @default("")
+  streak               Int     @default(0)
+  totalPlansCompleted  Int     @default(0)
+  totalPoints          Int     @default(0)
+  trainerId            String?
+  currentPlanId        String?
+  onboardingCompleted  Boolean @default(false)
+
+  @@index([trainerId])
+}
+
+model TrainerProfile {
+  id             String   @id @default(cuid())
+  userId         String   @unique
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  specialization String   @default("")
+  experience     Int      @default(0)
+  certifications String[] @default([])
+  isVerified     Boolean  @default(false)
+}
+
+// ─── SOCIAL ──────────────────────────────────────────────
+
+model Follow {
+  id          String @id @default(cuid())
+  followerId  String
+  followingId String
+  follower    User   @relation("Follower", fields: [followerId], references: [id], onDelete: Cascade)
+  following   User   @relation("Following", fields: [followingId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+
+  @@unique([followerId, followingId])
+  @@index([followingId])
+}
+
+model Post {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      String   @default("image") // image | video | reel
+  mediaUrl  String   @default("")
+  caption   String   @default("")
+  source    String   @default("general") // general | task-proof
+  location  String   @default("")
+  status    String   @default("visible") // visible | hidden | under-review
+  createdAt DateTime @default(now())
+
+  comments Comment[]
+  likes    Like[]
+
+  @@index([userId])
+  @@index([createdAt(sort: Desc)])
+}
+
+model Comment {
+  id        String   @id @default(cuid())
+  postId    String
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  text      String
+  createdAt DateTime @default(now())
+
+  @@index([postId])
+}
+
+model Like {
+  id     String @id @default(cuid())
+  postId String
+  post   Post   @relation(fields: [postId], references: [id], onDelete: Cascade)
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, postId])
+  @@index([postId])
+}
+
+// ─── PLANS ───────────────────────────────────────────────
+
+model Plan {
+  id          String     @id @default(cuid())
+  name        String
+  trainerId   String?
+  studentId   String?
+  difficulty  String     @default("beginner")
+  goalType    String     @default("")
+  status      PlanStatus @default(DRAFT)
+  reviewNote  String?
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  days PlanDay[]
+
+  @@index([studentId])
+  @@index([trainerId])
+}
+
+model PlanDay {
+  id     String @id @default(cuid())
+  planId String
+  plan   Plan   @relation(fields: [planId], references: [id], onDelete: Cascade)
+  day    Int
+
+  tasks PlanTask[]
+
+  @@unique([planId, day])
+}
+
+model PlanTask {
+  id          String @id @default(cuid())
+  planDayId   String
+  planDay     PlanDay @relation(fields: [planDayId], references: [id], onDelete: Cascade)
+  type        String  // workout | nutrition | habit
+  title       String
+  description String  @default("")
+  durationMin Int     @default(0)
+  intensity   String  @default("moderate")
+  points      Int     @default(10)
+
+  submissions Submission[]
+}
+
+// ─── SUBMISSIONS ─────────────────────────────────────────
+
+model Submission {
+  id           String           @id @default(cuid())
+  studentId    String
+  student      User             @relation("SubmittedBy", fields: [studentId], references: [id], onDelete: Cascade)
+  planTaskId   String?
+  planTask     PlanTask?        @relation(fields: [planTaskId], references: [id], onDelete: SetNull)
+  mediaUrl     String           @default("")
+  status       SubmissionStatus @default(PENDING)
+  trainerNote  String?
+  reviewedById String?
+  reviewedBy   User?            @relation("ReviewedBy", fields: [reviewedById], references: [id], onDelete: SetNull)
+  createdAt    DateTime         @default(now())
+  reviewedAt   DateTime?
+
+  @@index([studentId])
+  @@index([status])
+}
+
+// ─── NOTIFICATIONS ───────────────────────────────────────
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      String   // streak | rank | social | trainer | plan | system
+  title     String
+  message   String
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([userId, read])
+}
+
+// ─── CHAT ────────────────────────────────────────────────
+
+model ChatThread {
+  id        String   @id @default(cuid())
+  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now())
+
+  participants ThreadParticipant[]
+  messages     ChatMessage[]
+}
+
+model ThreadParticipant {
+  id       String     @id @default(cuid())
+  threadId String
+  thread   ChatThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  userId   String
+  user     User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  lastRead DateTime   @default(now())
+
+  @@unique([threadId, userId])
+}
+
+model ChatMessage {
+  id        String     @id @default(cuid())
+  threadId  String
+  thread    ChatThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  senderId  String
+  sender    User       @relation(fields: [senderId], references: [id], onDelete: Cascade)
+  text      String
+  type      String     @default("text") // text | reel-share | voice-note
+  createdAt DateTime   @default(now())
+
+  @@index([threadId, createdAt])
+}
