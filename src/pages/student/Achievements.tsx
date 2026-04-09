@@ -35,9 +35,9 @@ export default function AchievementsPage() {
 
   const allBadges: Badge[] = [
     ...s.badges,
-    { id: "b7", name: "Upload King", description: "Submit 50 check-in photos", icon: "trophy", earned: false },
-    { id: "b8", name: "Community Anchor", description: "Follow 20 athletes", icon: "star", earned: false },
-    { id: "b9", name: "Early Riser", description: "Complete a workout before 7am", icon: "flame", earned: false },
+    { id: "b7", name: "Upload King", description: "Submit 50 check-in photos", icon: "trophy", earned: false, date: "" },
+    { id: "b8", name: "Community Anchor", description: "Follow 20 athletes", icon: "star", earned: false, date: "" },
+    { id: "b9", name: "Early Riser", description: "Complete a workout before 7am", icon: "flame", earned: false, date: "" },
   ];
 
   const milestones = [

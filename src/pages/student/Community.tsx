@@ -69,8 +69,10 @@ export default function CommunityPage() {
   const isTrainer = role === "trainer";
 
   const trainerContact = useMemo(() => {
-    if (!isStudent || !currentUser || currentUser.role !== "student" || !currentUser.trainerId) return null;
-    const trainer = users[currentUser.trainerId];
+    if (!isStudent || !currentUser || currentUser.role !== "student") return null;
+    const studentUser = currentUser as import("@/types").Student;
+    if (!studentUser.trainerId) return null;
+    const trainer = users[studentUser.trainerId];
     if (!trainer || trainer.role !== "trainer") return null;
     return trainer;
   }, [currentUser, isStudent, users]);
@@ -88,7 +90,7 @@ export default function CommunityPage() {
       base = [trainerContact, ...peers].filter((item): item is User => Boolean(item));
     } else if (isTrainer) {
       base = allUsers.filter(
-        (user) => user.role === "student" && user.trainerId === currentUser.id
+        (user) => user.role === "student" && (user as import("@/types").Student).trainerId === currentUser.id
       );
     }
 
