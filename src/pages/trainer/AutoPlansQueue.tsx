@@ -23,7 +23,7 @@ export default function AutoPlansQueuePage() {
     Object.values(users).forEach((u) => {
       if (u.role !== "student") return;
       const s = u as Student;
-      if ((s.trainerId === trainer?.id || s.trainerId === null) && s.currentPlanId) {
+      if (s.trainerId === trainer?.id && s.currentPlanId) {
         ids.add(s.currentPlanId);
       }
     });

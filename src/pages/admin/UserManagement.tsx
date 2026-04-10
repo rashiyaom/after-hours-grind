@@ -6,6 +6,7 @@ import Button from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useAppStore, useUsers } from "@/hooks/useStore";
 import { toast } from "sonner";
+import { Student } from "@/types";
 
 const UserManagement = () => {
   const [query, setQuery] = useState("");
@@ -13,7 +14,9 @@ const UserManagement = () => {
   const users = useUsers();
   const banUser = useAppStore((state) => state.banUser);
   const verifyTrainer = useAppStore((state) => state.verifyTrainer);
+  const assignTrainer = useAppStore((state) => state.assignTrainer);
   const userList = Object.values(users);
+  const trainers = userList.filter(user => user.role === "trainer");
 
   const filteredUsers = useMemo(() => {
     return userList.filter((user) => {
@@ -93,16 +96,35 @@ const UserManagement = () => {
                   </p>
                   <p className="text-sm text-muted-foreground">{user.email}</p>
                 </div>
-                <div className="flex gap-2">
+                <div className="flex flex-wrap items-center gap-4">
                   {user.role === "student" && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleToggleBan(user.id, user.name, Boolean((user as { isBanned?: boolean }).isBanned))}
-                    >
-                      <UserX className="h-4 w-4" />
-                      Toggle Ban
-                    </Button>
+                    <>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-muted-foreground whitespace-nowrap">Assigned Trainer:</span>
+                        <select
+                          className="text-sm bg-background border border-input rounded-md px-2 py-1 min-w-[150px]"
+                          value={(user as Student).trainerId || ""}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            assignTrainer(user.id, val === "" ? null : val);
+                            toast.success(`Trainer assigned to ${user.name}`);
+                          }}
+                        >
+                          <option value="">None</option>
+                          {trainers.map(t => (
+                            <option key={t.id} value={t.id}>{t.name}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleToggleBan(user.id, user.name, Boolean((user as { isBanned?: boolean }).isBanned))}
+                      >
+                        <UserX className="h-4 w-4" />
+                        Toggle Ban
+                      </Button>
+                    </>
                   )}
                   {user.role === "trainer" && (
                     <Button
