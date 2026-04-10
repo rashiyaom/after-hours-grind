@@ -1,6 +1,6 @@
 import { Outlet, Link, useLocation, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence, MotionConfig } from "framer-motion";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   LayoutDashboard, Calendar, BarChart3, Rss, Trophy, User, Users,
   Bell, Settings, Flame, Menu, X, ChevronLeft,
@@ -61,10 +61,18 @@ export default function AppLayout() {
   const isAdmin = location.pathname.startsWith("/admin");
   const isTrainer = location.pathname.startsWith("/trainer");
   const {
-    session: { currentUser },
+    session: { currentUser, isAuthenticated },
     system: { notifications, permissions },
     logout,
+    refreshData,
   } = useAppStore();
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      refreshData();
+    }
+  }, [isAuthenticated, refreshData]);
+
 
   const rolePermissions = currentUser ? permissions[currentUser.role] : undefined;
   const canManageUsers = Boolean(rolePermissions?.manage_users);

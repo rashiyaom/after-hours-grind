@@ -15,6 +15,15 @@ app.use(cors({ origin: env.CORS_ORIGIN, credentials: true }));
 app.use(cookieParser());
 app.use(express.json({ limit: "2mb" }));
 
+// Base Route Check
+app.get("/", (req, res) => {
+  res.status(200).json({
+    status: "success",
+    message: "Welcome to The After Hours Socials API",
+    version: "1.0.0"
+  });
+});
+
 // Routes
 app.use("/api", apiRouter);
 

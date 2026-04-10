@@ -81,15 +81,37 @@ export default function AthletesPage() {
   const [selectedAthlete, setSelectedAthlete] = useState<Athlete | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
 
+  const [athletes, setAthletes] = useState<Athlete[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetchFeaturedAthletesAPI().then((data) => {
+      // Normalize from Backend StudentProfile + User
+      const mapped = data.map((d: any) => ({
+        id: d.userId,
+        name: d.user.name,
+        sport: d.sport,
+        team: d.team,
+        gender: d.gender || "Male",
+        photo: d.user.avatar || "https://images.unsplash.com/photo-1542178243-bc51c4efdf1a?auto=format&fit=crop&q=80&w=400",
+        achievements: Array.isArray(d.achievements) ? d.achievements : ["Elite Member"],
+        description: d.fitnessGoal || "Professional Athlete",
+        role: "Varsity"
+      }));
+      setAthletes(mapped);
+      setLoading(false);
+    });
+  }, []);
+
   const selectedSport = useMemo(() => SPORTS_LIST.find(s => s.id === selectedSportId), [selectedSportId]);
   
   const filteredAthletes = useMemo(() => {
-    let base = selectedSport ? ATHLETES.filter(a => a.sport === selectedSport.slug) : [];
+    let base = selectedSport ? athletes.filter(a => a.sport === selectedSport.slug) : [];
     if (searchQuery) {
       base = base.filter(a => a.name.toLowerCase().includes(searchQuery.toLowerCase()) || a.role.toLowerCase().includes(searchQuery.toLowerCase()));
     }
     return base;
-  }, [selectedSport, searchQuery]);
+  }, [selectedSport, searchQuery, athletes]);
 
   const handleSportClick = (id: string) => {
     setSelectedSportId(id);

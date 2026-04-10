@@ -25,22 +25,16 @@ export default function LoginPage() {
     }
     setLoading(true);
 
-    const success = login(email, password, role);
+    const success = await login(email, password, role);
+    setLoading(false);
+
     if (!success) {
-      setLoading(false);
       toast.error("Login failed. Please check your credentials and role.");
       return;
     }
 
-    try {
-      await loginBackend(email, password);
-      toast.success("Welcome back! Live backend sync enabled.");
-    } catch {
-      clearBackendAccessToken();
-      toast.warning("Logged in with local mode. Start backend to enable live data.");
-    }
+    toast.success("Welcome back! Live backend sync enabled.");
 
-    setLoading(false);
     const currentSession = useAppStore.getState();
     const currentUser = currentSession.session.currentUser;
     switch (role) {

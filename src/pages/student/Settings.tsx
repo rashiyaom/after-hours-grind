@@ -83,15 +83,19 @@ export default function SettingsPage() {
     }
   }, [notifications, privacy]);
 
-  const handleSaveProfile = () => {
-    updateProfile({
-      name: formData.name,
-      fitnessGoal: formData.fitnessGoal,
-      weight: parseFloat(formData.weight) || s.weight,
-      height: parseFloat(formData.height) || s.height,
-    });
-    toast.success("BIOMETRIC_DATA_UPDATED: PROFILE_SYNCED");
-    setView("menu");
+  const handleSaveProfile = async () => {
+    try {
+      await updateProfile({
+        name: formData.name,
+        fitnessGoal: formData.fitnessGoal,
+        weight: parseFloat(formData.weight) || s.weight,
+        height: parseFloat(formData.height) || s.height,
+      });
+      toast.success("BIOMETRIC_DATA_UPDATED: PROFILE_SYNCED");
+      setView("menu");
+    } catch (error) {
+      toast.error("PROFILE_SYNC_FAILURE: RETRY_REQUIRED");
+    }
   };
 
   const toggle = (group: "notifications" | "privacy", key: string) => {

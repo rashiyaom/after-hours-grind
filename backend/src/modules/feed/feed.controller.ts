@@ -4,7 +4,7 @@ import { createPostSchema, createCommentSchema, feedQuerySchema } from "./feed.s
 
 export async function getFeedHandler(req: Request, res: Response) {
   const { cursor, limit } = feedQuerySchema.parse(req.query);
-  const result = await svc.getFeed(cursor, limit);
+  const result = await svc.getFeed(req.user?.userId, cursor, limit);
   res.json(result);
 }
 
@@ -28,4 +28,9 @@ export async function likeHandler(req: Request, res: Response) {
 export async function unlikeHandler(req: Request, res: Response) {
   await svc.unlikePost(req.user!.userId, req.params.id);
   res.json({ message: "Unliked" });
+}
+
+export async function getCommentsHandler(req: Request, res: Response) {
+  const comments = await svc.getComments(req.params.id);
+  res.json(comments);
 }

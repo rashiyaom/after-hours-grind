@@ -33,3 +33,26 @@ export async function rejectHandler(req: Request, res: Response) {
   const sub = await svc.rejectSubmission(req.user!.userId, req.params.id, note);
   res.json(sub);
 }
+
+export async function createPlanHandler(req: Request, res: Response) {
+    const schema = z.object({
+        name: z.string().min(1),
+        duration: z.number().min(1).max(100),
+        goalType: z.string().default("General"),
+        difficulty: z.string().default("beginner"),
+        studentIds: z.array(z.string())
+    });
+    const data = schema.parse(req.body);
+    const plan = await svc.createPlan(req.user!.userId, data);
+    res.status(201).json(plan);
+}
+
+export async function getTrainerStudentsHandler(req: Request, res: Response) {
+    const students = await svc.getTrainerStudents(req.user!.userId);
+    res.json(students);
+}
+
+export async function getSubmissionsHandler(req: Request, res: Response) {
+  const subs = await svc.getSubmissions(req.user!.userId, req.user!.role);
+  res.json(subs);
+}

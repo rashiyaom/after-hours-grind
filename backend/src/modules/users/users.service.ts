@@ -33,7 +33,12 @@ export async function updateMe(userId: string, role: string, input: UpdateProfil
     data: { ...(name ? { name } : {}), ...(avatar ? { avatar } : {}) },
   });
 
-  if (role === "STUDENT" && (collegeId || heightCm || weightKg || fitnessGoal)) {
+  if (role === "STUDENT") {
+    const { 
+      collegeId, heightCm, weightKg, fitnessGoal, 
+      onboardingDraft, onboardingStep, onboardingCompleted, currentPlanId 
+    } = input;
+    
     await prisma.studentProfile.update({
       where: { userId },
       data: {
@@ -41,6 +46,10 @@ export async function updateMe(userId: string, role: string, input: UpdateProfil
         ...(heightCm !== undefined ? { heightCm } : {}),
         ...(weightKg !== undefined ? { weightKg } : {}),
         ...(fitnessGoal !== undefined ? { fitnessGoal } : {}),
+        ...(onboardingDraft !== undefined ? { onboardingDraft: onboardingDraft as any } : {}),
+        ...(onboardingStep !== undefined ? { onboardingStep } : {}),
+        ...(onboardingCompleted !== undefined ? { onboardingCompleted } : {}),
+        ...(currentPlanId !== undefined ? { currentPlanId } : {}),
       },
     });
   }
@@ -71,4 +80,11 @@ export async function unfollowUser(followerId: string, followingId: string) {
   const record = await prisma.follow.findUnique({ where: { followerId_followingId: { followerId, followingId } } });
   if (!record) throw HttpError.notFound("Not following this user");
   await prisma.follow.delete({ where: { id: record.id } });
+}
+
+export async function getFeaturedAthletes() {
+  return prisma.studentProfile.findMany({
+    include: { user: true },
+    where: { sport: { not: null } }
+  });
 }

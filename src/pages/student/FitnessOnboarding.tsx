@@ -236,7 +236,7 @@ export default function FitnessOnboardingPage() {
 
     await new Promise((resolve) => setTimeout(resolve, 1500));
 
-    completeOnboardingAndGeneratePlan(currentUser.id, questionnaire);
+    await completeOnboardingAndGeneratePlan(currentUser.id, questionnaire);
     setSubmitting(false);
 
     toast.success("Your personalized plan is ready and active.");

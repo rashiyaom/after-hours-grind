@@ -27,3 +27,8 @@ export async function unfollowHandler(req: Request, res: Response) {
   await svc.unfollowUser(req.user!.userId, req.params.id);
   res.json({ message: "Unfollowed" });
 }
+
+export async function getFeaturedAthletesHandler(req: Request, res: Response) {
+  const athletes = await svc.getFeaturedAthletes();
+  res.json(athletes);
+}

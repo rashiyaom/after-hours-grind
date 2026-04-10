@@ -35,15 +35,24 @@ function timeAgo(ts: string) {
 }
 
 export default function FeedPage() {
-  const { posts, likePost, addComment, loading, setLoading } = useStore();
+  const { posts, toggleLike, addComment, loading, setLoading } = useStore();
   const currentUser = useCurrentUser();
   const permissions = usePermissions();
   const canPostFeed = Boolean(currentUser && permissions[currentUser.role].post_feed);
   const [activeTab, setActiveTab] = useState<typeof TABS[number]>("All");
   const [selectedPost, setSelectedPost] = useState<Post | null>(null);
+  const [comments, setComments] = useState<any[]>([]);
   const [commentText, setCommentText] = useState("");
 
   const activePost = selectedPost ? posts.find((p) => p.id === selectedPost.id) : null;
+
+  useEffect(() => {
+    if (selectedPost) {
+      fetchCommentsAPI(selectedPost.id).then(setComments);
+    } else {
+      setComments([]);
+    }
+  }, [selectedPost]);
 
   useEffect(() => {
     let isMounted = true;
@@ -208,22 +217,18 @@ export default function FeedPage() {
                       </p>
                       <Filter className="h-3.5 w-3.5 text-white/20" />
                     </div>
-                    {[
-                      { user: "Coach Vikram", text: "Superior form on those reps. Keep the delta consistent. 🚀" },
-                      { user: "Rohan Patel", text: "Visual aesthetic is high. Sync up for the next session?" },
-                      { user: "Priya Sharma", text: "Unmatched consistency. 🔥" },
-                    ].map((c, i) => (
+                    {comments.map((c, i) => (
                       <div key={i} className="flex gap-3 group">
                         <div className="w-8 h-8 rounded-xl bg-[#1D1D1D] border border-white/5 flex items-center justify-center text-[9px] font-bold text-white/50 flex-shrink-0 group-hover:border-[#C9F85A]/20 transition-colors">
-                          {getInitials(c.user)}
+                          {getInitials(c.user.name)}
                         </div>
                         <div className="flex-1 pt-0.5">
                           <p className="text-xs leading-relaxed text-white/70">
-                            <span className="font-semibold text-white mr-1.5">{c.user}</span>
+                            <span className="font-semibold text-white mr-1.5">{c.user.name}</span>
                             {c.text}
                           </p>
                           <div className="flex items-center gap-3 mt-1.5 text-[10px] text-white/25">
-                            <span>0{i + 2}h ago</span>
+                            <span>{timeAgo(c.createdAt)}</span>
                             <button className="hover:text-[#C9F85A] transition-colors font-medium">Reply</button>
                           </div>
                         </div>
@@ -237,7 +242,7 @@ export default function FeedPage() {
                   {/* action row */}
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-4">
-                      <motion.button whileTap={{ scale: 0.85 }} onClick={(e) => { e.stopPropagation(); likePost(activePost.id); }}>
+                      <motion.button whileTap={{ scale: 0.85 }} onClick={(e) => { e.stopPropagation(); toggleLike(activePost.id); }}>
                         <Heart className={`transition-all ${activePost.liked ? "text-[#FF4D00] fill-[#FF4D00]" : "text-white/50 hover:text-white"}`} style={{ width: 22, height: 22 }} />
                       </motion.button>
                       <motion.button whileTap={{ scale: 0.85 }}>

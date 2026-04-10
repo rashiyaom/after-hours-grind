@@ -6,6 +6,7 @@ import * as ctrl from "./users.controller.js";
 const router = Router();
 
 router.get("/me", requireAuth, asyncHandler(ctrl.getMeHandler));
+router.get("/athletes", asyncHandler(ctrl.getFeaturedAthletesHandler)); // Public
 router.patch("/me", requireAuth, asyncHandler(ctrl.updateMeHandler));
 router.get("/users/:id", requireAuth, asyncHandler(ctrl.getUserHandler));
 router.post("/users/:id/follow", requireAuth, asyncHandler(ctrl.followHandler));

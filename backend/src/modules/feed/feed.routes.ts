@@ -10,5 +10,6 @@ router.post("/posts", requireAuth, asyncHandler(ctrl.createPostHandler));
 router.post("/posts/:id/comments", requireAuth, asyncHandler(ctrl.addCommentHandler));
 router.post("/posts/:id/likes", requireAuth, asyncHandler(ctrl.likeHandler));
 router.delete("/posts/:id/likes", requireAuth, asyncHandler(ctrl.unlikeHandler));
+router.get("/posts/:id/comments", requireAuth, asyncHandler(ctrl.getCommentsHandler));
 
 export default router;

@@ -1,7 +1,7 @@
 import { prisma } from "../../config/prisma.js";
 import { HttpError } from "../../lib/httpError.js";
 
-export async function getFeed(cursor?: string, limit = 20) {
+export async function getFeed(currentUserId?: string, cursor?: string, limit = 20) {
   const posts = await prisma.post.findMany({
     where: { status: "visible" },
     orderBy: { createdAt: "desc" },
@@ -9,12 +9,20 @@ export async function getFeed(cursor?: string, limit = 20) {
     ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
     include: {
       user: { select: { id: true, name: true, avatar: true, role: true } },
+      likes: currentUserId ? { where: { userId: currentUserId }, select: { id: true } } : false,
       _count: { select: { comments: true, likes: true } },
     },
   });
 
   const hasMore = posts.length > limit;
-  const data = hasMore ? posts.slice(0, limit) : posts;
+  const rawData = hasMore ? posts.slice(0, limit) : posts;
+  
+  const data = rawData.map(post => ({
+    ...post,
+    isLiked: post.likes ? post.likes.length > 0 : false,
+    likes: undefined // cleanup the nested array
+  }));
+
   return { data, nextCursor: hasMore ? data[data.length - 1].id : null };
 }
 
@@ -46,4 +54,12 @@ export async function unlikePost(userId: string, postId: string) {
   const record = await prisma.like.findUnique({ where: { userId_postId: { userId, postId } } });
   if (!record) throw HttpError.notFound("Like not found");
   await prisma.like.delete({ where: { id: record.id } });
+}
+
+export async function getComments(postId: string) {
+  return prisma.comment.findMany({
+    where: { postId },
+    orderBy: { createdAt: "asc" },
+    include: { user: { select: { id: true, name: true, avatar: true } } },
+  });
 }

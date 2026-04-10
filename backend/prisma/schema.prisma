@@ -37,6 +37,7 @@ model User {
   role         Role     @default(STUDENT)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
+  isBanned     Boolean  @default(false)
 
   studentProfile StudentProfile?
   trainerProfile TrainerProfile?
@@ -71,19 +72,23 @@ model RefreshToken {
 }
 
 model StudentProfile {
-  id                   String  @id @default(cuid())
-  userId               String  @unique
-  user                 User    @relation(fields: [userId], references: [id], onDelete: Cascade)
-  collegeId            String  @default("")
-  heightCm             Float   @default(170)
-  weightKg             Float   @default(70)
-  fitnessGoal          String  @default("")
-  streak               Int     @default(0)
-  totalPlansCompleted  Int     @default(0)
-  totalPoints          Int     @default(0)
-  trainerId            String?
-  currentPlanId        String?
-  onboardingCompleted  Boolean @default(false)
+  id                  String   @id @default(cuid())
+  userId              String   @unique
+  user                User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  collegeId           String   @default("")
+  heightCm            Float    @default(170)
+  weightKg            Float    @default(70)
+  fitnessGoal         String   @default("")
+  streak              Int      @default(0)
+  totalPlansCompleted Int      @default(0)
+  totalPoints         Int      @default(0)
+  trainerId           String?
+  currentPlanId       String?
+  onboardingCompleted Boolean  @default(false)
+  onboardingStep      Int      @default(1)
+  onboardingDraft     Json?    // Stores the Questionnaire state
+  sport               String?
+  team                String?
 
   @@index([trainerId])
 }
@@ -267,4 +272,34 @@ model ChatMessage {
   createdAt DateTime   @default(now())
 
   @@index([threadId, createdAt])
+}
+
+// ─── EVENTS ──────────────────────────────────────────────
+model Event {
+  id               String       @id @default(cuid())
+  title            String
+  description      String
+  date             DateTime
+  location         String
+  category         String       @default("General")
+  status           String       @default("upcoming") // upcoming | ongoing | completed | cancelled
+  mediaType        String       @default("image")
+  mediaUrl         String       @default("")
+  registrationOpen Boolean      @default(true)
+  formFields       Json         @default("[]") // AHGEventFormField[]
+  createdAt        DateTime     @default(now())
+  createdBy        String       // userId
+
+  entries          EventEntry[]
+}
+
+model EventEntry {
+  id          String   @id @default(cuid())
+  eventId     String
+  event       Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  userId      String?
+  submittedAt DateTime @default(now())
+  responses   Json     @default("{}") // Record<string, string | string[]>
+
+  @@index([eventId])
 }

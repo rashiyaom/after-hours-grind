@@ -6,6 +6,8 @@ import feedRoutes from "../modules/feed/feed.routes.js";
 import planRoutes from "../modules/plans/plans.routes.js";
 import notificationRoutes from "../modules/notifications/notifications.routes.js";
 import chatRoutes from "../modules/chat/chat.routes.js";
+import eventRoutes from "../modules/events/events.routes.js";
+import adminRoutes from "../modules/admin/admin.routes.js";
 
 const router = Router();
 
@@ -16,5 +18,7 @@ router.use(feedRoutes);
 router.use(planRoutes);
 router.use(notificationRoutes);
 router.use(chatRoutes);
+router.use("/events", eventRoutes);
+router.use("/admin", adminRoutes);
 
 export default router;
