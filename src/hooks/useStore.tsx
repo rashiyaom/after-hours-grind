@@ -23,6 +23,7 @@ import {
 } from '@/types';
 import { generateAutoPlan } from '@/lib/planGeneration';
 import { hashPassword, looksHashedPassword } from '@/lib/auth';
+import { SEED_USERS, SEED_POSTS, SEED_PLANS } from '@/data/seed-users';
 import { 
   loginBackend, 
   signupBackend, 
@@ -990,7 +991,7 @@ const clearPersistedSecurityState = () => {
 };
 
 const initialUsers = readPersistedUsers(
-  migrateUserPasswordShape({/* No mock users fallback */})
+  migrateUserPasswordShape(SEED_USERS)
 );
 
 const initialSession = readPersistedSession(initialUsers);
