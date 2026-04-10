@@ -8,7 +8,7 @@ export const updateProfileSchema = z.object({
   heightCm: z.coerce.number().positive().optional(),
   weightKg: z.coerce.number().positive().optional(),
   fitnessGoal: z.string().optional(),
-  onboardingDraft: z.any().optional(),
+  onboardingDraft: z.record(z.string(), z.unknown()).optional(),
   onboardingStep: z.coerce.number().int().optional(),
   onboardingCompleted: z.boolean().optional(),
   currentPlanId: z.string().optional(),

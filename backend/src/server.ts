@@ -1,18 +1,21 @@
 import app from "./app.js";
 import { env } from "./config/env.js";
 import { prisma } from "./config/prisma.js";
+import { logger } from "./lib/logger.js";
 
 const server = app.listen(env.PORT, () => {
-  console.log(`🚀 Server running on http://localhost:${env.PORT}`);
-  console.log(`   Environment: ${env.NODE_ENV}`);
+  logger.info("server.started", {
+    url: `http://localhost:${env.PORT}`,
+    environment: env.NODE_ENV,
+  });
 });
 
 // Graceful shutdown
 const shutdown = async (signal: string) => {
-  console.log(`\n${signal} received — shutting down...`);
+  logger.info("server.shutdown_requested", { signal });
   server.close(async () => {
     await prisma.$disconnect();
-    console.log("✅ Server closed");
+    logger.info("server.stopped");
     process.exit(0);
   });
 };

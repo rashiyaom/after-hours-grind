@@ -2,6 +2,17 @@ import type { Request, Response } from "express";
 import { z } from "zod";
 import * as svc from "./events.service.js";
 
+const eventFormFieldSchema = z.object({
+  id: z.string().min(1),
+  type: z.enum(["text", "email", "phone", "number", "textarea", "select", "checkbox", "radio", "date"]),
+  label: z.string().min(1),
+  placeholder: z.string().optional(),
+  required: z.boolean(),
+  options: z.array(z.string()).optional(),
+});
+
+const eventEntriesSchema = z.record(z.union([z.string(), z.array(z.string())]));
+
 const eventSchema = z.object({
   title: z.string().min(1),
   description: z.string().min(1),
@@ -11,7 +22,7 @@ const eventSchema = z.object({
   mediaType: z.string().default("image"),
   mediaUrl: z.string().default(""),
   registrationOpen: z.boolean().default(true),
-  formFields: z.array(z.any()).default([])
+  formFields: z.array(eventFormFieldSchema).default([]),
 });
 
 export async function getAllEventsHandler(req: Request, res: Response) {
@@ -26,7 +37,7 @@ export async function createEventHandler(req: Request, res: Response) {
 }
 
 export async function registerForEventHandler(req: Request, res: Response) {
-  const { entries } = z.object({ entries: z.any() }).parse(req.body);
+  const { entries } = z.object({ entries: eventEntriesSchema.default({}) }).parse(req.body);
   const result = await svc.registerForEvent(req.user?.userId || null, req.params.id, entries);
   res.status(201).json(result);
 }

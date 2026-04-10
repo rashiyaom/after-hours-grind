@@ -16,6 +16,8 @@ const envSchema = z.object({
   TRUST_PROXY: z.coerce.boolean().default(false),
   AUTH_COOKIE_SAME_SITE: z.enum(["lax", "strict", "none"]).default("lax"),
   AUTH_COOKIE_DOMAIN: z.string().optional(),
+  LOG_LEVEL: z.enum(["debug", "info", "warn", "error"]).default("info"),
+  ERROR_WEBHOOK_URL: z.string().url().optional(),
 });
 
 const parsed = envSchema.safeParse(process.env);

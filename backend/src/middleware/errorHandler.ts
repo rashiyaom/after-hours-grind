@@ -2,8 +2,10 @@ import type { ErrorRequestHandler } from "express";
 import { HttpError } from "../lib/httpError.js";
 import { env } from "../config/env.js";
 import { ZodError } from "zod";
+import { getRequestLogContext, logger } from "../lib/logger.js";
+import { trackError } from "../lib/errorTracker.js";
 
-export const errorHandler: ErrorRequestHandler = (err, _req, res, _next) => {
+export const errorHandler: ErrorRequestHandler = (err, req, res, _next) => {
   if (err instanceof HttpError) {
     res.status(err.statusCode).json({
       error: err.message,
@@ -20,8 +22,15 @@ export const errorHandler: ErrorRequestHandler = (err, _req, res, _next) => {
     return;
   }
 
-  console.error("Unhandled error:", err);
+  const normalizedError = err instanceof Error ? err : new Error(String(err));
+  logger.error("request.unhandled_error", {
+    ...getRequestLogContext(req),
+    message: normalizedError.message,
+    stack: normalizedError.stack,
+  });
+  void trackError({ error: normalizedError, request: req });
+
   res.status(500).json({
-    error: env.NODE_ENV === "production" ? "Internal server error" : (err as Error).message,
+    error: env.NODE_ENV === "production" ? "Internal server error" : normalizedError.message,
   });
 };

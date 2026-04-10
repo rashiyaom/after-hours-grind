@@ -6,6 +6,7 @@ import { corsOrigins, env } from "./config/env.js";
 import apiRouter from "./routes/index.js";
 import { errorHandler } from "./middleware/errorHandler.js";
 import { notFound } from "./middleware/notFound.js";
+import { requestContext } from "./middleware/requestContext.js";
 
 const app = express();
 if (env.TRUST_PROXY) {
@@ -34,6 +35,7 @@ app.use(
 );
 app.use(cookieParser());
 app.use(express.json({ limit: "2mb" }));
+app.use(requestContext);
 
 // Base Route Check
 app.get("/", (req, res) => {
