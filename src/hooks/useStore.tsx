@@ -1808,42 +1808,48 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
   refreshData: async () => {
     try {
       set((state) => ({ system: { ...state.system, isLoading: true } }));
-      
-      const [feedPosts, chatThreads, events] = await Promise.all([
+
+      // Try fetching from backend; if it fails, keep existing seed/local data
+      const results = await Promise.allSettled([
         fetchFeedFromBackend(),
         fetchChatThreads(),
-        fetchEventsAPI()
+        fetchEventsAPI(),
       ]);
 
-      const role = get().session.currentUser?.role;
-      let trainersStudents = [];
-      let adminUsers = [];
+      const feedPosts = results[0].status === "fulfilled" ? results[0].value : [];
+      const chatThreads = results[1].status === "fulfilled" ? results[1].value : null;
+      const events = results[2].status === "fulfilled" ? results[2].value : null;
 
-      if (role === 'trainer') {
-        [trainersStudents] = await Promise.all([
-          fetchTrainerStudentsAPI(),
-          get().fetchSubmissions()
-        ]);
-      } else if (role === 'admin') {
-        [adminUsers] = await Promise.all([
-          fetchAdminUsersAPI(),
-          get().fetchSubmissions()
-        ]);
+      const role = get().session.currentUser?.role;
+      let trainersStudents: any[] = [];
+      let adminUsers: any[] = [];
+
+      if (role === "trainer") {
+        const [tsRes] = await Promise.allSettled([fetchTrainerStudentsAPI()]);
+        trainersStudents = tsRes.status === "fulfilled" ? tsRes.value : [];
+        await get().fetchSubmissions().catch(() => {});
+      } else if (role === "admin") {
+        const [auRes] = await Promise.allSettled([fetchAdminUsersAPI()]);
+        adminUsers = auRes.status === "fulfilled" ? auRes.value : [];
+        await get().fetchSubmissions().catch(() => {});
       }
 
       set((state) => ({
-        posts: feedPosts.reduce((acc: any, post: any) => ({ ...acc, [post.id]: post }), {}),
+        // Only override posts if backend returned data
+        posts: feedPosts.length > 0
+          ? feedPosts.reduce((acc: any, post: any) => ({ ...acc, [post.id]: post }), {})
+          : state.posts,
         system: {
           ...state.system,
-          chatThreads: chatThreads || [],
-          events: events || [],
-          isLoading: false
+          chatThreads: chatThreads ?? state.system.chatThreads,
+          events: events ?? state.system.events,
+          isLoading: false,
         },
         users: {
           ...state.users,
           ...adminUsers.reduce((acc: any, u: any) => ({ ...acc, [u.id]: u }), {}),
-          ...trainersStudents.reduce((acc: any, s: any) => ({ ...acc, [s.user.id]: { ...s.user, ...s } }), {})
-        }
+          ...trainersStudents.reduce((acc: any, s: any) => ({ ...acc, [s.user?.id ?? s.id]: { ...s.user, ...s } }), {}),
+        },
       }));
     } catch (error) {
       console.error("Data refresh failed:", error);
