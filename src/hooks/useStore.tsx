@@ -23,6 +23,7 @@ import {
 } from '@/types';
 import { generateAutoPlan } from '@/lib/planGeneration';
 import { hashPassword, looksHashedPassword } from '@/lib/auth';
+import { SEED_USERS, SEED_POSTS, SEED_PLANS } from '@/data/seed-users';
 import { 
   loginBackend, 
   signupBackend, 
@@ -990,7 +991,7 @@ const clearPersistedSecurityState = () => {
 };
 
 const initialUsers = readPersistedUsers(
-  migrateUserPasswordShape({/* No mock users fallback */})
+  migrateUserPasswordShape(SEED_USERS)
 );
 
 const initialSession = readPersistedSession(initialUsers);
@@ -998,8 +999,8 @@ const initialSession = readPersistedSession(initialUsers);
 // ========= INITIAL STATE =========
 const initialState: AppState = {
   users: initialUsers,
-  posts: {},
-  plans: {},
+  posts: SEED_POSTS,
+  plans: SEED_PLANS,
   system: {
     notifications: [],
     activityLogs: [],
@@ -1030,30 +1031,42 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
   login: async (email, password, role) => {
     try {
       set((state) => ({ system: { ...state.system, isLoading: true } }));
-      const authResponse = await loginBackend(email, password);
-      
-      // Fetch full user profile after login
-      const userProfile = await fetchCurrentUser();
-      
-      // Map backend role to frontend role if necessary or just trust backend
-      // Backend returns role as 'STUDENT' | 'TRAINER' | 'ADMIN'
-      // Frontend expects UserRole as 'student' | 'trainer' | 'admin'
-      
-      set((state) => ({
-        system: { ...state.system, isLoading: false },
-        session: {
-          currentUser: userProfile,
-          isAuthenticated: true
-        },
-        users: {
-          ...state.users,
-          [userProfile.id]: userProfile
-        }
-      }));
 
-      // Start initial data fetch
-      await get().refreshData();
-      
+      // Try backend first
+      try {
+        const authResponse = await loginBackend(email, password);
+        const userProfile = await fetchCurrentUser();
+        set((state) => ({
+          system: { ...state.system, isLoading: false },
+          session: { currentUser: userProfile, isAuthenticated: true },
+          users: { ...state.users, [userProfile.id]: userProfile },
+        }));
+        await get().refreshData();
+        return true;
+      } catch (backendError) {
+        console.warn("Backend unreachable, falling back to offline mode:", backendError);
+      }
+
+      // Offline fallback: authenticate against local seed users
+      const state = get();
+      const user = Object.values(state.users).find(
+        (u) => u.email === email && u.role === role
+      );
+      if (!user) {
+        set((s) => ({ system: { ...s.system, isLoading: false } }));
+        return false;
+      }
+      const expectedHash = hashPassword(password);
+      if (user.passwordHash !== expectedHash) {
+        set((s) => ({ system: { ...s.system, isLoading: false } }));
+        return false;
+      }
+
+      set((s) => ({
+        system: { ...s.system, isLoading: false },
+        session: { currentUser: user, isAuthenticated: true },
+      }));
+      persistSession({ currentUser: user, isAuthenticated: true });
       return true;
     } catch (error) {
       console.error("Login failed:", error);
@@ -1072,26 +1085,58 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
   signup: async (userData) => {
     try {
       set((state) => ({ system: { ...state.system, isLoading: true } }));
-      const authResponse = await signupBackend({
+
+      // Try backend first
+      try {
+        await signupBackend({
+          name: userData.name,
+          email: userData.email,
+          password: userData.password,
+          role: userData.role.toUpperCase(),
+        });
+        const userProfile = await fetchCurrentUser();
+        set((state) => ({
+          system: { ...state.system, isLoading: false },
+          session: { currentUser: userProfile, isAuthenticated: true },
+          users: { ...state.users, [userProfile.id]: userProfile },
+        }));
+        return;
+      } catch (backendError) {
+        console.warn("Backend unreachable, falling back to offline signup:", backendError);
+      }
+
+      // Offline fallback: create user locally
+      const id = `user-${Date.now()}`;
+      const newUser = {
+        id,
         name: userData.name,
         email: userData.email,
-        password: userData.password,
-        role: userData.role.toUpperCase(), // Backend expects uppercase Role enum
-        // Additional profile info should be handled by backend
-      });
-      
-      const userProfile = await fetchCurrentUser();
-      
+        passwordHash: hashPassword(userData.password),
+        avatar: "",
+        role: userData.role,
+        ...(userData.role === "student" ? {
+          collegeId: userData.collegeId ?? "",
+          height: userData.height ?? 170,
+          weight: userData.weight ?? 70,
+          fitnessGoal: userData.fitnessGoal ?? "",
+          streak: 0, totalPlansCompleted: 0, followers: 0, following: 0,
+          trainerId: null, currentPlanId: null, currentDay: 1, totalDays: 28,
+          completionPercentage: 0, todaySteps: 0, rank: 0, badges: [],
+          isBanned: false, warnings: 0,
+          onboardingStatus: "not_started" as const, onboardingStep: 0,
+          taskCompletions: {}, totalPoints: 0,
+        } : {
+          specialization: userData.specialization ?? "",
+          experience: userData.experience ?? 0,
+          certifications: userData.certifications ? userData.certifications.split(",").map((c: string) => c.trim()) : [],
+          totalStudents: 0, activePlans: 0, isVerified: false,
+        }),
+      };
+
       set((state) => ({
         system: { ...state.system, isLoading: false },
-        session: {
-          currentUser: userProfile,
-          isAuthenticated: true
-        },
-        users: {
-          ...state.users,
-          [userProfile.id]: userProfile
-        }
+        session: { currentUser: newUser as any, isAuthenticated: true },
+        users: { ...state.users, [id]: newUser as any },
       }));
     } catch (error) {
       console.error("Signup failed:", error);
@@ -1763,42 +1808,48 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
   refreshData: async () => {
     try {
       set((state) => ({ system: { ...state.system, isLoading: true } }));
-      
-      const [feedPosts, chatThreads, events] = await Promise.all([
+
+      // Try fetching from backend; if it fails, keep existing seed/local data
+      const results = await Promise.allSettled([
         fetchFeedFromBackend(),
         fetchChatThreads(),
-        fetchEventsAPI()
+        fetchEventsAPI(),
       ]);
 
-      const role = get().session.currentUser?.role;
-      let trainersStudents = [];
-      let adminUsers = [];
+      const feedPosts = results[0].status === "fulfilled" ? results[0].value : [];
+      const chatThreads = results[1].status === "fulfilled" ? results[1].value : null;
+      const events = results[2].status === "fulfilled" ? results[2].value : null;
 
-      if (role === 'trainer') {
-        [trainersStudents] = await Promise.all([
-          fetchTrainerStudentsAPI(),
-          get().fetchSubmissions()
-        ]);
-      } else if (role === 'admin') {
-        [adminUsers] = await Promise.all([
-          fetchAdminUsersAPI(),
-          get().fetchSubmissions()
-        ]);
+      const role = get().session.currentUser?.role;
+      let trainersStudents: any[] = [];
+      let adminUsers: any[] = [];
+
+      if (role === "trainer") {
+        const [tsRes] = await Promise.allSettled([fetchTrainerStudentsAPI()]);
+        trainersStudents = tsRes.status === "fulfilled" ? tsRes.value : [];
+        await get().fetchSubmissions().catch(() => {});
+      } else if (role === "admin") {
+        const [auRes] = await Promise.allSettled([fetchAdminUsersAPI()]);
+        adminUsers = auRes.status === "fulfilled" ? auRes.value : [];
+        await get().fetchSubmissions().catch(() => {});
       }
 
       set((state) => ({
-        posts: feedPosts.reduce((acc: any, post: any) => ({ ...acc, [post.id]: post }), {}),
+        // Only override posts if backend returned data
+        posts: feedPosts.length > 0
+          ? feedPosts.reduce((acc: any, post: any) => ({ ...acc, [post.id]: post }), {})
+          : state.posts,
         system: {
           ...state.system,
-          chatThreads: chatThreads || [],
-          events: events || [],
-          isLoading: false
+          chatThreads: chatThreads ?? state.system.chatThreads,
+          events: events ?? state.system.events,
+          isLoading: false,
         },
         users: {
           ...state.users,
           ...adminUsers.reduce((acc: any, u: any) => ({ ...acc, [u.id]: u }), {}),
-          ...trainersStudents.reduce((acc: any, s: any) => ({ ...acc, [s.user.id]: { ...s.user, ...s } }), {})
-        }
+          ...trainersStudents.reduce((acc: any, s: any) => ({ ...acc, [s.user?.id ?? s.id]: { ...s.user, ...s } }), {}),
+        },
       }));
     } catch (error) {
       console.error("Data refresh failed:", error);
