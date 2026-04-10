@@ -1,13 +1,32 @@
 # Errors Of The Website
 
-Date: 2026-04-08
+Date: 2026-04-10
 Scope: Deep codebase scan across src, tests, config, and docs for production-critical reliability, security, logical-flow, and incompleteness risks.
 
 ## Executive Summary
 
 - The app is frontend-first by design, but current implementation contains several production-blocking risks for large-scale use.
 - Most critical risks are in authentication, authorization, persistence model, and client-only trust boundaries.
-- There is at least one failing automated test and lint errors currently present.
+- Core correctness fixes have been implemented for the highest-risk frontend issues.
+- Remaining critical blockers are primarily backend architecture gaps (server-side authz/authn and distributed realtime).
+
+## Remediation Status (Current)
+
+- Fixed:
+  - Hardcoded credentials and plaintext password model replaced with hashed password shape (`passwordHash`).
+  - Trainer ownership authorization enforced in submission approve/reject flow.
+  - Proof media persistence hardened to avoid non-durable blob URL persistence in task-proof paths.
+  - Chat persistence bounded and sanitized (thread/message caps and voice payload guardrails).
+  - Plan-flow test contract aligned; test suite passes.
+  - Lint errors resolved (remaining lint output is warnings only).
+  - Storage failure paths now emit one-time warnings instead of silent drops.
+  - Additional store IDs moved to centralized ID generation helper; legacy review bridge made idempotent for non-pending submissions.
+- Partially mitigated:
+  - Client-trust boundaries reduced, but true security still requires backend-enforced session and permission authority.
+- Pending (backend required):
+  - Server-side source of truth for auth/session/authorization.
+  - Multi-device realtime messaging guarantees.
+  - Full transactional/idempotent guarantees at API/database layer.
 
 ## Critical Issues
 
@@ -163,9 +182,9 @@ Scope: Deep codebase scan across src, tests, config, and docs for production-cri
 
 ## Tooling Results Snapshot
 
-- Build: `npm run -s build` passes.
-- Lint: fails with 2 errors and warnings.
-- Tests: fails with 1 test (`smart-plan-flow.test.ts` onboarding activation expectation mismatch).
+- Build: `npm run -s build` passes (non-blocking warnings remain).
+- Lint: passes with warnings; no errors.
+- Tests: pass.
 
 ## Recommended Priority Order
 

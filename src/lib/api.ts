@@ -1,4 +1,4 @@
-import { Post, UserRole } from "@/types";
+import { AHGEvent, Post, User, UserRole } from "@/types";
 
 const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL as string | undefined)?.replace(/\/$/, "") || "http://localhost:4000/api";
 let inMemoryAccessToken: string | null = null;
@@ -34,6 +34,32 @@ type BackendFeedResponse = {
   nextCursor: string | null;
 };
 
+type ApiRecord = Record<string, unknown>;
+
+type ApiComment = {
+  id: string;
+  text: string;
+  createdAt: string;
+  userId: string;
+  postId: string;
+};
+
+type ApiSubmission = {
+  id: string;
+  studentId: string;
+  mediaUrl: string;
+  status: string;
+  createdAt: string;
+  trainerNote?: string | null;
+  student?: { name?: string };
+  planTask?: { name?: string; type?: string; points?: number };
+};
+
+type ApiEventPayload = Omit<AHGEvent, "id" | "createdAt" | "entries" | "status">;
+type ApiEventEntryPayload = Record<string, string | string[]>;
+type ApiCurrentUser = User;
+type BackendFeedItemWithLiked = BackendFeedResponse["data"][number] & { isLiked?: boolean };
+
 const mapBackendRoleToFrontend = (role: "STUDENT" | "TRAINER" | "ADMIN"): UserRole => {
   switch (role) {
     case "TRAINER":
@@ -60,7 +86,7 @@ const toFrontendPost = (item: BackendFeedResponse["data"][number]): Post => ({
   comments: item._count.comments,
   location: item.location,
   timestamp: item.createdAt,
-  liked: (item as any).isLiked || false,
+  liked: Boolean((item as BackendFeedItemWithLiked).isLiked),
   status: item.status,
 });
 
@@ -148,7 +174,7 @@ export function clearBackendAccessToken(): void {
 
 // === AUTH ENTITIES ===
 
-export async function signupBackend(data: any): Promise<BackendAuthResponse> {
+export async function signupBackend(data: { name: string; email: string; password: string; role: string }): Promise<BackendAuthResponse> {
   const response = await apiRequest<BackendAuthResponse>("/auth/signup", {
     method: "POST",
     body: JSON.stringify(data),
@@ -159,26 +185,26 @@ export async function signupBackend(data: any): Promise<BackendAuthResponse> {
 
 // === USER ENTITIES ===
 
-export async function fetchCurrentUser(): Promise<any> {
-  return authedRequest<any>("/me", { method: "GET" });
+export async function fetchCurrentUser(): Promise<ApiCurrentUser> {
+  return authedRequest<ApiCurrentUser>("/me", { method: "GET" });
 }
 
-export async function fetchUserById(userId: string): Promise<any> {
-  return authedRequest<any>(`/users/${userId}`, { method: "GET" });
+export async function fetchUserById(userId: string): Promise<ApiRecord> {
+  return authedRequest<ApiRecord>(`/users/${userId}`, { method: "GET" });
 }
 
 // === CHAT ENTITIES ===
 
-export async function fetchChatThreads(): Promise<any> {
-  return authedRequest<any>("/threads", { method: "GET" });
+export async function fetchChatThreads(): Promise<ApiRecord[]> {
+  return authedRequest<ApiRecord[]>("/threads", { method: "GET" });
 }
 
-export async function fetchChatMessages(threadId: string): Promise<any> {
-  return authedRequest<any>(`/threads/${threadId}/messages`, { method: "GET" });
+export async function fetchChatMessages(threadId: string): Promise<ApiRecord[]> {
+  return authedRequest<ApiRecord[]>(`/threads/${threadId}/messages`, { method: "GET" });
 }
 
-export async function sendChatMessageAPI(threadId: string, text: string, type: string = "text"): Promise<any> {
-  return authedRequest<any>(`/threads/${threadId}/messages`, {
+export async function sendChatMessageAPI(threadId: string, text: string, type: string = "text"): Promise<ApiRecord> {
+  return authedRequest<ApiRecord>(`/threads/${threadId}/messages`, {
     method: "POST",
     body: JSON.stringify({ text, type })
   });
@@ -186,109 +212,109 @@ export async function sendChatMessageAPI(threadId: string, text: string, type: s
 
 // === PLAN ENTITIES ===
 
-export async function fetchTodayPlanAPI(): Promise<any> {
-  return authedRequest<any>("/student/plan/today", { method: "GET" });
+export async function fetchTodayPlanAPI(): Promise<ApiRecord> {
+  return authedRequest<ApiRecord>("/student/plan/today", { method: "GET" });
 }
 
-export async function submitTaskAPI(planTaskId: string, mediaUrl: string): Promise<any> {
-  return authedRequest<any>("/submissions", {
+export async function submitTaskAPI(planTaskId: string, mediaUrl: string): Promise<ApiRecord> {
+  return authedRequest<ApiRecord>("/submissions", {
     method: "POST",
     body: JSON.stringify({ planTaskId, mediaUrl })
   });
 }
 
-export async function fetchSubmissionsAPI(): Promise<any> {
-  return authedRequest<any>("/submissions", { method: "GET" });
+export async function fetchSubmissionsAPI(): Promise<ApiSubmission[]> {
+  return authedRequest<ApiSubmission[]>("/submissions", { method: "GET" });
 }
 
-export async function approveSubmissionAPI(submissionId: string, trainerNote: string): Promise<any> {
-  return authedRequest<any>(`/submissions/${submissionId}/approve`, {
+export async function approveSubmissionAPI(submissionId: string, trainerNote: string): Promise<ApiRecord> {
+  return authedRequest<ApiRecord>(`/submissions/${submissionId}/approve`, {
     method: "POST",
     body: JSON.stringify({ note: trainerNote })
   });
 }
 
-export async function rejectSubmissionAPI(submissionId: string, trainerNote: string): Promise<any> {
-  return authedRequest<any>(`/submissions/${submissionId}/reject`, {
+export async function rejectSubmissionAPI(submissionId: string, trainerNote: string): Promise<ApiRecord> {
+  return authedRequest<ApiRecord>(`/submissions/${submissionId}/reject`, {
     method: "POST",
     body: JSON.stringify({ note: trainerNote })
   });
 }
-export async function fetchEventsAPI(): Promise<any> {
-  return apiRequest<any>("/events", { method: "GET" });
+export async function fetchEventsAPI(): Promise<AHGEvent[]> {
+  return apiRequest<AHGEvent[]>("/events", { method: "GET" });
 }
 
-export async function registerForEventAPI(eventId: string, entries: any = {}): Promise<any> {
-  return authedRequest<any>(`/events/${eventId}/register`, {
+export async function registerForEventAPI(eventId: string, entries: ApiEventEntryPayload = {}): Promise<ApiRecord> {
+  return authedRequest<ApiRecord>(`/events/${eventId}/register`, {
     method: "POST",
     body: JSON.stringify({ entries })
   });
 }
 
-export async function createEventAPI(data: any): Promise<any> {
-  return authedRequest<any>("/events", {
+export async function createEventAPI(data: ApiEventPayload): Promise<AHGEvent> {
+  return authedRequest<AHGEvent>("/events", {
     method: "POST",
     body: JSON.stringify(data)
   });
 }
 
-export async function updateEventAPI(eventId: string, data: any): Promise<any> {
-  return authedRequest<any>(`/events/${eventId}`, {
+export async function updateEventAPI(eventId: string, data: Partial<ApiEventPayload>): Promise<AHGEvent> {
+  return authedRequest<AHGEvent>(`/events/${eventId}`, {
     method: "PATCH",
     body: JSON.stringify(data)
   });
 }
 
-export async function deleteEventAPI(eventId: string): Promise<any> {
-  return authedRequest<any>(`/events/${eventId}`, {
+export async function deleteEventAPI(eventId: string): Promise<ApiRecord> {
+  return authedRequest<ApiRecord>(`/events/${eventId}`, {
     method: "DELETE"
   });
 }
 
-export async function fetchTrainerStudentsAPI(): Promise<any> {
-  return authedRequest<any>("/trainer/students", { method: "GET" });
+export async function fetchTrainerStudentsAPI(): Promise<ApiRecord[]> {
+  return authedRequest<ApiRecord[]>("/trainer/students", { method: "GET" });
 }
 
-export async function createPlanAPI(data: any): Promise<any> {
-  return authedRequest<any>("/plans", {
+export async function createPlanAPI(data: ApiRecord): Promise<ApiRecord> {
+  return authedRequest<ApiRecord>("/plans", {
     method: "POST",
     body: JSON.stringify(data)
   });
 }
 
-export async function fetchAdminUsersAPI(): Promise<any> {
-  return authedRequest<any>("/admin/users", { method: "GET" });
+export async function fetchAdminUsersAPI(): Promise<ApiCurrentUser[]> {
+  return authedRequest<ApiCurrentUser[]>("/admin/users", { method: "GET" });
 }
 
-export async function toggleUserBanAPI(userId: string): Promise<any> {
-  return authedRequest<any>(`/admin/users/${userId}/ban`, { method: "PATCH" });
+export async function toggleUserBanAPI(userId: string): Promise<ApiRecord> {
+  return authedRequest<ApiRecord>(`/admin/users/${userId}/ban`, { method: "PATCH" });
 }
 
-export async function updatePostModerationAPI(postId: string, status: string): Promise<any> {
-  return authedRequest<any>(`/admin/posts/${postId}/moderation`, {
+export async function updatePostModerationAPI(postId: string, status: string): Promise<ApiRecord> {
+  return authedRequest<ApiRecord>(`/admin/posts/${postId}/moderation`, {
     method: "PATCH",
     body: JSON.stringify({ status })
   });
 }
 
-export async function fetchFeaturedAthletesAPI(): Promise<any> {
-    return apiRequest<any>("/athletes", { method: "GET" });
+export async function fetchFeaturedAthletesAPI(): Promise<ApiRecord[]> {
+    return apiRequest<ApiRecord[]>("/athletes", { method: "GET" });
 }
 
-export async function fetchCommentsAPI(postId: string): Promise<any> {
-  return authedRequest<any>(`/posts/${postId}/comments`, { method: "GET" });
+export async function fetchCommentsAPI(postId: string): Promise<ApiComment[]> {
+  return authedRequest<ApiComment[]>(`/posts/${postId}/comments`, { method: "GET" });
 }
 
-export async function likePostAPI(postId: string): Promise<any> {
-  return authedRequest<any>(`/posts/${postId}/likes`, { method: "POST" });
+export async function likePostAPI(postId: string): Promise<ApiRecord> {
+  return authedRequest<ApiRecord>(`/posts/${postId}/likes`, { method: "POST" });
 }
 
-export async function unlikePostAPI(postId: string): Promise<any> {
-  return authedRequest<any>(`/posts/${postId}/likes`, { method: "DELETE" });
+export async function unlikePostAPI(postId: string): Promise<ApiRecord> {
+  return authedRequest<ApiRecord>(`/posts/${postId}/likes`, { method: "DELETE" });
 }
 
-export async function updateProfileAPI(payload: any): Promise<any> {
-  return authedRequest<any>("/me", {
+export async function updateProfileAPI(payload: ApiRecord): Promise<ApiCurrentUser> {
+  return authedRequest<ApiCurrentUser>("/me", {
     method: "PATCH",
     body: JSON.stringify(payload)
   });

@@ -18,6 +18,14 @@ import { LUXURY_TWEEN_MEDIUM } from "@/lib/motionTokens";
 import { createPortal } from "react-dom";
 import { fetchFeedFromBackend, fetchCommentsAPI } from "@/lib/api";
 
+type FeedComment = {
+  id: string;
+  text: string;
+  createdAt: string;
+  userId: string;
+  postId: string;
+};
+
 const TABS = ["All", "Videos", "Photos"] as const;
 
 function getInitials(name: string) {
@@ -41,7 +49,7 @@ export default function FeedPage() {
   const canPostFeed = Boolean(currentUser && permissions[currentUser.role].post_feed);
   const [activeTab, setActiveTab] = useState<typeof TABS[number]>("All");
   const [selectedPost, setSelectedPost] = useState<Post | null>(null);
-  const [comments, setComments] = useState<any[]>([]);
+  const [comments, setComments] = useState<FeedComment[]>([]);
   const [commentText, setCommentText] = useState("");
 
   const activePost = selectedPost ? posts.find((p) => p.id === selectedPost.id) : null;

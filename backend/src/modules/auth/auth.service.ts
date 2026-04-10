@@ -12,6 +12,12 @@ function refreshTokenExpiry(): Date {
 const hashRefreshToken = (token: string): string =>
   crypto.createHash("sha256").update(token).digest("hex");
 
+const isBannedUser = (user: unknown): boolean => {
+  if (!user || typeof user !== "object") return false;
+  if (!("isBanned" in user)) return false;
+  return user.isBanned === true;
+};
+
 export async function signup(input: SignupInput) {
   const existing = await prisma.user.findUnique({ where: { email: input.email } });
   if (existing) throw HttpError.conflict("Email already registered");
@@ -34,7 +40,7 @@ export async function signup(input: SignupInput) {
 export async function login(input: LoginInput) {
   const user = await prisma.user.findUnique({ where: { email: input.email } });
   if (!user) throw HttpError.unauthorized("Invalid credentials");
-  if (user.isBanned) throw HttpError.forbidden("Account is banned");
+  if (isBannedUser(user)) throw HttpError.forbidden("Account is banned");
 
   const valid = await verifyPassword(input.password, user.passwordHash);
   if (!valid) throw HttpError.unauthorized("Invalid credentials");
@@ -59,7 +65,7 @@ export async function refresh(oldToken: string) {
 
   // Rotate
   const user = await prisma.user.findUnique({ where: { id: payload.userId } });
-  if (!user || user.isBanned) throw HttpError.unauthorized("Invalid user session");
+  if (!user || isBannedUser(user)) throw HttpError.unauthorized("Invalid user session");
 
   await prisma.refreshToken.delete({ where: { id: stored.id } });
   return issueTokens(user.id, user.role);

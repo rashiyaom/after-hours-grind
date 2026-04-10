@@ -1,6 +1,7 @@
 import { prisma } from "../../config/prisma.js";
 import { HttpError } from "../../lib/httpError.js";
 import type { UpdateProfileInput } from "./users.schema.js";
+import type { Prisma } from "@prisma/client";
 
 export async function getMe(userId: string) {
   const user = await prisma.user.findUnique({
@@ -46,7 +47,7 @@ export async function updateMe(userId: string, role: string, input: UpdateProfil
         ...(heightCm !== undefined ? { heightCm } : {}),
         ...(weightKg !== undefined ? { weightKg } : {}),
         ...(fitnessGoal !== undefined ? { fitnessGoal } : {}),
-        ...(onboardingDraft !== undefined ? { onboardingDraft: onboardingDraft as any } : {}),
+        ...(onboardingDraft !== undefined ? { onboardingDraft: onboardingDraft as Prisma.InputJsonValue } : {}),
         ...(onboardingStep !== undefined ? { onboardingStep } : {}),
         ...(onboardingCompleted !== undefined ? { onboardingCompleted } : {}),
         ...(currentPlanId !== undefined ? { currentPlanId } : {}),

@@ -25,6 +25,22 @@ import {
 import { Link } from "react-router-dom";
 import { Athlete, SportsTeam } from "@/types";
 import { LUXURY_TWEEN_MEDIUM, LUXURY_TWEEN_SLOW } from "@/lib/motionTokens";
+import { fetchFeaturedAthletesAPI } from "@/lib/api";
+
+type FeaturedAthleteApi = {
+  id?: string;
+  userId?: string;
+  name?: string;
+  sport?: Athlete["sport"];
+  team?: string;
+  gender?: Athlete["gender"];
+  fitnessGoal?: string;
+  achievements?: string[];
+  user?: {
+    name?: string;
+    avatar?: string;
+  };
+};
 
 // --- EXPANDED CHARUSAT DATA ---
 const SPORTS_LIST = [
@@ -85,9 +101,11 @@ export default function AthletesPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    import("@/lib/api").then(({ fetchFeaturedAthletesAPI }) => fetchFeaturedAthletesAPI())
-      .then((data: any) => {
-        const mapped = (Array.isArray(data) ? data : []).map((d: any) => ({
+    fetchFeaturedAthletesAPI()
+      .then((data) => {
+        const mapped = (Array.isArray(data) ? data : []).map((raw) => {
+          const d = raw as FeaturedAthleteApi;
+          return {
           id: d.userId ?? d.id,
           name: d.user?.name ?? d.name ?? "Athlete",
           sport: d.sport ?? "Cricket",
@@ -97,7 +115,8 @@ export default function AthletesPage() {
           achievements: Array.isArray(d.achievements) ? d.achievements : ["Elite Member"],
           description: d.fitnessGoal || "Professional Athlete",
           role: "Varsity"
-        }));
+          };
+        });
         setAthletes(mapped.length > 0 ? mapped : ATHLETES);
         setLoading(false);
       })

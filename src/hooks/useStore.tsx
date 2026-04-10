@@ -655,7 +655,7 @@ interface AppActions {
     difficulty: Plan['difficulty'];
     studentIds: string[];
   }) => Promise<void>;
-  updateProfile: (payload: any) => Promise<void>;
+  updateProfile: (payload: Record<string, unknown>) => Promise<void>;
   saveOnboardingDraft: (studentId: string, payload: FitnessQuestionnaire, step: number) => Promise<void>;
   completeOnboardingAndGeneratePlan: (studentId: string, payload: FitnessQuestionnaire) => Promise<void>;
   fetchSubmissions: () => Promise<void>;
@@ -743,6 +743,7 @@ const CHAT_STORAGE_KEY = 'ah_chats_v1';
 const MAX_CHAT_THREADS = 120;
 const MAX_MESSAGES_PER_THREAD = 80;
 const MAX_VOICE_DATA_URL_LENGTH = 1_200_000;
+const storageWarningTracker = new Set<string>();
 
 type PersistedSession = {
   currentUserId: string | null;
@@ -780,6 +781,22 @@ const createId = (prefix: string): string => {
   return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 };
 
+const reportStorageIssue = (scope: string, error?: unknown) => {
+  if (storageWarningTracker.has(scope)) return;
+  storageWarningTracker.add(scope);
+  console.warn(`[storage] ${scope} failed; app will continue with in-memory fallback.`, error);
+};
+
+const getLocalStorage = (): Storage | null => {
+  if (typeof window === 'undefined') return null;
+  const candidate = (window as { localStorage?: Storage }).localStorage;
+  if (!candidate) return null;
+  if (typeof candidate.getItem !== 'function') return null;
+  if (typeof candidate.setItem !== 'function') return null;
+  if (typeof candidate.removeItem !== 'function') return null;
+  return candidate;
+};
+
 const createDefaultChatThreads = (users: Record<string, User>): ChatThread[] => {
   const now = new Date().toISOString();
   const threads: ChatThread[] = [];
@@ -814,6 +831,79 @@ const createDefaultChatThreads = (users: Record<string, User>): ChatThread[] => 
   return threads;
 };
 
+const isLegacyTaskType = (value: unknown): value is 'workout' | 'diet' | 'checkin' =>
+  value === 'workout' || value === 'diet' || value === 'checkin';
+
+const isLegacySubmissionStatus = (value: unknown): value is 'pending' | 'approved' | 'rejected' =>
+  value === 'pending' || value === 'approved' || value === 'rejected';
+
+const normalizeChatThreads = (input: unknown): ChatThread[] => {
+  if (!Array.isArray(input)) return [];
+
+  const normalized = input.flatMap((candidate): ChatThread[] => {
+    if (!candidate || typeof candidate !== 'object') return [];
+    const raw = candidate as Record<string, unknown>;
+    if (typeof raw.id !== 'string') return [];
+
+    const participantIds = Array.isArray(raw.participantIds)
+      ? raw.participantIds.filter((id): id is string => typeof id === 'string')
+      : [];
+    if (participantIds.length < 2) return [];
+
+    const messages = Array.isArray(raw.messages)
+      ? raw.messages.flatMap((message): ChatMessage[] => {
+          if (!message || typeof message !== 'object') return [];
+          const m = message as Record<string, unknown>;
+          if (
+            typeof m.id !== 'string' ||
+            typeof m.senderId !== 'string' ||
+            typeof m.text !== 'string' ||
+            typeof m.createdAt !== 'string'
+          ) {
+            return [];
+          }
+
+          const seenBy = Array.isArray(m.seenBy)
+            ? m.seenBy.filter((id): id is string => typeof id === 'string')
+            : [m.senderId];
+          const messageType = m.type === 'voice-note' || m.type === 'reel-share' ? m.type : 'text';
+
+          return [
+            {
+              id: m.id,
+              senderId: m.senderId,
+              text: m.text,
+              createdAt: m.createdAt,
+              type: messageType,
+              seenBy,
+              voiceSeconds: typeof m.voiceSeconds === 'number' ? m.voiceSeconds : undefined,
+              voiceAudioUrl: typeof m.voiceAudioUrl === 'string' ? m.voiceAudioUrl : undefined,
+              reelPostId: typeof m.reelPostId === 'string' ? m.reelPostId : undefined,
+              reelPreviewUrl: typeof m.reelPreviewUrl === 'string' ? m.reelPreviewUrl : undefined,
+              reelCaption: typeof m.reelCaption === 'string' ? m.reelCaption : undefined,
+            },
+          ];
+        })
+      : [];
+
+    const unreadBy = Array.isArray(raw.unreadBy)
+      ? raw.unreadBy.filter((id): id is string => typeof id === 'string')
+      : [];
+
+    return [
+      {
+        id: raw.id,
+        participantIds,
+        messages,
+        updatedAt: typeof raw.updatedAt === 'string' ? raw.updatedAt : new Date().toISOString(),
+        unreadBy,
+      },
+    ];
+  });
+
+  return sanitizeChatThreads(normalized);
+};
+
 const sanitizeChatThreads = (threads: ChatThread[]): ChatThread[] => {
   return [...threads]
     .sort((a, b) => +new Date(b.updatedAt) - +new Date(a.updatedAt))
@@ -846,9 +936,10 @@ const readPersistedChats = (
   users: Record<string, User>,
   fallback: ChatThread[]
 ): ChatThread[] => {
-  if (typeof window === 'undefined') return fallback;
+  const storage = getLocalStorage();
+  if (!storage) return fallback;
   try {
-    const raw = window.localStorage.getItem(CHAT_STORAGE_KEY);
+    const raw = storage.getItem(CHAT_STORAGE_KEY);
     if (!raw) return fallback;
     const parsed = JSON.parse(raw) as ChatThread[];
     if (!Array.isArray(parsed)) return fallback;
@@ -878,17 +969,19 @@ const readPersistedChats = (
 
     const sanitized = sanitizeChatThreads(cleaned);
     return sanitized.length > 0 ? sanitized : sanitizeChatThreads(fallback);
-  } catch {
+  } catch (error) {
+    reportStorageIssue('readPersistedChats', error);
     return sanitizeChatThreads(fallback);
   }
 };
 
 const persistChats = (threads: ChatThread[]) => {
-  if (typeof window === 'undefined') return;
+  const storage = getLocalStorage();
+  if (!storage) return;
   try {
-    window.localStorage.setItem(CHAT_STORAGE_KEY, JSON.stringify(sanitizeChatThreads(threads)));
-  } catch {
-    // Ignore localStorage write failures in restricted environments.
+    storage.setItem(CHAT_STORAGE_KEY, JSON.stringify(sanitizeChatThreads(threads)));
+  } catch (error) {
+    reportStorageIssue('persistChats', error);
   }
 };
 
@@ -914,9 +1007,10 @@ const persistPermissions = (permissions: PermissionMatrix) => {
 };
 
 const readPersistedUsers = (baseUsers: Record<string, User>): Record<string, User> => {
-  if (typeof window === 'undefined') return baseUsers;
+  const storage = getLocalStorage();
+  if (!storage) return baseUsers;
   try {
-    const raw = window.localStorage.getItem(USERS_STORAGE_KEY);
+    const raw = storage.getItem(USERS_STORAGE_KEY);
     if (!raw) return baseUsers;
     const parsed = JSON.parse(raw) as Record<string, User>;
     const mergedUsers = {
@@ -924,30 +1018,33 @@ const readPersistedUsers = (baseUsers: Record<string, User>): Record<string, Use
       ...(parsed ?? {}),
     };
     return migrateUserPasswordShape(mergedUsers);
-  } catch {
+  } catch (error) {
+    reportStorageIssue('readPersistedUsers', error);
     return migrateUserPasswordShape(baseUsers);
   }
 };
 
 const persistUsers = (users: Record<string, User>) => {
-  if (typeof window === 'undefined') return;
+  const storage = getLocalStorage();
+  if (!storage) return;
   try {
-    window.localStorage.setItem(
+    storage.setItem(
       USERS_STORAGE_KEY,
       JSON.stringify(migrateUserPasswordShape(users))
     );
-  } catch {
-    // Ignore localStorage write failures in restricted environments.
+  } catch (error) {
+    reportStorageIssue('persistUsers', error);
   }
 };
 
 const readPersistedSession = (users: Record<string, User>): AppState['session'] => {
-  if (typeof window === 'undefined') {
+  const storage = getLocalStorage();
+  if (!storage) {
     return { currentUser: null, isAuthenticated: false };
   }
 
   try {
-    const raw = window.localStorage.getItem(SESSION_STORAGE_KEY);
+    const raw = storage.getItem(SESSION_STORAGE_KEY);
     if (!raw) return { currentUser: null, isAuthenticated: false };
 
     const parsed = JSON.parse(raw) as PersistedSession;
@@ -962,31 +1059,34 @@ const readPersistedSession = (users: Record<string, User>): AppState['session'] 
       currentUser: user,
       isAuthenticated: true,
     };
-  } catch {
+  } catch (error) {
+    reportStorageIssue('readPersistedSession', error);
     return { currentUser: null, isAuthenticated: false };
   }
 };
 
 const persistSession = (session: AppState['session']) => {
-  if (typeof window === 'undefined') return;
+  const storage = getLocalStorage();
+  if (!storage) return;
   try {
     const payload: PersistedSession = {
       currentUserId: session.currentUser?.id ?? null,
       isAuthenticated: session.isAuthenticated && Boolean(session.currentUser),
     };
-    window.localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(payload));
-  } catch {
-    // Ignore localStorage write failures in restricted environments.
+    storage.setItem(SESSION_STORAGE_KEY, JSON.stringify(payload));
+  } catch (error) {
+    reportStorageIssue('persistSession', error);
   }
 };
 
 const clearPersistedSecurityState = () => {
-  if (typeof window === 'undefined') return;
+  const storage = getLocalStorage();
+  if (!storage) return;
   try {
-    window.localStorage.removeItem(SESSION_STORAGE_KEY);
-    window.localStorage.removeItem(PERMISSIONS_STORAGE_KEY);
-  } catch {
-    // Ignore cleanup failures in restricted environments.
+    storage.removeItem(SESSION_STORAGE_KEY);
+    storage.removeItem(PERMISSIONS_STORAGE_KEY);
+  } catch (error) {
+    reportStorageIssue('clearPersistedSecurityState', error);
   }
 };
 
@@ -1113,7 +1213,7 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
       }
 
       // Offline fallback: create user locally
-      const id = `user-${Date.now()}`;
+      const id = createId('user');
       const newUser = {
         id,
         name: userData.name,
@@ -1142,8 +1242,8 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
 
       set((state) => ({
         system: { ...state.system, isLoading: false },
-        session: { currentUser: newUser as any, isAuthenticated: true },
-        users: { ...state.users, [id]: newUser as any },
+        session: { currentUser: newUser as User, isAuthenticated: true },
+        users: { ...state.users, [id]: newUser as User },
       }));
     } catch (error) {
       console.error("Signup failed:", error);
@@ -1253,7 +1353,7 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
         [trainerId]: { ...trainer, isVerified: true },
       };
       const log: ActivityLog = {
-        id: `log-${Date.now()}-${trainerId}`,
+        id: createId('log-trainer-verified'),
         userId: state.session.currentUser?.id ?? 'system',
         action: 'trainer-verified',
         timestamp: new Date().toISOString(),
@@ -1353,7 +1453,7 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
       };
 
       const log: ActivityLog = {
-        id: `log-${Date.now()}-${planId}-${decision}`,
+        id: createId('log-plan-review'),
         userId: state.session.currentUser?.id ?? 'system',
         action: decision === 'approve' ? 'auto-plan-approved' : 'auto-plan-rejected',
         timestamp: new Date().toISOString(),
@@ -1483,7 +1583,7 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
       };
 
       const log: ActivityLog = {
-        id: `log-${Date.now()}-assign-trainer-${studentId}`,
+        id: createId('log-assign-trainer'),
         userId: actor.id,
         action: 'trainer-assigned',
         timestamp: new Date().toISOString(),
@@ -1547,18 +1647,28 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
     try {
       const remoteSubmissions = await fetchSubmissionsAPI();
       
-      const mapped = remoteSubmissions.map((s: any) => ({
-        id: s.id,
-        studentId: s.studentId,
-        studentName: s.student?.name || "Unknown",
-        taskName: s.planTask?.name || "Custom Task",
-        taskType: s.planTask?.type || "workout",
-        status: s.status.toLowerCase(),
-        mediaUrl: s.mediaUrl,
-        timestamp: new Date(s.createdAt).toLocaleString(),
-        points: s.planTask?.points || 10,
-        trainerNote: s.trainerNote
-      }));
+      const mapped: LegacySubmission[] = remoteSubmissions.map((s) => {
+        const normalizedTaskType = isLegacyTaskType(s.planTask?.type)
+          ? s.planTask.type
+          : 'workout';
+        const normalizedStatusRaw = s.status.toLowerCase();
+        const normalizedStatus = isLegacySubmissionStatus(normalizedStatusRaw)
+          ? normalizedStatusRaw
+          : 'pending';
+
+        return {
+          id: s.id,
+          studentId: s.studentId,
+          studentName: s.student?.name || 'Unknown',
+          taskName: s.planTask?.name || 'Custom Task',
+          taskType: normalizedTaskType,
+          status: normalizedStatus,
+          mediaUrl: s.mediaUrl,
+          timestamp: new Date(s.createdAt).toLocaleString(),
+          points: s.planTask?.points || 10,
+          trainerNote: s.trainerNote ?? '',
+        };
+      });
 
       set((state) => ({
         system: {
@@ -1693,6 +1803,9 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
         planUpdateNotifications: state.system.planUpdateNotifications.map((n) =>
           n.id === notificationId ? { ...n, read: true } : n
         ),
+        legacyNotifications: state.system.legacyNotifications.map((n) =>
+          n.id === notificationId ? { ...n, read: true } : n
+        ),
       },
     })),
 
@@ -1725,7 +1838,7 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
       persistPermissions(nextPermissions);
 
       const log: ActivityLog = {
-        id: `log-${Date.now()}-${role}-${permission}`,
+        id: createId('log-permission-change'),
         userId: state.session.currentUser?.id ?? 'system',
         action: 'permission-change',
         timestamp: new Date().toISOString(),
@@ -1748,7 +1861,7 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
       persistPermissions(nextPermissions);
 
       const log: ActivityLog = {
-        id: `log-${Date.now()}-permissions-reset`,
+        id: createId('log-permissions-reset'),
         userId: state.session.currentUser?.id ?? 'system',
         action: 'permissions-reset',
         timestamp: new Date().toISOString(),
@@ -1766,7 +1879,7 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
     }),
 
   // Events CRUD
-  createEvent: async (eventData: any) => {
+  createEvent: async (eventData: Omit<AHGEvent, 'id' | 'createdAt' | 'entries'>) => {
     try {
       await createEventAPI(eventData);
       await get().refreshData();
@@ -1775,7 +1888,7 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
     }
   },
 
-  updateEvent: async (eventId: string, updates: any) => {
+  updateEvent: async (eventId: string, updates: Partial<AHGEvent>) => {
     try {
       await updateEventAPI(eventId, updates);
       await get().refreshData();
@@ -1804,7 +1917,7 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
   },
 
 
-  submitEventEntry: async (eventId: string, responses: any) => {
+  submitEventEntry: async (eventId: string, responses: Record<string, string | string[]>) => {
     try {
       await registerForEventAPI(eventId, responses);
       await get().refreshData();
@@ -1826,12 +1939,15 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
       ]);
 
       const feedPosts = results[0].status === "fulfilled" ? results[0].value : [];
-      const chatThreads = results[1].status === "fulfilled" ? results[1].value : null;
+      const chatThreads =
+        results[1].status === 'fulfilled'
+          ? normalizeChatThreads(results[1].value)
+          : null;
       const events = results[2].status === "fulfilled" ? results[2].value : null;
 
       const role = get().session.currentUser?.role;
-      let trainersStudents: any[] = [];
-      let adminUsers: any[] = [];
+      let trainersStudents: Record<string, unknown>[] = [];
+      let adminUsers: User[] = [];
 
       if (role === "trainer") {
         const [tsRes] = await Promise.allSettled([fetchTrainerStudentsAPI()]);
@@ -1846,7 +1962,10 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
       set((state) => ({
         // Only override posts if backend returned data
         posts: feedPosts.length > 0
-          ? feedPosts.reduce((acc: any, post: any) => ({ ...acc, [post.id]: post }), {})
+          ? feedPosts.reduce<Record<string, Post>>((acc, post) => {
+              acc[post.id] = post;
+              return acc;
+            }, {})
           : state.posts,
         system: {
           ...state.system,
@@ -1856,8 +1975,27 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
         },
         users: {
           ...state.users,
-          ...adminUsers.reduce((acc: any, u: any) => ({ ...acc, [u.id]: u }), {}),
-          ...trainersStudents.reduce((acc: any, s: any) => ({ ...acc, [s.user?.id ?? s.id]: { ...s.user, ...s } }), {}),
+          ...adminUsers.reduce<Record<string, User>>((acc, user) => {
+            acc[user.id] = user;
+            return acc;
+          }, {}),
+          ...trainersStudents.reduce<Record<string, User>>((acc, studentRecord) => {
+            const nestedUser = studentRecord.user;
+            if (!nestedUser || typeof nestedUser !== "object") {
+              return acc;
+            }
+
+            const userCandidate = nestedUser as User;
+            if (!userCandidate.id) {
+              return acc;
+            }
+
+            acc[userCandidate.id] = {
+              ...userCandidate,
+              ...(studentRecord as Record<string, unknown>),
+            } as User;
+            return acc;
+          }, {}),
         },
       }));
     } catch (error) {
@@ -2215,7 +2353,7 @@ export const useStore = () => {
             ...prev.system,
             legacySubmissions: [
               {
-                id: `sub-${Date.now()}`,
+                id: createId('sub'),
                 studentId: submission.studentId ?? student.id,
                 studentName: submission.studentName ?? student.name,
                 trainerId,
@@ -2234,7 +2372,7 @@ export const useStore = () => {
       });
     },
     addPost: (post: Partial<Post>) => {
-      const id = `post-${Date.now()}`;
+      const id = createId('post');
       useAppStore.setState((prev) => ({
         posts: {
           ...prev.posts,
@@ -2268,11 +2406,13 @@ export const useStore = () => {
           ...prev.system,
           legacySubmissions: prev.system.legacySubmissions.map((submission) =>
             submission.id === submissionId
-              ? {
-                  ...submission,
-                  status,
-                  trainerNote: note ?? submission.trainerNote,
-                }
+              ? submission.status === 'pending'
+                ? {
+                    ...submission,
+                    status,
+                    trainerNote: note ?? submission.trainerNote,
+                  }
+                : submission
               : submission
           ),
         },
