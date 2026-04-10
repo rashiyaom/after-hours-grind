@@ -999,8 +999,8 @@ const initialSession = readPersistedSession(initialUsers);
 // ========= INITIAL STATE =========
 const initialState: AppState = {
   users: initialUsers,
-  posts: {},
-  plans: {},
+  posts: SEED_POSTS,
+  plans: SEED_PLANS,
   system: {
     notifications: [],
     activityLogs: [],
