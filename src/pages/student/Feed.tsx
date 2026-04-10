@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import FeedPostCard from "@/components/FeedPostCard";
 import { useStore } from "@/hooks/useStore";
+import { useAppStore } from "@/hooks/useStore";
 import { useCurrentUser, usePermissions } from "@/hooks/useStore";
 import { Post } from "@/types";
 import { Link } from "react-router-dom";
@@ -15,6 +16,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { filterPostsByTab } from "@/lib/feedFilters";
 import { LUXURY_TWEEN_MEDIUM } from "@/lib/motionTokens";
 import { createPortal } from "react-dom";
+import { fetchFeedFromBackend } from "@/lib/api";
 
 const TABS = ["All", "Videos", "Photos"] as const;
 
@@ -44,9 +46,34 @@ export default function FeedPage() {
   const activePost = selectedPost ? posts.find((p) => p.id === selectedPost.id) : null;
 
   useEffect(() => {
-    setLoading(true);
-    const timer = setTimeout(() => setLoading(false), 800);
-    return () => clearTimeout(timer);
+    let isMounted = true;
+
+    const hydrateFeed = async () => {
+      setLoading(true);
+      try {
+        const remotePosts = await fetchFeedFromBackend();
+        if (!isMounted || remotePosts.length === 0) return;
+
+        useAppStore.setState((prev) => ({
+          ...prev,
+          posts: remotePosts.reduce((acc, post) => {
+            acc[post.id] = post;
+            return acc;
+          }, {} as Record<string, Post>),
+        }));
+      } catch {
+        // Keep local mock/store posts as fallback if backend is not reachable.
+      } finally {
+        if (isMounted) {
+          setLoading(false);
+        }
+      }
+    };
+
+    void hydrateFeed();
+    return () => {
+      isMounted = false;
+    };
   }, [setLoading]);
 
   const handleComment = () => {

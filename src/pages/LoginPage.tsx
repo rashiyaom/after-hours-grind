@@ -6,6 +6,7 @@ import { useAppStore } from "@/hooks/useStore";
 import { toast } from "sonner";
 import { Student, UserRole } from "@/types";
 import { LUXURY_TWEEN_SLOW } from "@/lib/motionTokens";
+import { clearBackendAccessToken, loginBackend } from "@/lib/api";
 
 export default function LoginPage() {
   const navigate = useNavigate();
@@ -16,7 +17,7 @@ export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email.trim() || !password.trim()) {
       toast.error("Please fill in all fields");
@@ -24,40 +25,45 @@ export default function LoginPage() {
     }
     setLoading(true);
 
-    // Simulate API call
-    setTimeout(() => {
-      const success = login(email, password, role);
+    const success = login(email, password, role);
+    if (!success) {
       setLoading(false);
+      toast.error("Login failed. Please check your credentials and role.");
+      return;
+    }
 
-      if (success) {
-        toast.success("Welcome back!");
-        const currentSession = useAppStore.getState();
-        const currentUser = currentSession.session.currentUser;
-        switch (role) {
-          case "student": {
-            const student = currentUser?.role === "student" ? (currentUser as Student) : null;
+    try {
+      await loginBackend(email, password);
+      toast.success("Welcome back! Live backend sync enabled.");
+    } catch {
+      clearBackendAccessToken();
+      toast.warning("Logged in with local mode. Start backend to enable live data.");
+    }
 
-            if (!student || student.onboardingStatus !== "completed") {
-              navigate("/student/onboarding");
-              break;
-            }
+    setLoading(false);
+    const currentSession = useAppStore.getState();
+    const currentUser = currentSession.session.currentUser;
+    switch (role) {
+      case "student": {
+        const student = currentUser?.role === "student" ? (currentUser as Student) : null;
 
-            navigate("/student/dashboard");
-            break;
-          }
-          case "trainer":
-            navigate("/trainer/dashboard");
-            break;
-          case "admin":
-            navigate("/admin/dashboard");
-            break;
-          default:
-            navigate("/");
+        if (!student || student.onboardingStatus !== "completed") {
+          navigate("/student/onboarding");
+          break;
         }
-      } else {
-        toast.error("Login failed. Please check your credentials and role.");
+
+        navigate("/student/dashboard");
+        break;
       }
-    }, 1000);
+      case "trainer":
+        navigate("/trainer/dashboard");
+        break;
+      case "admin":
+        navigate("/admin/dashboard");
+        break;
+      default:
+        navigate("/");
+    }
   };
 
   return (
