@@ -15,7 +15,7 @@ router.use(healthRoutes);
 router.use("/auth", authRoutes);
 router.use(userRoutes);
 router.use(feedRoutes);
-router.use(planRoutes);
+router.use("/plans", planRoutes);
 router.use(notificationRoutes);
 router.use(chatRoutes);
 router.use("/events", eventRoutes);
