@@ -16,7 +16,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { filterPostsByTab } from "@/lib/feedFilters";
 import { LUXURY_TWEEN_MEDIUM } from "@/lib/motionTokens";
 import { createPortal } from "react-dom";
-import { fetchFeedFromBackend } from "@/lib/api";
+import { fetchFeedFromBackend, fetchCommentsAPI } from "@/lib/api";
 
 const TABS = ["All", "Videos", "Photos"] as const;
 
@@ -35,7 +35,7 @@ function timeAgo(ts: string) {
 }
 
 export default function FeedPage() {
-  const { posts, toggleLike, addComment, loading, setLoading } = useStore();
+  const { posts, likePost: toggleLike, addComment, loading, setLoading } = useStore();
   const currentUser = useCurrentUser();
   const permissions = usePermissions();
   const canPostFeed = Boolean(currentUser && permissions[currentUser.role].post_feed);

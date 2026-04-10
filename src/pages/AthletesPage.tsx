@@ -85,22 +85,26 @@ export default function AthletesPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetchFeaturedAthletesAPI().then((data) => {
-      // Normalize from Backend StudentProfile + User
-      const mapped = data.map((d: any) => ({
-        id: d.userId,
-        name: d.user.name,
-        sport: d.sport,
-        team: d.team,
-        gender: d.gender || "Male",
-        photo: d.user.avatar || "https://images.unsplash.com/photo-1542178243-bc51c4efdf1a?auto=format&fit=crop&q=80&w=400",
-        achievements: Array.isArray(d.achievements) ? d.achievements : ["Elite Member"],
-        description: d.fitnessGoal || "Professional Athlete",
-        role: "Varsity"
-      }));
-      setAthletes(mapped);
-      setLoading(false);
-    });
+    import("@/lib/api").then(({ fetchFeaturedAthletesAPI }) => fetchFeaturedAthletesAPI())
+      .then((data: any) => {
+        const mapped = (Array.isArray(data) ? data : []).map((d: any) => ({
+          id: d.userId ?? d.id,
+          name: d.user?.name ?? d.name ?? "Athlete",
+          sport: d.sport ?? "Cricket",
+          team: d.team ?? "CHARUSAT",
+          gender: d.gender || "Male",
+          photo: d.user?.avatar || "https://images.unsplash.com/photo-1542178243-bc51c4efdf1a?auto=format&fit=crop&q=80&w=400",
+          achievements: Array.isArray(d.achievements) ? d.achievements : ["Elite Member"],
+          description: d.fitnessGoal || "Professional Athlete",
+          role: "Varsity"
+        }));
+        setAthletes(mapped.length > 0 ? mapped : ATHLETES);
+        setLoading(false);
+      })
+      .catch(() => {
+        setAthletes(ATHLETES);
+        setLoading(false);
+      });
   }, []);
 
   const selectedSport = useMemo(() => SPORTS_LIST.find(s => s.id === selectedSportId), [selectedSportId]);
