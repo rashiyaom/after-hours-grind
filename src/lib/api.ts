@@ -1,7 +1,7 @@
 import { Post, UserRole } from "@/types";
 
 const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL as string | undefined)?.replace(/\/$/, "") || "http://localhost:4000/api";
-const ACCESS_TOKEN_STORAGE_KEY = "ah_backend_access_token";
+let inMemoryAccessToken: string | null = null;
 
 type BackendAuthResponse = {
   accessToken: string;
@@ -64,19 +64,25 @@ const toFrontendPost = (item: BackendFeedResponse["data"][number]): Post => ({
   status: item.status,
 });
 
+class ApiError extends Error {
+  status: number;
+
+  constructor(message: string, status: number) {
+    super(message);
+    this.status = status;
+  }
+}
+
 const getAccessToken = (): string | null => {
-  if (typeof window === "undefined") return null;
-  return window.localStorage.getItem(ACCESS_TOKEN_STORAGE_KEY);
+  return inMemoryAccessToken;
 };
 
 const setAccessToken = (token: string): void => {
-  if (typeof window === "undefined") return;
-  window.localStorage.setItem(ACCESS_TOKEN_STORAGE_KEY, token);
+  inMemoryAccessToken = token;
 };
 
 const clearAccessToken = (): void => {
-  if (typeof window === "undefined") return;
-  window.localStorage.removeItem(ACCESS_TOKEN_STORAGE_KEY);
+  inMemoryAccessToken = null;
 };
 
 async function apiRequest<T>(path: string, init: RequestInit = {}, token?: string): Promise<T> {
@@ -92,10 +98,26 @@ async function apiRequest<T>(path: string, init: RequestInit = {}, token?: strin
 
   if (!response.ok) {
     const body = await response.text();
-    throw new Error(body || `Request failed: ${response.status}`);
+    throw new ApiError(body || `Request failed: ${response.status}`, response.status);
   }
 
   return (await response.json()) as T;
+}
+
+const isUnauthorizedError = (error: unknown): boolean =>
+  error instanceof ApiError && error.status === 401;
+
+async function authedRequest<T>(path: string, init: RequestInit = {}): Promise<T> {
+  try {
+    return await apiRequest<T>(path, init, getAccessToken() ?? undefined);
+  } catch (error) {
+    if (!isUnauthorizedError(error)) {
+      throw error;
+    }
+  }
+
+  const refreshedToken = await refreshBackendAccessToken();
+  return apiRequest<T>(path, init, refreshedToken);
 }
 
 export async function loginBackend(email: string, password: string): Promise<BackendAuthResponse> {
@@ -116,23 +138,8 @@ export async function refreshBackendAccessToken(): Promise<string> {
 }
 
 export async function fetchFeedFromBackend(): Promise<Post[]> {
-  let token = getAccessToken();
-  if (!token) {
-    token = await refreshBackendAccessToken();
-  }
-
-  try {
-    const response = await apiRequest<BackendFeedResponse>("/feed", { method: "GET" }, token);
-    return response.data.map(toFrontendPost);
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "";
-    const isUnauthorized = message.includes("401") || message.toLowerCase().includes("unauthorized");
-    if (!isUnauthorized) throw error;
-
-    const refreshedToken = await refreshBackendAccessToken();
-    const retryResponse = await apiRequest<BackendFeedResponse>("/feed", { method: "GET" }, refreshedToken);
-    return retryResponse.data.map(toFrontendPost);
-  }
+  const response = await authedRequest<BackendFeedResponse>("/feed", { method: "GET" });
+  return response.data.map(toFrontendPost);
 }
 
 export function clearBackendAccessToken(): void {
@@ -153,145 +160,115 @@ export async function signupBackend(data: any): Promise<BackendAuthResponse> {
 // === USER ENTITIES ===
 
 export async function fetchCurrentUser(): Promise<any> {
-    let token = getAccessToken();
-    if (!token) throw new Error("No token");
-    return apiRequest<any>("/me", { method: "GET" }, token);
+  return authedRequest<any>("/me", { method: "GET" });
 }
 
 export async function fetchUserById(userId: string): Promise<any> {
-    let token = getAccessToken();
-    if (!token) throw new Error("No token");
-    return apiRequest<any>(`/users/${userId}`, { method: "GET" }, token);
+  return authedRequest<any>(`/users/${userId}`, { method: "GET" });
 }
 
 // === CHAT ENTITIES ===
 
 export async function fetchChatThreads(): Promise<any> {
-    let token = getAccessToken();
-    if (!token) throw new Error("No token");
-    return apiRequest<any>("/threads", { method: "GET" }, token);
+  return authedRequest<any>("/threads", { method: "GET" });
 }
 
 export async function fetchChatMessages(threadId: string): Promise<any> {
-    let token = getAccessToken();
-    if (!token) throw new Error("No token");
-    return apiRequest<any>(`/threads/${threadId}/messages`, { method: "GET" }, token);
+  return authedRequest<any>(`/threads/${threadId}/messages`, { method: "GET" });
 }
 
 export async function sendChatMessageAPI(threadId: string, text: string, type: string = "text"): Promise<any> {
-    let token = getAccessToken();
-    if (!token) throw new Error("No token");
-    return apiRequest<any>(`/threads/${threadId}/messages`, {
-        method: "POST",
-        body: JSON.stringify({ text, type })
-    }, token);
+  return authedRequest<any>(`/threads/${threadId}/messages`, {
+    method: "POST",
+    body: JSON.stringify({ text, type })
+  });
 }
 
 // === PLAN ENTITIES ===
 
 export async function fetchTodayPlanAPI(): Promise<any> {
-    let token = getAccessToken();
-    if (!token) throw new Error("No token");
-    return apiRequest<any>("/student/plan/today", { method: "GET" }, token);
+  return authedRequest<any>("/student/plan/today", { method: "GET" });
 }
 
 export async function submitTaskAPI(planTaskId: string, mediaUrl: string): Promise<any> {
-    let token = getAccessToken();
-    if (!token) throw new Error("No token");
-    return apiRequest<any>("/submissions", {
-        method: "POST",
-        body: JSON.stringify({ planTaskId, mediaUrl })
-    }, token);
+  return authedRequest<any>("/submissions", {
+    method: "POST",
+    body: JSON.stringify({ planTaskId, mediaUrl })
+  });
 }
 
 export async function fetchSubmissionsAPI(): Promise<any> {
-    let token = getAccessToken();
-    if (!token) throw new Error("No token");
-    return apiRequest<any>("/submissions", { method: "GET" }, token);
+  return authedRequest<any>("/submissions", { method: "GET" });
 }
 
 export async function approveSubmissionAPI(submissionId: string, trainerNote: string): Promise<any> {
-    let token = getAccessToken();
-    if (!token) throw new Error("No token");
-    return apiRequest<any>(`/submissions/${submissionId}/approve`, {
-        method: "POST",
-        body: JSON.stringify({ trainerNote })
-    }, token);
+  return authedRequest<any>(`/submissions/${submissionId}/approve`, {
+    method: "POST",
+    body: JSON.stringify({ note: trainerNote })
+  });
 }
 
 export async function rejectSubmissionAPI(submissionId: string, trainerNote: string): Promise<any> {
-    let token = getAccessToken();
-    if (!token) throw new Error("No token");
-    return apiRequest<any>(`/submissions/${submissionId}/reject`, {
-        method: "POST",
-        body: JSON.stringify({ trainerNote })
-    }, token);
+  return authedRequest<any>(`/submissions/${submissionId}/reject`, {
+    method: "POST",
+    body: JSON.stringify({ note: trainerNote })
+  });
 }
 export async function fetchEventsAPI(): Promise<any> {
-    return apiRequest<any>("/events", { method: "GET" }, getAccessToken() ?? undefined);
+  return apiRequest<any>("/events", { method: "GET" });
 }
 
 export async function registerForEventAPI(eventId: string, entries: any = {}): Promise<any> {
-    return apiRequest<any>(`/events/${eventId}/register`, {
-        method: "POST",
-        body: JSON.stringify({ entries })
-    }, getAccessToken() ?? undefined);
+  return authedRequest<any>(`/events/${eventId}/register`, {
+    method: "POST",
+    body: JSON.stringify({ entries })
+  });
 }
 
 export async function createEventAPI(data: any): Promise<any> {
-    return apiRequest<any>("/events", {
-        method: "POST",
-        body: JSON.stringify(data)
-    }, getAccessToken() ?? undefined);
+  return authedRequest<any>("/events", {
+    method: "POST",
+    body: JSON.stringify(data)
+  });
 }
 
 export async function updateEventAPI(eventId: string, data: any): Promise<any> {
-    return apiRequest<any>(`/events/${eventId}`, {
-        method: "PATCH",
-        body: JSON.stringify(data)
-    }, getAccessToken() ?? undefined);
+  return authedRequest<any>(`/events/${eventId}`, {
+    method: "PATCH",
+    body: JSON.stringify(data)
+  });
 }
 
 export async function deleteEventAPI(eventId: string): Promise<any> {
-    return apiRequest<any>(`/events/${eventId}`, {
-        method: "DELETE"
-    }, getAccessToken() ?? undefined);
+  return authedRequest<any>(`/events/${eventId}`, {
+    method: "DELETE"
+  });
 }
 
 export async function fetchTrainerStudentsAPI(): Promise<any> {
-    let token = getAccessToken();
-    if (!token) throw new Error("No token");
-    return apiRequest<any>("/trainer/students", { method: "GET" }, token);
+  return authedRequest<any>("/trainer/students", { method: "GET" });
 }
 
 export async function createPlanAPI(data: any): Promise<any> {
-    let token = getAccessToken();
-    if (!token) throw new Error("No token");
-    return apiRequest<any>("/plans", {
-        method: "POST",
-        body: JSON.stringify(data)
-    }, token);
+  return authedRequest<any>("/plans", {
+    method: "POST",
+    body: JSON.stringify(data)
+  });
 }
 
 export async function fetchAdminUsersAPI(): Promise<any> {
-    let token = getAccessToken();
-    if (!token) throw new Error("No token");
-    return apiRequest<any>("/admin/users", { method: "GET" }, token);
+  return authedRequest<any>("/admin/users", { method: "GET" });
 }
 
 export async function toggleUserBanAPI(userId: string): Promise<any> {
-    let token = getAccessToken();
-    if (!token) throw new Error("No token");
-    return apiRequest<any>(`/admin/users/${userId}/ban`, { method: "PATCH" }, token);
+  return authedRequest<any>(`/admin/users/${userId}/ban`, { method: "PATCH" });
 }
 
 export async function updatePostModerationAPI(postId: string, status: string): Promise<any> {
-    let token = getAccessToken();
-    if (!token) throw new Error("No token");
-    return apiRequest<any>(`/admin/posts/${postId}/moderation`, {
-        method: "PATCH",
-        body: JSON.stringify({ status })
-    }, token);
+  return authedRequest<any>(`/admin/posts/${postId}/moderation`, {
+    method: "PATCH",
+    body: JSON.stringify({ status })
+  });
 }
 
 export async function fetchFeaturedAthletesAPI(): Promise<any> {
@@ -299,28 +276,20 @@ export async function fetchFeaturedAthletesAPI(): Promise<any> {
 }
 
 export async function fetchCommentsAPI(postId: string): Promise<any> {
-    let token = getAccessToken();
-    if (!token) throw new Error("No token");
-    return apiRequest<any>(`/posts/${postId}/comments`, { method: "GET" }, token);
+  return authedRequest<any>(`/posts/${postId}/comments`, { method: "GET" });
 }
 
 export async function likePostAPI(postId: string): Promise<any> {
-    let token = getAccessToken();
-    if (!token) throw new Error("No token");
-    return apiRequest<any>(`/posts/${postId}/likes`, { method: "POST" }, token);
+  return authedRequest<any>(`/posts/${postId}/likes`, { method: "POST" });
 }
 
 export async function unlikePostAPI(postId: string): Promise<any> {
-    let token = getAccessToken();
-    if (!token) throw new Error("No token");
-    return apiRequest<any>(`/posts/${postId}/likes`, { method: "DELETE" }, token);
+  return authedRequest<any>(`/posts/${postId}/likes`, { method: "DELETE" });
 }
 
 export async function updateProfileAPI(payload: any): Promise<any> {
-    let token = getAccessToken();
-    if (!token) throw new Error("No token");
-    return apiRequest<any>("/me", {
-        method: "PATCH",
-        body: JSON.stringify(payload)
-    }, token);
+  return authedRequest<any>("/me", {
+    method: "PATCH",
+    body: JSON.stringify(payload)
+  });
 }

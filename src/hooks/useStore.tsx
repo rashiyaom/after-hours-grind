@@ -995,6 +995,7 @@ const initialUsers = readPersistedUsers(
 );
 
 const initialSession = readPersistedSession(initialUsers);
+const allowOfflineAuthFallback = import.meta.env.DEV;
 
 // ========= INITIAL STATE =========
 const initialState: AppState = {
@@ -1044,6 +1045,9 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
         await get().refreshData();
         return true;
       } catch (backendError) {
+        if (!allowOfflineAuthFallback) {
+          throw backendError;
+        }
         console.warn("Backend unreachable, falling back to offline mode:", backendError);
       }
 
@@ -1102,6 +1106,9 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
         }));
         return;
       } catch (backendError) {
+        if (!allowOfflineAuthFallback) {
+          throw backendError;
+        }
         console.warn("Backend unreachable, falling back to offline signup:", backendError);
       }
 
@@ -1173,7 +1180,9 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
         await unlikePostAPI(postId);
       }
     } catch (error) {
-      console.error("Like failed, rolling back:", error);
+      if (import.meta.env.MODE !== "test") {
+        console.error("Like failed, rolling back:", error);
+      }
       set((state) => ({
         posts: {
           ...state.posts,

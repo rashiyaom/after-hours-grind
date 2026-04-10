@@ -9,6 +9,9 @@ function refreshTokenExpiry(): Date {
   return new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
 }
 
+const hashRefreshToken = (token: string): string =>
+  crypto.createHash("sha256").update(token).digest("hex");
+
 export async function signup(input: SignupInput) {
   const existing = await prisma.user.findUnique({ where: { email: input.email } });
   if (existing) throw HttpError.conflict("Email already registered");
@@ -31,6 +34,7 @@ export async function signup(input: SignupInput) {
 export async function login(input: LoginInput) {
   const user = await prisma.user.findUnique({ where: { email: input.email } });
   if (!user) throw HttpError.unauthorized("Invalid credentials");
+  if (user.isBanned) throw HttpError.forbidden("Account is banned");
 
   const valid = await verifyPassword(input.password, user.passwordHash);
   if (!valid) throw HttpError.unauthorized("Invalid credentials");
@@ -46,28 +50,31 @@ export async function refresh(oldToken: string) {
     throw HttpError.unauthorized("Invalid refresh token");
   }
 
-  const stored = await prisma.refreshToken.findUnique({ where: { token: oldToken } });
+  const tokenHash = hashRefreshToken(oldToken);
+  const stored = await prisma.refreshToken.findUnique({ where: { token: tokenHash } });
   if (!stored || stored.expiresAt < new Date()) {
     if (stored) await prisma.refreshToken.delete({ where: { id: stored.id } });
     throw HttpError.unauthorized("Refresh token expired or revoked");
   }
 
   // Rotate
+  const user = await prisma.user.findUnique({ where: { id: payload.userId } });
+  if (!user || user.isBanned) throw HttpError.unauthorized("Invalid user session");
+
   await prisma.refreshToken.delete({ where: { id: stored.id } });
-  return issueTokens(payload.userId, payload.role);
+  return issueTokens(user.id, user.role);
 }
 
 export async function logout(refreshToken: string) {
-  await prisma.refreshToken.deleteMany({ where: { token: refreshToken } });
+  await prisma.refreshToken.deleteMany({ where: { token: hashRefreshToken(refreshToken) } });
 }
 
 async function issueTokens(userId: string, role: string) {
   const accessToken = signAccessToken({ userId, role });
-  const rawRefresh = crypto.randomBytes(48).toString("hex");
   const refreshToken = signRefreshToken({ userId, role });
 
   await prisma.refreshToken.create({
-    data: { token: refreshToken, userId, expiresAt: refreshTokenExpiry() },
+    data: { token: hashRefreshToken(refreshToken), userId, expiresAt: refreshTokenExpiry() },
   });
 
   return { accessToken, refreshToken, userId, role };

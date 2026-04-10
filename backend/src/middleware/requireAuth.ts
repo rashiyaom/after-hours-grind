@@ -2,22 +2,18 @@ import type { Request, Response, NextFunction } from "express";
 import { verifyAccessToken, type TokenPayload } from "../lib/jwt.js";
 import { HttpError } from "../lib/httpError.js";
 
-declare global {
-  namespace Express {
-    interface Request {
-      user?: TokenPayload;
-    }
-  }
-}
-
 export const requireAuth = (req: Request, _res: Response, next: NextFunction): void => {
   const header = req.headers.authorization;
-  if (!header?.startsWith("Bearer ")) {
-    throw HttpError.unauthorized("Missing or invalid Authorization header");
+  const bearerToken = header?.startsWith("Bearer ") ? header.slice(7) : null;
+  const cookieToken = typeof req.cookies?.accessToken === "string" ? req.cookies.accessToken : null;
+  const token = bearerToken ?? cookieToken;
+
+  if (!token) {
+    throw HttpError.unauthorized("Missing authentication token");
   }
 
   try {
-    req.user = verifyAccessToken(header.slice(7));
+    req.user = verifyAccessToken(token);
     next();
   } catch {
     throw HttpError.unauthorized("Invalid or expired token");

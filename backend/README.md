@@ -26,6 +26,7 @@ Health check: `GET http://localhost:4000/api/health`
 ## Production Build
 
 ```powershell
+npm run prisma:migrate:deploy
 npm run build
 $env:NODE_ENV="production"; npm start
 ```

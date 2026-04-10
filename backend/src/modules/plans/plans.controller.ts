@@ -7,9 +7,14 @@ const submitSchema = z.object({
   mediaUrl: z.string().default(""),
 });
 
-const reviewSchema = z.object({
-  note: z.string().optional().default(""),
-});
+const reviewSchema = z
+  .object({
+    note: z.string().optional(),
+    trainerNote: z.string().optional(),
+  })
+  .transform(({ note, trainerNote }) => ({
+    note: (note ?? trainerNote ?? "").trim(),
+  }));
 
 export async function getTodayPlanHandler(req: Request, res: Response) {
   const plan = await svc.getTodayPlan(req.user!.userId);
@@ -24,13 +29,17 @@ export async function createSubmissionHandler(req: Request, res: Response) {
 
 export async function approveHandler(req: Request, res: Response) {
   const { note } = reviewSchema.parse(req.body);
-  const sub = await svc.approveSubmission(req.user!.userId, req.params.id, note);
+  const sub = await svc.approveSubmission(req.user!.userId, req.user!.role, req.params.id, note);
   res.json(sub);
 }
 
 export async function rejectHandler(req: Request, res: Response) {
-  const { note } = z.object({ note: z.string().min(1, "Rejection reason required") }).parse(req.body);
-  const sub = await svc.rejectSubmission(req.user!.userId, req.params.id, note);
+  const { note } = reviewSchema.parse(req.body);
+  if (!note) {
+    res.status(400).json({ error: "Rejection reason required" });
+    return;
+  }
+  const sub = await svc.rejectSubmission(req.user!.userId, req.user!.role, req.params.id, note);
   res.json(sub);
 }
 

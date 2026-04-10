@@ -12,7 +12,10 @@ const envSchema = z.object({
   ACCESS_TOKEN_TTL: z.string().default("15m"),
   REFRESH_TOKEN_TTL: z.string().default("7d"),
   REDIS_URL: z.string().optional(),
-  CORS_ORIGIN: z.string().default("http://localhost:5173"),
+  CORS_ORIGINS: z.string().default("http://localhost:5173"),
+  TRUST_PROXY: z.coerce.boolean().default(false),
+  AUTH_COOKIE_SAME_SITE: z.enum(["lax", "strict", "none"]).default("lax"),
+  AUTH_COOKIE_DOMAIN: z.string().optional(),
 });
 
 const parsed = envSchema.safeParse(process.env);
@@ -24,3 +27,8 @@ if (!parsed.success) {
 }
 
 export const env = parsed.data;
+
+export const corsOrigins = env.CORS_ORIGINS
+  .split(",")
+  .map((origin) => origin.trim())
+  .filter(Boolean);

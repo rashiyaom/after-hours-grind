@@ -18,11 +18,17 @@ export async function createSubmission(studentId: string, input: { planTaskId?: 
   });
 }
 
-export async function approveSubmission(reviewerId: string, submissionId: string, note?: string) {
+export async function approveSubmission(reviewerId: string, reviewerRole: string, submissionId: string, note?: string) {
   return prisma.$transaction(async (tx) => {
-    const sub = await tx.submission.findUnique({ where: { id: submissionId } });
+    const sub = await tx.submission.findUnique({
+      where: { id: submissionId },
+      include: { student: { include: { studentProfile: true } } },
+    });
     if (!sub) throw HttpError.notFound("Submission not found");
     if (sub.status !== "PENDING") throw HttpError.badRequest("Already reviewed");
+    if (reviewerRole === "TRAINER" && sub.student.studentProfile?.trainerId !== reviewerId) {
+      throw HttpError.forbidden("You can only review submissions from your assigned students");
+    }
 
     const updated = await tx.submission.update({
       where: { id: submissionId },
@@ -44,11 +50,17 @@ export async function approveSubmission(reviewerId: string, submissionId: string
   });
 }
 
-export async function rejectSubmission(reviewerId: string, submissionId: string, note: string) {
+export async function rejectSubmission(reviewerId: string, reviewerRole: string, submissionId: string, note: string) {
   if (!note.trim()) throw HttpError.badRequest("Rejection reason is required");
-  const sub = await prisma.submission.findUnique({ where: { id: submissionId } });
+  const sub = await prisma.submission.findUnique({
+    where: { id: submissionId },
+    include: { student: { include: { studentProfile: true } } },
+  });
   if (!sub) throw HttpError.notFound("Submission not found");
   if (sub.status !== "PENDING") throw HttpError.badRequest("Already reviewed");
+  if (reviewerRole === "TRAINER" && sub.student.studentProfile?.trainerId !== reviewerId) {
+    throw HttpError.forbidden("You can only review submissions from your assigned students");
+  }
 
   return prisma.submission.update({
     where: { id: submissionId },

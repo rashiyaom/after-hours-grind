@@ -8,7 +8,7 @@ import * as ctrl from "./events.controller.js";
 const router = Router();
 
 router.get("/", optionalAuth, asyncHandler(ctrl.getAllEventsHandler));
-router.post("/:id/register", optionalAuth, asyncHandler(ctrl.registerForEventHandler));
+router.post("/:id/register", requireAuth, asyncHandler(ctrl.registerForEventHandler));
 
 // Admin only routes
 router.post("/", requireAuth, requireRole("ADMIN"), asyncHandler(ctrl.createEventHandler));
