@@ -85,7 +85,7 @@ export default function AthletesPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetchFeaturedAthletesAPI().then((data) => {
+    import("@/lib/api").then(({ fetchFeaturedAthletesAPI }) => fetchFeaturedAthletesAPI()).then((data: any) => {
       // Normalize from Backend StudentProfile + User
       const mapped = data.map((d: any) => ({
         id: d.userId,

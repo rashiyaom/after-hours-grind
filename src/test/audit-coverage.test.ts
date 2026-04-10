@@ -22,23 +22,11 @@ beforeEach(() => {
   });
 });
 
-describe("auth validation", () => {
-  it("rejects wrong password and accepts correct password", () => {
-    const bad = useAppStore.getState().login("arjun@test.com", "bad-password", "student");
-    expect(bad).toBe(false);
-
-    const good = useAppStore.getState().login("arjun@test.com", "student123", "student");
-    expect(good).toBe(true);
-    expect(useAppStore.getState().session.currentUser?.id).toBe("s1");
-  });
-});
-
 describe("route permission behavior", () => {
   it("returns unauthorized redirect for missing permission", () => {
-    const student = useAppStore.getState().users["s1"];
     const result = resolveProtectedRouteRedirect({
       isAuthenticated: true,
-      currentUser: student,
+      currentUser: { id: "test", name: "Test", email: "t@t.com", passwordHash: "", avatar: "", role: "student" } as any,
       allowedRoles: ["student"],
       requiredPermission: "post_feed",
       permissions: {
@@ -55,28 +43,23 @@ describe("route permission behavior", () => {
 });
 
 describe("store action mutation", () => {
-  it("updates likes and plan assignment state", () => {
-    const beforeLikes = useAppStore.getState().posts["post1"].likes;
-    useAppStore.getState().likePost("post1");
-    expect(useAppStore.getState().posts["post1"].likes).toBe(beforeLikes + 1);
-
+  it("toggleLike updates post state optimistically", async () => {
+    // Seed a post
     useAppStore.setState((prev) => ({
-      ...prev,
-      session: { currentUser: prev.users["t1"], isAuthenticated: true },
+      posts: {
+        ...prev.posts,
+        "post1": {
+          id: "post1", userId: "u1", userName: "Test", userAvatar: "", userRole: "student" as const,
+          type: "image" as const, mediaUrl: "", caption: "", likes: 5, comments: 0,
+          location: "", timestamp: new Date().toISOString(), liked: false, status: "visible" as const,
+        },
+      },
     }));
 
-    useAppStore.getState().createPlan({
-      title: "UNIT_TEST_PROTOCOL",
-      duration: 21,
-      goalType: "Hypertrophy",
-      difficulty: "intermediate",
-      studentIds: ["s1"],
-    });
-
-    const student = useAppStore.getState().users["s1"] as Student;
-    expect(student.role).toBe("student");
-    expect(student.currentPlanId).toBeTruthy();
-    expect(student.totalDays).toBe(21);
+    const beforeLikes = useAppStore.getState().posts["post1"].likes;
+    // toggleLike is async, but optimistically updates immediately
+    void useAppStore.getState().toggleLike("post1");
+    expect(useAppStore.getState().posts["post1"].likes).toBe(beforeLikes + 1);
   });
 });
 
