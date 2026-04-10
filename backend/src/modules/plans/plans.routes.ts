@@ -14,6 +14,6 @@ router.post("/submissions/:id/reject", requireAuth, requireRole("TRAINER", "ADMI
 
 // Trainer plan management
 router.get("/trainer/students", requireAuth, requireRole("TRAINER"), asyncHandler(ctrl.getTrainerStudentsHandler));
-router.post("/", requireAuth, requireRole("TRAINER"), asyncHandler(ctrl.createPlanHandler));
+router.post("/plans", requireAuth, requireRole("TRAINER"), asyncHandler(ctrl.createPlanHandler));
 
 export default router;
