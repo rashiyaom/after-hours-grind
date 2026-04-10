@@ -1031,30 +1031,42 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
   login: async (email, password, role) => {
     try {
       set((state) => ({ system: { ...state.system, isLoading: true } }));
-      const authResponse = await loginBackend(email, password);
-      
-      // Fetch full user profile after login
-      const userProfile = await fetchCurrentUser();
-      
-      // Map backend role to frontend role if necessary or just trust backend
-      // Backend returns role as 'STUDENT' | 'TRAINER' | 'ADMIN'
-      // Frontend expects UserRole as 'student' | 'trainer' | 'admin'
-      
-      set((state) => ({
-        system: { ...state.system, isLoading: false },
-        session: {
-          currentUser: userProfile,
-          isAuthenticated: true
-        },
-        users: {
-          ...state.users,
-          [userProfile.id]: userProfile
-        }
-      }));
 
-      // Start initial data fetch
-      await get().refreshData();
-      
+      // Try backend first
+      try {
+        const authResponse = await loginBackend(email, password);
+        const userProfile = await fetchCurrentUser();
+        set((state) => ({
+          system: { ...state.system, isLoading: false },
+          session: { currentUser: userProfile, isAuthenticated: true },
+          users: { ...state.users, [userProfile.id]: userProfile },
+        }));
+        await get().refreshData();
+        return true;
+      } catch (backendError) {
+        console.warn("Backend unreachable, falling back to offline mode:", backendError);
+      }
+
+      // Offline fallback: authenticate against local seed users
+      const state = get();
+      const user = Object.values(state.users).find(
+        (u) => u.email === email && u.role === role
+      );
+      if (!user) {
+        set((s) => ({ system: { ...s.system, isLoading: false } }));
+        return false;
+      }
+      const expectedHash = hashPassword(password);
+      if (user.passwordHash !== expectedHash) {
+        set((s) => ({ system: { ...s.system, isLoading: false } }));
+        return false;
+      }
+
+      set((s) => ({
+        system: { ...s.system, isLoading: false },
+        session: { currentUser: user, isAuthenticated: true },
+      }));
+      persistSession({ currentUser: user, isAuthenticated: true });
       return true;
     } catch (error) {
       console.error("Login failed:", error);
