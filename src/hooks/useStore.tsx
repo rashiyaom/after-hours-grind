@@ -1085,26 +1085,58 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
   signup: async (userData) => {
     try {
       set((state) => ({ system: { ...state.system, isLoading: true } }));
-      const authResponse = await signupBackend({
+
+      // Try backend first
+      try {
+        await signupBackend({
+          name: userData.name,
+          email: userData.email,
+          password: userData.password,
+          role: userData.role.toUpperCase(),
+        });
+        const userProfile = await fetchCurrentUser();
+        set((state) => ({
+          system: { ...state.system, isLoading: false },
+          session: { currentUser: userProfile, isAuthenticated: true },
+          users: { ...state.users, [userProfile.id]: userProfile },
+        }));
+        return;
+      } catch (backendError) {
+        console.warn("Backend unreachable, falling back to offline signup:", backendError);
+      }
+
+      // Offline fallback: create user locally
+      const id = `user-${Date.now()}`;
+      const newUser = {
+        id,
         name: userData.name,
         email: userData.email,
-        password: userData.password,
-        role: userData.role.toUpperCase(), // Backend expects uppercase Role enum
-        // Additional profile info should be handled by backend
-      });
-      
-      const userProfile = await fetchCurrentUser();
-      
+        passwordHash: hashPassword(userData.password),
+        avatar: "",
+        role: userData.role,
+        ...(userData.role === "student" ? {
+          collegeId: userData.collegeId ?? "",
+          height: userData.height ?? 170,
+          weight: userData.weight ?? 70,
+          fitnessGoal: userData.fitnessGoal ?? "",
+          streak: 0, totalPlansCompleted: 0, followers: 0, following: 0,
+          trainerId: null, currentPlanId: null, currentDay: 1, totalDays: 28,
+          completionPercentage: 0, todaySteps: 0, rank: 0, badges: [],
+          isBanned: false, warnings: 0,
+          onboardingStatus: "not_started" as const, onboardingStep: 0,
+          taskCompletions: {}, totalPoints: 0,
+        } : {
+          specialization: userData.specialization ?? "",
+          experience: userData.experience ?? 0,
+          certifications: userData.certifications ? userData.certifications.split(",").map((c: string) => c.trim()) : [],
+          totalStudents: 0, activePlans: 0, isVerified: false,
+        }),
+      };
+
       set((state) => ({
         system: { ...state.system, isLoading: false },
-        session: {
-          currentUser: userProfile,
-          isAuthenticated: true
-        },
-        users: {
-          ...state.users,
-          [userProfile.id]: userProfile
-        }
+        session: { currentUser: newUser as any, isAuthenticated: true },
+        users: { ...state.users, [id]: newUser as any },
       }));
     } catch (error) {
       console.error("Signup failed:", error);
