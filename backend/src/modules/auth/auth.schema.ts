@@ -5,6 +5,13 @@ export const signupSchema = z.object({
   email: z.string().trim().email().max(255),
   password: z.string().min(8).max(128),
   role: z.enum(["STUDENT", "TRAINER"]).default("STUDENT"),
+  collegeId: z.string().trim().min(1).max(64).optional(),
+  height: z.coerce.number().positive().max(300).optional(),
+  weight: z.coerce.number().positive().max(700).optional(),
+  fitnessGoal: z.string().trim().min(1).max(120).optional(),
+  specialization: z.string().trim().min(1).max(120).optional(),
+  experience: z.coerce.number().int().min(0).max(80).optional(),
+  certifications: z.union([z.string(), z.array(z.string())]).optional(),
 });
 
 export const loginSchema = z.object({

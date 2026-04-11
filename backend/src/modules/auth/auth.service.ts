@@ -27,6 +27,13 @@ export async function signup(input: SignupInput) {
   const existing = await prisma.user.findUnique({ where: { email: input.email } });
   if (existing) throw HttpError.conflict("Email already registered");
 
+  const certifications = Array.isArray(input.certifications)
+    ? input.certifications.map((cert) => cert.trim()).filter(Boolean)
+    : (input.certifications ?? "")
+        .split(",")
+        .map((cert) => cert.trim())
+        .filter(Boolean);
+
   const passwordHash = await hashPassword(input.password);
   const user = await prisma.user.create({
     data: {
@@ -34,8 +41,29 @@ export async function signup(input: SignupInput) {
       email: input.email,
       passwordHash,
       role: input.role,
-      ...(input.role === "STUDENT" ? { studentProfile: { create: {} } } : {}),
-      ...(input.role === "TRAINER" ? { trainerProfile: { create: {} } } : {}),
+      ...(input.role === "STUDENT"
+        ? {
+            studentProfile: {
+              create: {
+                collegeId: input.collegeId ?? "",
+                heightCm: input.height ?? 170,
+                weightKg: input.weight ?? 70,
+                fitnessGoal: input.fitnessGoal ?? "",
+              },
+            },
+          }
+        : {}),
+      ...(input.role === "TRAINER"
+        ? {
+            trainerProfile: {
+              create: {
+                specialization: input.specialization ?? "",
+                experience: input.experience ?? 0,
+                certifications,
+              },
+            },
+          }
+        : {}),
     },
   });
 

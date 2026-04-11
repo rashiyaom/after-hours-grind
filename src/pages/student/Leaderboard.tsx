@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import LeaderboardRow from "@/components/LeaderboardRow";
-import { useStore } from "@/hooks/useStore";
+import { useAppStore, useStore } from "@/hooks/useStore";
 import { Trophy, Flame, Footprints, Target, Crown, Activity, Zap } from "lucide-react";
 import { LeaderboardEntry } from "@/types";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -72,28 +72,25 @@ function getInitials(name: string) {
 }
 
 export default function LeaderboardPage() {
-  const { leaderboard, student, loading, setLoading } = useStore();
+  const { leaderboard, student, loading } = useStore();
+  const refreshData = useAppStore((state) => state.refreshData);
   const [activeFilter, setActiveFilter] = useState<Filter>("Weekly");
 
   useEffect(() => {
-    setLoading(true);
-    const timer = setTimeout(() => setLoading(false), 700);
-    return () => clearTimeout(timer);
-  }, [activeFilter, setLoading]);
+    void refreshData();
+    const interval = window.setInterval(() => {
+      void refreshData();
+    }, 20000);
+    return () => window.clearInterval(interval);
+  }, [refreshData]);
 
-  const allEntries = leaderboard.map((e) =>
-    e.userId === student.id
-      ? { ...e, streak: student.streak, steps: student.todaySteps, completionPercentage: student.completionPercentage }
-      : e
-  );
-
-  const sorted = getSortedData(allEntries, activeFilter);
+  const sorted = getSortedData(leaderboard, activeFilter);
   // podium order: 2nd, 1st, 3rd
   const top3 = sorted.length >= 3 ? [sorted[1], sorted[0], sorted[2]] : sorted;
   const myEntry = sorted.find((e) => e.userId === student.id);
   const accentColor = filterColors[activeFilter];
 
-  if (loading) {
+  if (loading && leaderboard.length === 0) {
     return (
       <div className="mx-auto max-w-2xl space-y-6 p-4 sm:p-6 lg:p-8">
         <Skeleton className="h-12 w-64 rounded-2xl" />

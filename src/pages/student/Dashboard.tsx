@@ -12,7 +12,7 @@ import {
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Navigate } from "react-router-dom";
-import { useCurrentUser, usePermissions, useStore } from "@/hooks/useStore";
+import { useAppStore, useCurrentUser, usePermissions, useStore } from "@/hooks/useStore";
 import { Skeleton } from "@/components/ui/skeleton";
 import { LUXURY_TWEEN_MEDIUM } from "@/lib/motionTokens";
 import { toast } from "sonner";
@@ -24,7 +24,20 @@ const DASHBOARD_TABS: DashboardTab[] = ["Overview", "Training", "Nutrition", "Pr
 const DASHBOARD_PILLS: DashboardPill[] = ["All", "Workout", "Nutrition", "Recovery"];
 
 export default function StudentDashboard() {
-  const { student: s, leaderboard, todayTask, getDayTask, loading, setLoading, onboardingRequired, notifications } = useStore();
+  const {
+    student: s,
+    leaderboard,
+    todayTask,
+    getDayTask,
+    loading,
+    onboardingRequired,
+    notifications,
+    backendTodayPlan,
+    progressOverview,
+    progressLoading,
+    planLoading,
+  } = useStore();
+  const refreshData = useAppStore((state) => state.refreshData);
   const currentUser = useCurrentUser();
   const permissions = usePermissions();
   const canPostFeed = Boolean(currentUser && permissions[currentUser.role].post_feed);
@@ -44,7 +57,38 @@ export default function StudentDashboard() {
   const activityMultiplier =
     activePill === "All" ? 1 : activePill === "Workout" ? 1.08 : activePill === "Nutrition" ? 0.96 : 0.9;
 
+  const backendPlan = backendTodayPlan as Record<string, unknown> | null;
+  const backendDay =
+    backendPlan && Array.isArray(backendPlan.days)
+      ? (backendPlan.days.find((day) => {
+          if (!day || typeof day !== "object") return false;
+          const record = day as Record<string, unknown>;
+          return Number(record.day) === s.currentDay;
+        }) as Record<string, unknown> | undefined)
+      : undefined;
+  const backendTasks = backendDay && Array.isArray(backendDay.tasks)
+    ? (backendDay.tasks.filter((task) => task && typeof task === "object") as Record<string, unknown>[])
+    : [];
+
   const quickTasks = useMemo(() => {
+    if (backendTasks.length > 0) {
+      const mapped = backendTasks.map((item) => {
+        const type = String(item.type ?? "workout").toLowerCase();
+        const completed = String(item.submissionStatus ?? "") === "APPROVED";
+        return {
+          id: String(item.id ?? ""),
+          type: (type === "nutrition" ? "diet" : "workout") as "workout" | "diet",
+          title: String(item.title ?? "Task"),
+          subtitle: String(item.description ?? "Complete this task"),
+          completed,
+        };
+      });
+
+      if (activePill === "Workout") return mapped.filter((task) => task.type === "workout");
+      if (activePill === "Nutrition") return mapped.filter((task) => task.type === "diet");
+      return mapped;
+    }
+
     const workoutTasks = todayTask.workout.map((item) => ({
       id: item.id,
       type: "workout" as const,
@@ -65,7 +109,7 @@ export default function StudentDashboard() {
     if (activePill === "Nutrition") return nutritionTasks;
 
     return [...workoutTasks, ...nutritionTasks];
-  }, [todayTask, activePill]);
+  }, [todayTask, activePill, backendTasks]);
 
   const completedQuickTasks = quickTasks.filter((task) => task.completed).length;
 
@@ -150,10 +194,14 @@ export default function StudentDashboard() {
     }
   }, [notifications, currentUser]);
 
+  const dailySteps = progressOverview?.totalStepsLast30Days
+    ? Math.round(progressOverview.totalStepsLast30Days / 30)
+    : s.todaySteps;
+
   const kpiCards = [
     {
       title: "Workout Completion",
-      value: `${Math.min(100, Math.round(s.completionPercentage * activityMultiplier))}%`,
+      value: `${Math.min(100, Math.round((progressOverview?.completionPercentage ?? s.completionPercentage) * activityMultiplier))}%`,
       delta: "+5.4% vs last week",
       icon: Target,
       accent: "bg-[#C9F85A] text-[#121212]",
@@ -162,7 +210,7 @@ export default function StudentDashboard() {
     },
     {
       title: "Calories Burned",
-      value: `${Math.round(s.todaySteps * 0.045 * activityMultiplier).toLocaleString()}`,
+      value: `${Math.round(dailySteps * 0.045 * activityMultiplier).toLocaleString()}`,
       delta: "+3.1% vs yesterday",
       icon: Flame,
       accent: "bg-[#202020] text-white",
@@ -171,8 +219,8 @@ export default function StudentDashboard() {
     },
     {
       title: "Daily Steps",
-      value: `${Math.round(s.todaySteps * activityMultiplier).toLocaleString()}`,
-      delta: `Goal 10,000 · ${Math.round((Math.min(100, (s.todaySteps / 10000) * 100)))}% complete`,
+      value: `${Math.round(dailySteps * activityMultiplier).toLocaleString()}`,
+      delta: `Goal 10,000 · ${Math.round((Math.min(100, (dailySteps / 10000) * 100)))}% complete`,
       icon: Flame,
       accent: "bg-[#202020] text-white",
       link: "/student/daily-plan",
@@ -181,10 +229,12 @@ export default function StudentDashboard() {
   ];
 
   useEffect(() => {
-    setLoading(true);
-    const timer = setTimeout(() => setLoading(false), 800);
-    return () => clearTimeout(timer);
-  }, [setLoading]);
+    void refreshData();
+    const interval = window.setInterval(() => {
+      void refreshData();
+    }, 20000);
+    return () => window.clearInterval(interval);
+  }, [refreshData]);
 
   useEffect(() => {
     if (!searchOpen) return;
@@ -220,7 +270,7 @@ export default function StudentDashboard() {
     return <Navigate to="/student/onboarding" replace />;
   }
 
-  if (loading) {
+  if (loading || progressLoading || planLoading) {
     return (
       <div className="mx-auto max-w-7xl space-y-6 p-4 sm:p-6 lg:p-8">
         <div className="grid grid-cols-2 gap-4 md:grid-cols-6">

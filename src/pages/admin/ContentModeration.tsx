@@ -1,10 +1,11 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import Badge from "@/components/ui/badge";
 import Button from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useAppStore, usePosts } from "@/hooks/useStore";
 import { toast } from "sonner";
+import { fetchFlaggedContentAPI } from "@/lib/api";
 
 const ContentModeration = () => {
   const [query, setQuery] = useState("");
@@ -16,10 +17,49 @@ const ContentModeration = () => {
   const approveTaskSubmission = useAppStore((state) => state.approveTaskSubmission);
   const rejectTaskSubmission = useAppStore((state) => state.rejectTaskSubmission);
   const postList = Object.values(posts);
+  const [moderationPosts, setModerationPosts] = useState<typeof postList>([]);
   const pendingProofSubmissions = submissions.filter((submission) => submission.status === "pending" && submission.requiresApproval);
 
+  useEffect(() => {
+    const loadModerationPosts = async () => {
+      try {
+        const result = await fetchFlaggedContentAPI();
+        const flagged = Array.isArray(result.flaggedPosts) ? result.flaggedPosts : [];
+        const normalized = flagged.map((item) => ({
+          id: String(item.id),
+          userId: String(item.userId ?? item.user?.id ?? ""),
+          userName: String(item.user?.name ?? "Unknown"),
+          userAvatar: String(item.user?.avatar ?? ""),
+          userRole: String(item.user?.role ?? "student").toLowerCase() as "student" | "trainer" | "admin",
+          source: String(item.source ?? "general") as "general" | "task-proof",
+          type: String(item.type ?? "image") as "image" | "video" | "reel",
+          mediaUrl: String(item.mediaUrl ?? ""),
+          caption: String(item.caption ?? ""),
+          likes: Number(item._count?.likes ?? 0),
+          comments: Number(item._count?.comments ?? 0),
+          location: String(item.location ?? ""),
+          timestamp: String(item.createdAt ?? new Date().toISOString()),
+          liked: false,
+          status: String(item.status ?? "visible") as "visible" | "hidden" | "under-review",
+        }));
+
+        const merged = [...postList];
+        const existing = new Set(merged.map((p) => p.id));
+        normalized.forEach((post) => {
+          if (!existing.has(post.id)) merged.push(post);
+        });
+        setModerationPosts(merged);
+      } catch (error) {
+        console.error("Failed to load moderation posts:", error);
+        setModerationPosts(postList);
+      }
+    };
+
+    void loadModerationPosts();
+  }, [postList]);
+
   const filteredPosts = useMemo(() => {
-    return postList.filter((post) => {
+    return moderationPosts.filter((post) => {
       const statusMatch = statusFilter === "all" ? true : post.status === statusFilter;
       const queryMatch =
         query.trim() === ""
@@ -27,7 +67,7 @@ const ContentModeration = () => {
           : post.caption.toLowerCase().includes(query.toLowerCase()) || post.userName.toLowerCase().includes(query.toLowerCase());
       return statusMatch && queryMatch;
     });
-  }, [postList, query, statusFilter]);
+  }, [moderationPosts, query, statusFilter]);
 
   const toggleSelected = (postId: string) => {
     setSelectedIds((prev) => {

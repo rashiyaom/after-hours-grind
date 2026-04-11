@@ -1,4 +1,4 @@
-import { useState, type ChangeEvent } from "react";
+import { useMemo, useState, type ChangeEvent } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Check, Flame, Dumbbell, Utensils, Footprints, Droplets,
@@ -40,12 +40,60 @@ const macroBarVariants = {
 };
 
 export default function DailyPlanPage() {
-  const { student: s, getDayTask, submitTaskProof, canStartCurrentPlan, currentStudentPlan } = useStore();
+  const { student: s, getDayTask, submitTaskProof, canStartCurrentPlan, currentStudentPlan, backendTodayPlan } = useStore();
   const currentUser = useCurrentUser();
   const permissions = usePermissions();
   const canPostFeed = Boolean(currentUser && permissions[currentUser.role].post_feed);
-  const [selectedDay, setSelectedDay] = useState(s.currentDay);
-  const todayTask = getDayTask(selectedDay);
+  const backendPlanRecord = backendTodayPlan as Record<string, unknown> | null;
+  const backendCurrentDay =
+    backendPlanRecord && typeof backendPlanRecord.currentDay === "number" ? backendPlanRecord.currentDay : s.currentDay;
+  const [selectedDay, setSelectedDay] = useState(backendCurrentDay);
+  const fallbackTask = getDayTask(selectedDay);
+  const dayTasks = useMemo(() => {
+    if (!backendPlanRecord || !Array.isArray(backendPlanRecord.days)) return [] as Array<Record<string, unknown>>;
+    const dayRecord = backendPlanRecord.days.find((item) => {
+      if (!item || typeof item !== "object") return false;
+      const record = item as Record<string, unknown>;
+      return typeof record.day === "number" && record.day === selectedDay;
+    }) as Record<string, unknown> | undefined;
+    if (!dayRecord || !Array.isArray(dayRecord.tasks)) return [] as Array<Record<string, unknown>>;
+    return dayRecord.tasks.filter((task) => task && typeof task === "object") as Array<Record<string, unknown>>;
+  }, [backendPlanRecord, selectedDay]);
+
+  const todayTask = dayTasks.length
+    ? {
+        stepTarget: 9000,
+        hydrationGoal: "3L",
+        workout: dayTasks
+          .filter((task) => {
+            const type = String(task.type ?? "").toLowerCase();
+            return type === "workout" || type === "habit";
+          })
+          .map((task) => ({
+            id: String(task.id ?? ""),
+            name: String(task.title ?? "Task"),
+            sets: String(task.intensity ?? "moderate") === "high" ? 4 : 3,
+            reps: String(task.intensity ?? "moderate") === "high" ? 8 : 12,
+            rest: String(task.intensity ?? "moderate") === "high" ? "75s" : "45s",
+            completed: String(task.submissionStatus ?? "") === "APPROVED",
+            focus: String(task.description ?? "Execute with clean form and controlled tempo."),
+            equipmentMode: "basic" as const,
+            alternatives: ["Regression variant", "Tempo variant"],
+          })),
+        diet: dayTasks
+          .filter((task) => String(task.type ?? "").toLowerCase() === "nutrition")
+          .map((task, index) => ({
+            id: String(task.id ?? `nutrition-${index}`),
+            meal: String(task.title ?? "Nutrition Task"),
+            description: String(task.description ?? "Complete your nutrition target for the day."),
+            time: "Anytime",
+            calories: 0,
+            completed: String(task.submissionStatus ?? "") === "APPROVED",
+            foods: [],
+            macros: { protein: 0, carbs: 0, fats: 0 },
+          })),
+      }
+    : fallbackTask;
   const [selectedExercise, setSelectedExercise] = useState<typeof todayTask.workout[0] | null>(null);
   const [expandedMeal, setExpandedMeal] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<"workout" | "diet">("workout");
@@ -62,6 +110,11 @@ export default function DailyPlanPage() {
 
   const workouts = todayTask.workout;
   const meals = todayTask.diet;
+  const pendingTaskIds = new Set(
+    dayTasks
+      .filter((task) => String(task.submissionStatus ?? "") === "PENDING")
+      .map((task) => String(task.id ?? ""))
+  );
 
   const openProofModal = (taskId: string, taskType: "workout" | "diet", taskName: string) => {
     if (!isToday) {
@@ -147,12 +200,20 @@ export default function DailyPlanPage() {
   const toggleWorkout = (id: string) => {
     const task = workouts.find((w) => w.id === id);
     if (!task || task.completed) return;
+    if (pendingTaskIds.has(id)) {
+      toast.info("This task is already submitted and pending review.");
+      return;
+    }
     openProofModal(id, "workout", task.name);
   };
 
   const toggleMeal = (id: string) => {
     const task = meals.find((m) => m.id === id);
     if (!task || task.completed) return;
+    if (pendingTaskIds.has(id)) {
+      toast.info("This task is already submitted and pending review.");
+      return;
+    }
     openProofModal(id, "diet", task.meal);
   };
 
@@ -164,10 +225,12 @@ export default function DailyPlanPage() {
   const mealsDone = meals.filter((m) => m.completed).length;
   const totalCalories = meals.reduce((acc, m) => acc + Number(m.calories || 0), 0);
   const doneCalories = meals.filter((m) => m.completed).reduce((acc, m) => acc + Number(m.calories || 0), 0);
+  const totalDays =
+    backendPlanRecord && typeof backendPlanRecord.totalDays === "number" ? backendPlanRecord.totalDays : s.totalDays;
 
   const dayType = dayTypes[(selectedDay - 1) % 7];
-  const isToday = selectedDay === s.currentDay;
-  const isPast = selectedDay < s.currentDay;
+  const isToday = selectedDay === backendCurrentDay;
+  const isPast = selectedDay < backendCurrentDay;
 
   if (!canStartCurrentPlan) {
     return (
@@ -390,7 +453,7 @@ export default function DailyPlanPage() {
               <p className="text-xs font-semibold text-white/40 uppercase tracking-wider mb-1">Current Plan</p>
               <h1 className="text-4xl font-bold text-white tracking-tight leading-none">
                 Day {selectedDay}
-                <span className="text-white/30 text-2xl font-medium ml-2">/ {s.totalDays}</span>
+                <span className="text-white/30 text-2xl font-medium ml-2">/ {totalDays}</span>
               </h1>
               <p className="text-sm text-white/50 mt-1.5">{dayType}</p>
             </div>
@@ -406,8 +469,8 @@ export default function DailyPlanPage() {
               <ChevronLeft className="h-4 w-4" />
             </button>
             <button
-              onClick={() => setSelectedDay((d) => Math.min(s.totalDays, d + 1))}
-              disabled={selectedDay >= s.totalDays}
+              onClick={() => setSelectedDay((d) => Math.min(totalDays, d + 1))}
+              disabled={selectedDay >= totalDays}
               className="p-2.5 rounded-full bg-[#1D1D1D] border border-white/10 text-white/60 hover:text-white hover:bg-[#282828] disabled:opacity-25 transition-all"
             >
               <ChevronRight className="h-4 w-4" />
@@ -471,8 +534,8 @@ export default function DailyPlanPage() {
             </button>
             <span className="text-xs text-white/40 font-medium px-1">Week {Math.ceil(selectedDay / 7)}</span>
             <button
-              onClick={() => setSelectedDay((d) => Math.min(s.totalDays, d + 7))}
-              disabled={selectedDay > s.totalDays - 7}
+              onClick={() => setSelectedDay((d) => Math.min(totalDays, d + 7))}
+              disabled={selectedDay > totalDays - 7}
               className="p-1.5 rounded-lg bg-[#1D1D1D] hover:bg-[#282828] text-white/60 hover:text-white disabled:opacity-25 transition-all"
             >
               <ChevronRight className="h-4 w-4" />
@@ -481,11 +544,11 @@ export default function DailyPlanPage() {
         </div>
 
         <div className="grid grid-cols-7 sm:grid-cols-14 gap-2">
-          {Array.from({ length: s.totalDays }, (_, i) => {
+          {Array.from({ length: totalDays }, (_, i) => {
             const day = i + 1;
             const isSelected = day === selectedDay;
-            const isDone = day < s.currentDay;
-            const isTodayDay = day === s.currentDay;
+            const isDone = day < backendCurrentDay;
+            const isTodayDay = day === backendCurrentDay;
             return (
               <motion.button
                 key={day}

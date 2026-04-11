@@ -31,3 +31,24 @@ export async function getSummaryHandler(req: Request, res: Response) {
   const summary = await svc.getProgressSummary(req.user!.userId);
   res.json(summary);
 }
+
+export async function getOverallHandler(req: Request, res: Response) {
+  const stats = await svc.getOverallProgress(req.user!.userId);
+  res.json(stats);
+}
+
+export async function getWeeklyHandler(req: Request, res: Response) {
+  const weekly = await svc.getWeeklyBreakdown(req.user!.userId);
+  res.json(weekly);
+}
+
+export async function getMonthlyHandler(req: Request, res: Response) {
+  const params = z.object({ planId: z.string().min(1) }).parse(req.params);
+  const monthly = await svc.getMonthlyAdherence(req.user!.userId, params.planId);
+  res.json(monthly);
+}
+
+export async function getHeatmapHandler(req: Request, res: Response) {
+  const heatmap = await svc.getActivityHeatmap(req.user!.userId);
+  res.json(heatmap);
+}

@@ -18,6 +18,17 @@ export async function changeUserRoleHandler(req: Request, res: Response) {
     res.json(user);
 }
 
+export async function verifyTrainerHandler(req: Request, res: Response) {
+    const verified = await svc.verifyTrainer(req.params.userId);
+    res.json(verified);
+}
+
+export async function assignStudentTrainerHandler(req: Request, res: Response) {
+    const { trainerId } = z.object({ trainerId: z.string().nullable() }).parse(req.body);
+    const result = await svc.assignTrainerToStudent(req.params.userId, trainerId);
+    res.json(result);
+}
+
 export async function updatePostModerationHandler(req: Request, res: Response) {
     const { status } = z
       .object({ status: z.enum(["visible", "hidden", "under-review"]) })
@@ -44,4 +55,32 @@ export async function getActivityLogsHandler(req: Request, res: Response) {
 export async function getAdminStatsHandler(req: Request, res: Response) {
     const stats = await svc.getAdminStats();
     res.json(stats);
+}
+
+export async function getPermissionsHandler(_req: Request, res: Response) {
+    const matrix = await svc.getPermissionMatrix();
+    res.json(matrix);
+}
+
+export async function setPermissionHandler(req: Request, res: Response) {
+    const payload = z.object({
+        role: z.enum(["STUDENT", "TRAINER", "ADMIN"]),
+        permission: z.enum([
+            "view_dashboard",
+            "manage_users",
+            "moderate_content",
+            "build_plans",
+            "post_feed",
+            "view_analytics",
+        ]),
+        allowed: z.boolean(),
+    }).parse(req.body);
+
+    const matrix = await svc.setRolePermission(payload.role, payload.permission, payload.allowed);
+    res.json(matrix);
+}
+
+export async function resetPermissionsHandler(_req: Request, res: Response) {
+    const matrix = await svc.resetRolePermissions();
+    res.json(matrix);
 }

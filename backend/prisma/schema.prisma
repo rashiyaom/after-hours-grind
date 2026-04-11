@@ -26,6 +26,16 @@ enum PlanStatus {
   REJECTED
 }
 
+model RolePermission {
+  id         String @id @default(cuid())
+  role       Role
+  permission String
+  allowed    Boolean @default(false)
+
+  @@unique([role, permission])
+  @@index([role])
+}
+
 // ─── USERS ───────────────────────────────────────────────
 
 model User {

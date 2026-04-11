@@ -29,21 +29,23 @@ const UserManagement = () => {
     });
   }, [userList, query, roleFilter]);
 
-  const handleToggleBan = (userId: string, userName: string, isCurrentlyBanned: boolean) => {
+  const handleToggleBan = async (userId: string, userName: string, isCurrentlyBanned: boolean) => {
     const nextActionLabel = isCurrentlyBanned ? "unban" : "ban";
     const confirmed = window.confirm(`Are you sure you want to ${nextActionLabel} ${userName}?`);
     if (!confirmed) return;
 
-    banUser(userId);
+    await banUser(userId);
     toast.success(`${userName} ${isCurrentlyBanned ? "unbanned" : "banned"}.`, {
       action: {
         label: "Undo",
-        onClick: () => banUser(userId),
+        onClick: () => {
+          void banUser(userId);
+        },
       },
     });
   };
 
-  const handleVerifyTrainer = (userId: string, userName: string, isVerified: boolean) => {
+  const handleVerifyTrainer = async (userId: string, userName: string, isVerified: boolean) => {
     if (isVerified) {
       toast.info(`${userName} is already verified.`);
       return;
@@ -52,7 +54,7 @@ const UserManagement = () => {
     const confirmed = window.confirm(`Verify trainer ${userName}?`);
     if (!confirmed) return;
 
-    verifyTrainer(userId);
+    await verifyTrainer(userId);
     toast.success(`${userName} verified successfully.`);
   };
 
@@ -104,9 +106,9 @@ const UserManagement = () => {
                         <select
                           className="text-sm bg-background border border-input rounded-md px-2 py-1 min-w-[150px]"
                           value={(user as Student).trainerId || ""}
-                          onChange={(e) => {
+                          onChange={async (e) => {
                             const val = e.target.value;
-                            assignTrainer(user.id, val === "" ? null : val);
+                            await assignTrainer(user.id, val === "" ? null : val);
                             toast.success(`Trainer assigned to ${user.name}`);
                           }}
                         >

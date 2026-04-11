@@ -8,8 +8,7 @@ import {
 import { useStore } from "@/hooks/useStore";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
-
-const SETTINGS_STORAGE_KEY = "ah_settings_v1";
+import { fetchSettingsAPI, updateSettingsAPI } from "@/lib/api";
 
 type PersistedSettings = {
   notifications: {
@@ -24,15 +23,6 @@ type PersistedSettings = {
   };
 };
 
-function getPersistedSettings(): PersistedSettings | null {
-  try {
-    const raw = localStorage.getItem(SETTINGS_STORAGE_KEY);
-    if (!raw) return null;
-    return JSON.parse(raw) as PersistedSettings;
-  } catch {
-    return null;
-  }
-}
 
 function Toggle({ enabled, onToggle, accent = "bg-neon-orange" }: { enabled: boolean; onToggle: () => void; accent?: string }) {
   return (
@@ -51,7 +41,6 @@ export default function SettingsPage() {
   const navigate = useNavigate();
   const { student: s, updateProfile } = useStore();
   const [view, setView] = useState<"menu" | "edit-profile">("menu");
-  const persisted = getPersistedSettings();
 
   const [formData, setFormData] = useState({
     name: s.name,
@@ -61,27 +50,53 @@ export default function SettingsPage() {
   });
 
   const [notifications, setNotifications] = useState({
-    push: persisted?.notifications.push ?? true,
-    email: persisted?.notifications.email ?? false,
-    streakReminders: persisted?.notifications.streakReminders ?? true,
-    planUpdates: persisted?.notifications.planUpdates ?? true,
+    push: true,
+    email: false,
+    streakReminders: true,
+    planUpdates: true,
   });
 
   const [privacy, setPrivacy] = useState({
-    publicProfile: persisted?.privacy.publicProfile ?? true,
-    showStreak: persisted?.privacy.showStreak ?? true,
+    publicProfile: true,
+    showStreak: true,
   });
 
   useEffect(() => {
-    try {
-      localStorage.setItem(
-        SETTINGS_STORAGE_KEY,
-        JSON.stringify({ notifications, privacy }),
-      );
-    } catch {
-      // No-op: keep in-memory values if persistence is unavailable.
-    }
-  }, [notifications, privacy]);
+    const loadSettings = async () => {
+      try {
+        const settings = await fetchSettingsAPI();
+        setNotifications((prev) => ({
+          ...prev,
+          push: Boolean(settings.pushNotifications ?? prev.push),
+          email: Boolean(settings.emailNotifications ?? prev.email),
+          streakReminders: Boolean(settings.showStreak ?? prev.streakReminders),
+          planUpdates: true,
+        }));
+        setPrivacy((prev) => ({
+          ...prev,
+          publicProfile: String(settings.profileVisibility ?? "public") !== "private",
+          showStreak: Boolean(settings.showStreak ?? prev.showStreak),
+        }));
+      } catch (error) {
+        console.error("Failed to load settings", error);
+      }
+    };
+
+    void loadSettings();
+  }, []);
+
+  const persistSettings = async (
+    nextNotifications: typeof notifications,
+    nextPrivacy: typeof privacy,
+  ) => {
+    await updateSettingsAPI({
+      pushNotifications: nextNotifications.push,
+      emailNotifications: nextNotifications.email,
+      showStreak: nextPrivacy.showStreak,
+      showLeaderboard: true,
+      profileVisibility: nextPrivacy.publicProfile ? "public" : "private",
+    });
+  };
 
   const handleSaveProfile = async () => {
     try {
@@ -100,9 +115,21 @@ export default function SettingsPage() {
 
   const toggle = (group: "notifications" | "privacy", key: string) => {
     if (group === "notifications") {
-      setNotifications((prev) => ({ ...prev, [key]: !prev[key as keyof typeof prev] }));
+      setNotifications((prev) => {
+        const next = { ...prev, [key]: !prev[key as keyof typeof prev] };
+        void persistSettings(next, privacy).catch(() => {
+          toast.error("SETTINGS_SYNC_FAILURE");
+        });
+        return next;
+      });
     } else {
-      setPrivacy((prev) => ({ ...prev, [key]: !prev[key as keyof typeof prev] }));
+      setPrivacy((prev) => {
+        const next = { ...prev, [key]: !prev[key as keyof typeof prev] };
+        void persistSettings(notifications, next).catch(() => {
+          toast.error("SETTINGS_SYNC_FAILURE");
+        });
+        return next;
+      });
     }
     toast.success("SYSTEM_FLAG_UPDATED");
   };

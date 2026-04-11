@@ -2,15 +2,45 @@ import { PrismaClient, Role } from "@prisma/client";
 import bcrypt from "bcryptjs";
 
 const prisma = new PrismaClient();
+const nodeProcess = (globalThis as { process?: { env: Record<string, string | undefined>; exit: (code: number) => never } }).process;
+
+function parseSeedAdminPassword(): string {
+  const password = nodeProcess?.env.SEED_ADMIN_PASSWORD;
+  if (!password) {
+    throw new Error("SEED_ADMIN_PASSWORD is required for secure admin seeding.");
+  }
+
+  const strongEnough =
+    password.length >= 12 &&
+    /[A-Z]/.test(password) &&
+    /[a-z]/.test(password) &&
+    /\d/.test(password) &&
+    /[^A-Za-z0-9]/.test(password);
+
+  if (!strongEnough) {
+    throw new Error(
+      "SEED_ADMIN_PASSWORD is too weak. Use at least 12 chars with upper/lowercase, number, and symbol."
+    );
+  }
+
+  return password;
+}
+
+function parseSeedAdminEmail(): string {
+  return (nodeProcess?.env.SEED_ADMIN_EMAIL ?? "admin@ahg.com").trim().toLowerCase();
+}
 
 async function main() {
-  const hash = await bcrypt.hash("password123", 12);
+  const adminEmail = parseSeedAdminEmail();
+  const adminPassword = parseSeedAdminPassword();
+  const adminHash = await bcrypt.hash(adminPassword, 12);
+  const defaultHash = await bcrypt.hash("password123", 12);
 
   // Admin
   const admin = await prisma.user.upsert({
-    where: { email: "admin@ahg.com" },
-    update: {},
-    create: { email: "admin@ahg.com", name: "Admin User", passwordHash: hash, role: Role.ADMIN },
+    where: { email: adminEmail },
+    update: { name: "Admin User", passwordHash: adminHash, role: Role.ADMIN },
+    create: { email: adminEmail, name: "Admin User", passwordHash: adminHash, role: Role.ADMIN },
   });
 
   // Trainer
@@ -18,7 +48,7 @@ async function main() {
     where: { email: "trainer@ahg.com" },
     update: {},
     create: {
-      email: "trainer@ahg.com", name: "Coach Arjun", passwordHash: hash, role: Role.TRAINER,
+      email: "trainer@ahg.com", name: "Coach Arjun", passwordHash: defaultHash, role: Role.TRAINER,
       avatar: "",
       trainerProfile: { create: { specialization: "Strength & Conditioning", experience: 5, certifications: ["NSCA-CSCS", "ACE-CPT"], isVerified: true } },
     },
@@ -29,7 +59,7 @@ async function main() {
     where: { email: "student1@ahg.com" },
     update: {},
     create: {
-      email: "student1@ahg.com", name: "Rahul Sharma", passwordHash: hash, role: Role.STUDENT,
+      email: "student1@ahg.com", name: "Rahul Sharma", passwordHash: defaultHash, role: Role.STUDENT,
       studentProfile: { create: { collegeId: "COL-001", heightCm: 175, weightKg: 72, fitnessGoal: "muscle_gain", streak: 12, totalPoints: 340, trainerId: trainer.id, onboardingCompleted: true } },
     },
   });
@@ -38,7 +68,7 @@ async function main() {
     where: { email: "student2@ahg.com" },
     update: {},
     create: {
-      email: "student2@ahg.com", name: "Priya Patel", passwordHash: hash, role: Role.STUDENT,
+      email: "student2@ahg.com", name: "Priya Patel", passwordHash: defaultHash, role: Role.STUDENT,
       studentProfile: { create: { collegeId: "COL-002", heightCm: 162, weightKg: 58, fitnessGoal: "fat_loss", streak: 7, totalPoints: 180, trainerId: trainer.id, onboardingCompleted: true } },
     },
   });
@@ -108,6 +138,39 @@ async function main() {
   console.log("✅ Seed complete: admin, trainer, 2 students, plan, posts, chat");
 }
 
-main()
-  .catch((e) => { console.error(e); process.exit(1); })
+function isTransientDbError(error: unknown): boolean {
+  if (!error || typeof error !== "object") return false;
+  const record = error as { message?: string; code?: string };
+  const message = String(record.message ?? "").toLowerCase();
+  return (
+    record.code === "P1001" ||
+    message.includes("can't reach database server") ||
+    message.includes("connection")
+  );
+}
+
+async function runSeedWithRetry(maxAttempts = 4) {
+  let lastError: unknown;
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    try {
+      await main();
+      return;
+    } catch (error) {
+      lastError = error;
+      if (attempt === maxAttempts || !isTransientDbError(error)) {
+        throw error;
+      }
+      console.warn(`Database temporarily unavailable. Retry ${attempt}/${maxAttempts - 1}...`);
+      await new Promise((resolve) => setTimeout(resolve, 1500 * attempt));
+    }
+  }
+  throw lastError;
+}
+
+runSeedWithRetry()
+  .catch((e) => {
+    console.error(e);
+    if (nodeProcess) nodeProcess.exit(1);
+    throw e;
+  })
   .finally(() => prisma.$disconnect());

@@ -9,31 +9,35 @@ import { Link } from "react-router-dom";
 import { useStore } from "@/hooks/useStore";
 import { LUXURY_TWEEN_MEDIUM, LUXURY_TWEEN_SLOW } from "@/lib/motionTokens";
 
-const monthlyData = [
-  { label: "Week 1", value: 92, color: "#C9F85A" },
-  { label: "Week 2", value: 88, color: "#4DD2FF" },
-  { label: "Week 3", value: 95, color: "#FFD36E" },
-  { label: "Week 4", value: 78, color: "#A78BFA" },
-];
-
-const stepData = [
-  { day: "Mon", steps: 9240 },
-  { day: "Tue", steps: 11350 },
-  { day: "Wed", steps: 8720 },
-  { day: "Thu", steps: 10100 },
-  { day: "Fri", steps: 9800 },
-  { day: "Sat", steps: 7650 },
-];
-const maxSteps = Math.max(...stepData.map((d) => d.steps));
+const monthlyColors = ["#C9F85A", "#4DD2FF", "#FFD36E", "#A78BFA"];
 
 export default function ProgressPage() {
-  const { student: s, weeklyData } = useStore();
+  const { student: s, weeklyData, progressOverview, progressWeekly, progressMonthly, progressHeatmap } = useStore();
+
+  const monthlyData = progressMonthly.map((item, index) => ({
+    label: item.week,
+    value: item.completion,
+    color: monthlyColors[index % monthlyColors.length],
+  }));
+
+  const fallbackMonthly = [
+    { label: "Week 1", value: 0, color: "#C9F85A" },
+    { label: "Week 2", value: 0, color: "#4DD2FF" },
+    { label: "Week 3", value: 0, color: "#FFD36E" },
+    { label: "Week 4", value: 0, color: "#A78BFA" },
+  ];
+
+  const monthlyBars = monthlyData.length > 0 ? monthlyData : fallbackMonthly;
+  const stepData = progressWeekly.length > 0
+    ? progressWeekly.map((item) => ({ day: item.day, steps: item.steps }))
+    : weeklyData.map((item) => ({ day: item.name, steps: 0 }));
+  const maxSteps = Math.max(1, ...stepData.map((d) => d.steps));
 
   const kpis = [
-    { label: "Current Streak", value: `${s.streak}`, unit: "days", icon: Flame, color: "#FF4D00", bg: "bg-[#FF4D00]", dark: false },
+    { label: "Current Streak", value: `${progressOverview?.streak ?? s.streak}`, unit: "days", icon: Flame, color: "#FF4D00", bg: "bg-[#FF4D00]", dark: false },
     { label: "Plans Done", value: String(s.totalPlansCompleted), unit: "plans", icon: ShieldCheck, color: "#C9F85A", bg: "bg-[#1A1A1A]", dark: false },
-    { label: "Check-Ins", value: "30", unit: "sessions", icon: Upload, color: "#4DD2FF", bg: "bg-[#1A1A1A]", dark: false },
-    { label: "Total Steps", value: "58.2k", unit: "steps", icon: Footprints, color: "#A78BFA", bg: "bg-[#1A1A1A]", dark: false },
+    { label: "Check-Ins", value: String(progressOverview?.checkInsLast30Days ?? 0), unit: "sessions", icon: Upload, color: "#4DD2FF", bg: "bg-[#1A1A1A]", dark: false },
+    { label: "Total Steps", value: `${Math.round((progressOverview?.totalStepsLast30Days ?? 0) / 100) / 10}k`, unit: "steps", icon: Footprints, color: "#A78BFA", bg: "bg-[#1A1A1A]", dark: false },
   ];
 
   return (
@@ -117,7 +121,7 @@ export default function ProgressPage() {
             </div>
 
             <div className="space-y-5">
-              {monthlyData.map((w, i) => (
+              {monthlyBars.map((w, i) => (
                 <div key={w.label}>
                   <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center gap-2">
@@ -153,19 +157,18 @@ export default function ProgressPage() {
             </div>
 
             <div className="grid grid-cols-7 sm:grid-cols-14 gap-1.5">
-              {Array.from({ length: 28 }, (_, i) => {
-                const active = i < s.currentDay;
-                const streakDay = i >= s.currentDay - s.streak && i < s.currentDay;
+              {(progressHeatmap.length > 0 ? progressHeatmap : Array.from({ length: 28 }, (_, i) => ({ date: String(i + 1), value: 0, level: 0 }))).map((item, i) => {
+                const level = item.level ?? 0;
                 return (
                   <motion.div
-                    key={i}
+                    key={`${item.date}-${i}`}
                     initial={{ scale: 0, opacity: 0 }}
                     animate={{ scale: 1, opacity: 1 }}
                     transition={{ ...LUXURY_TWEEN_MEDIUM, delay: i * 0.015 }}
                     className={`aspect-square rounded-lg flex items-center justify-center text-[10px] font-bold border transition-all ${
-                      streakDay
+                      level >= 3
                         ? "bg-[#C9F85A] border-[#C9F85A] text-black shadow-[0_2px_8px_rgba(201,248,90,0.3)]"
-                        : active
+                        : level > 0
                         ? "bg-[#1A1A1A] border-white/10 text-white/40"
                         : "bg-transparent border-white/5 text-white/15"
                     }`}
@@ -194,10 +197,10 @@ export default function ProgressPage() {
             className="rounded-[32px] border border-white/10 bg-[#121212] p-8 flex flex-col items-center shadow-[0_20px_60px_rgba(0,0,0,0.4)]"
           >
             <p className="text-[10px] font-semibold text-white/30 uppercase tracking-wider mb-6">Overall</p>
-            <ProgressRing percentage={s.completionPercentage} size={180} label="Mastery" />
+            <ProgressRing percentage={progressOverview?.completionPercentage ?? s.completionPercentage} size={180} label="Mastery" />
             <div className="mt-6 flex items-center gap-2 bg-[#C9F85A]/10 px-4 py-2.5 rounded-full border border-[#C9F85A]/20">
               <Zap className="h-4 w-4 text-[#C9F85A] fill-[#C9F85A]/30" />
-              <span className="text-xs font-bold text-[#C9F85A]">Level {Math.floor(s.completionPercentage / 20) + 1} Unlocked</span>
+              <span className="text-xs font-bold text-[#C9F85A]">Level {Math.floor((progressOverview?.completionPercentage ?? s.completionPercentage) / 20) + 1} Unlocked</span>
             </div>
           </motion.div>
 

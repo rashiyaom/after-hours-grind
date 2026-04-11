@@ -39,7 +39,7 @@ export default function SignupPage() {
     if (!form.email.trim()) errs.email = "Email is required";
     else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) errs.email = "Invalid email";
     if (!form.password) errs.password = "Password is required";
-    else if (form.password.length < 6) errs.password = "Min 6 characters";
+    else if (form.password.length < 8) errs.password = "Min 8 characters";
     
     if (role === "student") {
       if (!form.collegeId.trim()) errs.collegeId = "College ID is required";
@@ -153,7 +153,7 @@ export default function SignupPage() {
                   </div>
                   <div>
                     <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Password</label>
-                    <input type="password" value={form.password} onChange={e => updateField("password", e.target.value)} placeholder="Min 6 characters" className={fieldClass("password")} />
+                    <input type="password" value={form.password} onChange={e => updateField("password", e.target.value)} placeholder="Min 8 characters" className={fieldClass("password")} />
                     {errors.password && <p className="text-xs text-red-400 mt-1">{errors.password}</p>}
                   </div>
                   

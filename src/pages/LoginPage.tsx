@@ -1,17 +1,16 @@
 import { Link, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Flame, Eye, EyeOff, Loader2, ShieldCheck } from "lucide-react";
+import { Flame, Eye, EyeOff, Loader2 } from "lucide-react";
 import { useState } from "react";
 import { useAppStore } from "@/hooks/useStore";
 import { toast } from "sonner";
-import { Student, UserRole } from "@/types";
+import { Student } from "@/types";
 import { LUXURY_TWEEN_SLOW } from "@/lib/motionTokens";
 
 export default function LoginPage() {
   const navigate = useNavigate();
   const login = useAppStore((state) => state.login);
   const [showPassword, setShowPassword] = useState(false);
-  const [role, setRole] = useState<UserRole>("student");
   const [loading, setLoading] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -24,11 +23,11 @@ export default function LoginPage() {
     }
     setLoading(true);
 
-    const success = await login(email, password, role);
+    const success = await login(email, password);
     setLoading(false);
 
     if (!success) {
-      toast.error("Login failed. Please check your credentials and role.");
+      toast.error("Login failed. Please check your credentials.");
       return;
     }
 
@@ -36,7 +35,7 @@ export default function LoginPage() {
 
     const currentSession = useAppStore.getState();
     const currentUser = currentSession.session.currentUser;
-    switch (role) {
+    switch (currentUser?.role) {
       case "student": {
         const student = currentUser?.role === "student" ? (currentUser as Student) : null;
 
@@ -71,27 +70,12 @@ export default function LoginPage() {
           </div>
           <h1 className="text-4xl font-display font-semibold text-foreground tracking-tight">Sign In</h1>
           <p className="text-xs text-muted-foreground mt-4">Welcome back to TheAfterHour Socials</p>
+          <p className="text-[11px] text-muted-foreground/80 mt-2">Role is detected automatically from your account (student, trainer, or admin).</p>
         </div>
 
         <form onSubmit={handleSubmit} className="glass-card p-8 space-y-6 relative border border-white/5">
 
           {/* Role toggle */}
-          <div className="flex gap-2 p-1.5 bg-background rounded-xl">
-            {(["student", "trainer", "admin"] as UserRole[]).map((r) => (
-              <button
-                key={r}
-                type="button"
-                onClick={() => setRole(r)}
-                className={`flex-1 py-2 text-xs font-semibold uppercase tracking-wider rounded-lg transition-all flex items-center justify-center gap-2 ${
-                  role === r ? "bg-card text-primary shadow-md border border-white/5" : "text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                {r === "admin" && <ShieldCheck className="h-4 w-4" />}
-                {r}
-              </button>
-            ))}
-          </div>
-
           <div className="space-y-4">
             <div>
               <label className="text-xs font-medium text-muted-foreground mb-1.5 block">

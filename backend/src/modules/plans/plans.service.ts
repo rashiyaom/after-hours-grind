@@ -9,7 +9,59 @@ export async function getTodayPlan(userId: string) {
     where: { id: profile.currentPlanId },
     include: { days: { include: { tasks: true }, orderBy: { day: "asc" } } },
   });
-  return plan;
+  if (!plan) return null;
+
+  const totalDays = Math.max(plan.days.length, 1);
+  const msPerDay = 24 * 60 * 60 * 1000;
+  const elapsedDays = Math.floor((Date.now() - plan.createdAt.getTime()) / msPerDay);
+  const currentDay = Math.max(1, Math.min(totalDays, elapsedDays + 1));
+
+  const allTaskIds = plan.days.flatMap((day) => day.tasks.map((task) => task.id));
+  const taskSubmissions =
+    allTaskIds.length === 0
+      ? []
+      : await prisma.submission.findMany({
+          where: { studentId: userId, planTaskId: { in: allTaskIds } },
+          orderBy: { createdAt: "desc" },
+          select: {
+            id: true,
+            planTaskId: true,
+            status: true,
+            mediaUrl: true,
+            trainerNote: true,
+            reviewedAt: true,
+            createdAt: true,
+          },
+        });
+
+  const latestByTask = new Map<string, (typeof taskSubmissions)[number]>();
+  for (const sub of taskSubmissions) {
+    if (!sub.planTaskId || latestByTask.has(sub.planTaskId)) continue;
+    latestByTask.set(sub.planTaskId, sub);
+  }
+
+  const today = plan.days.find((day) => day.day === currentDay) ?? null;
+
+  const decorateTask = (task: (typeof plan.days)[number]["tasks"][number]) => {
+    const latestSubmission = latestByTask.get(task.id) ?? null;
+    return {
+      ...task,
+      submissionStatus: latestSubmission?.status ?? "NOT_SUBMITTED",
+      latestSubmission,
+    };
+  };
+
+  return {
+    ...plan,
+    currentDay,
+    totalDays,
+    today,
+    todaysTasks: today ? today.tasks.map(decorateTask) : [],
+    days: plan.days.map((day) => ({
+      ...day,
+      tasks: day.tasks.map(decorateTask),
+    })),
+  };
 }
 
 export async function createSubmission(studentId: string, input: { planTaskId?: string; mediaUrl: string }) {

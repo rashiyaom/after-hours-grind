@@ -1,9 +1,10 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { Shield, Users, FileWarning, EyeOff, Download, LineChart, CheckCircle2, AlertCircle, Clock, ChevronDown, X } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import Button from "@/components/ui/button";
 import { useCurrentUser, usePermissions, usePosts, useSystem, useUsers, useAppStore } from "@/hooks/useStore";
+import { fetchAdminActivityLogsAPI, fetchAdminStatsAPI, fetchFlaggedContentAPI } from "@/lib/api";
 
 const AdminDashboard = () => {
   const [rangeDays, setRangeDays] = useState<7 | 14 | 30>(7);
@@ -16,6 +17,10 @@ const AdminDashboard = () => {
   const users = Object.values(useUsers());
   const posts = Object.values(usePosts());
   const { activityLogs } = useSystem();
+  const [adminStats, setAdminStats] = useState<{ userCount: number; studentCount: number; trainerCount: number } | null>(null);
+  const [moderationStats, setModerationStats] = useState<{ flaggedPosts: number; hiddenPosts: number }>({ flaggedPosts: 0, hiddenPosts: 0 });
+  const [activityItems, setActivityItems] = useState<Array<{ id: string; action: string; userId: string; timestamp: string }>>([]);
+  const [adminLoading, setAdminLoading] = useState(false);
   const legacySubmissions = useAppStore((s) => s.system.legacySubmissions);
   const approveTaskSubmission = useAppStore((s) => s.approveTaskSubmission);
   const rejectTaskSubmission = useAppStore((s) => s.rejectTaskSubmission);
@@ -24,12 +29,89 @@ const AdminDashboard = () => {
   const canManageUsers = Boolean(rolePermissions?.manage_users);
   const canModerateContent = Boolean(rolePermissions?.moderate_content);
 
-  const totalUsers = users.length;
-  const studentCount = users.filter((u) => u.role === "student").length;
-  const trainerCount = users.filter((u) => u.role === "trainer").length;
-  const flaggedPosts = posts.filter((p) => p.status === "under-review").length;
-  const hiddenPosts = posts.filter((p) => p.status === "hidden").length;
-  const recentLogs = [...activityLogs].sort((a, b) => b.timestamp.localeCompare(a.timestamp)).slice(0, 6);
+  const totalUsers = adminStats?.userCount ?? users.length;
+  const studentCount = adminStats?.studentCount ?? users.filter((u) => u.role === "student").length;
+  const trainerCount = adminStats?.trainerCount ?? users.filter((u) => u.role === "trainer").length;
+  const flaggedPosts = moderationStats.flaggedPosts;
+  const hiddenPosts = moderationStats.hiddenPosts;
+  const recentLogs = activityItems.length > 0
+    ? activityItems.slice(0, 6)
+    : [...activityLogs].sort((a, b) => b.timestamp.localeCompare(a.timestamp)).slice(0, 6).map((log) => ({
+        id: log.id,
+        action: log.action,
+        userId: log.userId,
+        timestamp: log.timestamp,
+      }));
+
+  const loadAdminDashboard = async () => {
+    try {
+      setAdminLoading(true);
+      const [statsRes, moderationRes, activityRes] = await Promise.allSettled([
+        fetchAdminStatsAPI(),
+        fetchFlaggedContentAPI(),
+        fetchAdminActivityLogsAPI(),
+      ]);
+
+      if (statsRes.status === "fulfilled") {
+        setAdminStats({
+          userCount: Number(statsRes.value.userCount ?? 0),
+          studentCount: Number(statsRes.value.studentCount ?? 0),
+          trainerCount: Number(statsRes.value.trainerCount ?? 0),
+        });
+      }
+
+      if (moderationRes.status === "fulfilled") {
+        const flagged = Array.isArray(moderationRes.value.flaggedPosts) ? moderationRes.value.flaggedPosts : [];
+        setModerationStats({
+          flaggedPosts: flagged.filter((p) => p && p.status === "under-review").length,
+          hiddenPosts: flagged.filter((p) => p && p.status === "hidden").length,
+        });
+      }
+
+      if (activityRes.status === "fulfilled") {
+        const items: Array<{ id: string; action: string; userId: string; timestamp: string }> = [];
+        const usersLogs = Array.isArray(activityRes.value.users) ? activityRes.value.users : [];
+        const postLogs = Array.isArray(activityRes.value.posts) ? activityRes.value.posts : [];
+        const submissionLogs = Array.isArray(activityRes.value.submissions) ? activityRes.value.submissions : [];
+
+        for (const user of usersLogs) {
+          items.push({
+            id: `user-${String(user.id ?? Math.random())}`,
+            action: "user-created",
+            userId: String(user.id ?? "unknown"),
+            timestamp: String(user.createdAt ?? new Date().toISOString()),
+          });
+        }
+
+        for (const post of postLogs) {
+          items.push({
+            id: `post-${String(post.id ?? Math.random())}`,
+            action: "post-created",
+            userId: String(post.user?.id ?? "unknown"),
+            timestamp: String(post.createdAt ?? new Date().toISOString()),
+          });
+        }
+
+        for (const submission of submissionLogs) {
+          items.push({
+            id: `submission-${String(submission.id ?? Math.random())}`,
+            action: `submission-${String(submission.status ?? "pending").toLowerCase()}`,
+            userId: String(submission.student?.id ?? "unknown"),
+            timestamp: String(submission.createdAt ?? new Date().toISOString()),
+          });
+        }
+
+        items.sort((a, b) => b.timestamp.localeCompare(a.timestamp));
+        setActivityItems(items);
+      }
+    } finally {
+      setAdminLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    void loadAdminDashboard();
+  }, []);
 
   const analyticsData = useMemo(() => {
     const days = rangeDays;
@@ -282,8 +364,9 @@ const AdminDashboard = () => {
                         <div className="flex gap-2">
                           <Button
                             size="sm"
-                            onClick={() => {
-                              approveTaskSubmission(sub.id, reviewNote || undefined);
+                            onClick={async () => {
+                              await approveTaskSubmission(sub.id, reviewNote || undefined);
+                              await loadAdminDashboard();
                               setReviewingId(null);
                               setReviewNote("");
                             }}
@@ -293,9 +376,10 @@ const AdminDashboard = () => {
                           <Button
                             size="sm"
                             variant="outline"
-                            onClick={() => {
+                            onClick={async () => {
                               if (!reviewNote.trim()) return;
-                              rejectTaskSubmission(sub.id, reviewNote);
+                              await rejectTaskSubmission(sub.id, reviewNote);
+                              await loadAdminDashboard();
                               setReviewingId(null);
                               setReviewNote("");
                             }}
@@ -312,6 +396,7 @@ const AdminDashboard = () => {
           </CardContent>
         )}
       </Card>
+      {adminLoading && <p className="mt-4 text-xs text-muted-foreground">Refreshing admin data...</p>}
     </div>
   );
 };

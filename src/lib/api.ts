@@ -69,7 +69,7 @@ type ApiSubmission = {
   createdAt: string;
   trainerNote?: string | null;
   student?: { name?: string };
-  planTask?: { name?: string; type?: string; points?: number };
+  planTask?: { title?: string; name?: string; type?: string; points?: number };
 };
 
 type ApiChatMessagePayload = {
@@ -225,7 +225,19 @@ export function clearBackendAccessToken(): void {
 
 // === AUTH ENTITIES ===
 
-export async function signupBackend(data: { name: string; email: string; password: string; role: string }): Promise<BackendAuthResponse> {
+export async function signupBackend(data: {
+  name: string;
+  email: string;
+  password: string;
+  role: string;
+  collegeId?: string;
+  height?: number;
+  weight?: number;
+  fitnessGoal?: string;
+  specialization?: string;
+  experience?: number;
+  certifications?: string | string[];
+}): Promise<BackendAuthResponse> {
   const response = await apiRequest<BackendAuthResponse>("/auth/signup", {
     method: "POST",
     body: JSON.stringify(data),
@@ -348,6 +360,17 @@ export async function toggleUserBanAPI(userId: string): Promise<ApiRecord> {
   return authedRequest<ApiRecord>(`/admin/users/${userId}/ban`, { method: "PATCH" });
 }
 
+export async function verifyTrainerAPI(userId: string): Promise<ApiRecord> {
+  return authedRequest<ApiRecord>(`/admin/users/${userId}/verify-trainer`, { method: "PATCH" });
+}
+
+export async function assignStudentTrainerAdminAPI(studentId: string, trainerId: string | null): Promise<ApiRecord> {
+  return authedRequest<ApiRecord>(`/admin/users/${studentId}/trainer`, {
+    method: "PATCH",
+    body: JSON.stringify({ trainerId }),
+  });
+}
+
 export async function updatePostModerationAPI(postId: string, status: string): Promise<ApiRecord> {
   return authedRequest<ApiRecord>(`/admin/posts/${postId}/moderation`, {
     method: "PATCH",
@@ -420,11 +443,27 @@ export async function logProgressAPI(data: ApiRecord): Promise<ApiRecord> {
 }
 
 export async function fetchProgressHistoryAPI(days = 30): Promise<ApiRecord[]> {
-  return authedRequest<ApiRecord[]>(`/progress?days=${days}`, { method: "GET" });
+  return authedRequest<ApiRecord[]>(`/progress/history?days=${days}`, { method: "GET" });
 }
 
 export async function fetchProgressSummaryAPI(): Promise<ApiRecord> {
   return authedRequest<ApiRecord>("/progress/summary", { method: "GET" });
+}
+
+export async function fetchProgressOverviewAPI(): Promise<ApiRecord> {
+  return authedRequest<ApiRecord>("/progress", { method: "GET" });
+}
+
+export async function fetchProgressWeeklyAPI(): Promise<ApiRecord> {
+  return authedRequest<ApiRecord>("/progress/weekly", { method: "GET" });
+}
+
+export async function fetchProgressMonthlyAPI(planId: string): Promise<ApiRecord> {
+  return authedRequest<ApiRecord>(`/progress/monthly/${planId}`, { method: "GET" });
+}
+
+export async function fetchProgressHeatmapAPI(): Promise<ApiRecord> {
+  return authedRequest<ApiRecord>("/progress/heatmap", { method: "GET" });
 }
 
 // === SETTINGS ===
@@ -482,6 +521,25 @@ export async function fetchAdminStatsAPI(): Promise<ApiRecord> {
 
 export async function fetchFlaggedContentAPI(): Promise<ApiRecord> {
   return authedRequest<ApiRecord>("/admin/moderation", { method: "GET" });
+}
+
+export async function fetchAdminActivityLogsAPI(): Promise<ApiRecord> {
+  return authedRequest<ApiRecord>("/admin/activity-logs", { method: "GET" });
+}
+
+export async function fetchAdminPermissionsAPI(): Promise<ApiRecord> {
+  return authedRequest<ApiRecord>("/admin/permissions", { method: "GET" });
+}
+
+export async function setAdminPermissionAPI(role: "STUDENT" | "TRAINER" | "ADMIN", permission: string, allowed: boolean): Promise<ApiRecord> {
+  return authedRequest<ApiRecord>("/admin/permissions", {
+    method: "PATCH",
+    body: JSON.stringify({ role, permission, allowed }),
+  });
+}
+
+export async function resetAdminPermissionsAPI(): Promise<ApiRecord> {
+  return authedRequest<ApiRecord>("/admin/permissions/reset", { method: "POST" });
 }
 
 export async function changeUserRoleAPI(userId: string, role: string): Promise<ApiRecord> {

@@ -23,6 +23,15 @@ npm run dev
 Server runs at `http://localhost:4000`.
 Health check: `GET http://localhost:4000/api/health`
 
+## Secure Admin Seed Credentials
+
+The seed script does not use a hardcoded admin password.
+
+Set these in `.env` before running `npx prisma db seed`:
+
+- `SEED_ADMIN_EMAIL` (optional, defaults to `admin@ahg.com`)
+- `SEED_ADMIN_PASSWORD` (required, strong password: 12+ chars with upper/lowercase, number, symbol)
+
 ## Production Build
 
 ```powershell

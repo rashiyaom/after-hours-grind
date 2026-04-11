@@ -1,6 +1,130 @@
 import { prisma } from "../../config/prisma.js";
 import { HttpError } from "../../lib/httpError.js";
 
+const PERMISSION_KEYS = [
+    "view_dashboard",
+    "manage_users",
+    "moderate_content",
+    "build_plans",
+    "post_feed",
+    "view_analytics",
+] as const;
+
+type PermissionKey = (typeof PERMISSION_KEYS)[number];
+type PermissionRole = "STUDENT" | "TRAINER" | "ADMIN";
+
+const DEFAULT_PERMISSION_MATRIX: Record<PermissionRole, Record<PermissionKey, boolean>> = {
+    STUDENT: {
+        view_dashboard: true,
+        manage_users: false,
+        moderate_content: false,
+        build_plans: false,
+        post_feed: true,
+        view_analytics: false,
+    },
+    TRAINER: {
+        view_dashboard: true,
+        manage_users: false,
+        moderate_content: false,
+        build_plans: true,
+        post_feed: true,
+        view_analytics: true,
+    },
+    ADMIN: {
+        view_dashboard: true,
+        manage_users: true,
+        moderate_content: true,
+        build_plans: true,
+        post_feed: true,
+        view_analytics: true,
+    },
+};
+
+const normalizeMatrix = (rows: Array<{ role: PermissionRole; permission: string; allowed: boolean }>) => {
+    const base: Record<PermissionRole, Record<PermissionKey, boolean>> = {
+        STUDENT: { ...DEFAULT_PERMISSION_MATRIX.STUDENT },
+        TRAINER: { ...DEFAULT_PERMISSION_MATRIX.TRAINER },
+        ADMIN: { ...DEFAULT_PERMISSION_MATRIX.ADMIN },
+    };
+
+    for (const row of rows) {
+        if (!PERMISSION_KEYS.includes(row.permission as PermissionKey)) continue;
+        const permission = row.permission as PermissionKey;
+        base[row.role][permission] = row.allowed;
+    }
+
+    // Admin stays full-access regardless of persisted values.
+    base.ADMIN = { ...DEFAULT_PERMISSION_MATRIX.ADMIN };
+    return base;
+};
+
+async function ensurePermissionDefaults() {
+    const rows = await prisma.rolePermission.findMany({
+        where: { role: { in: ["STUDENT", "TRAINER"] } },
+    });
+
+    const existing = new Set(rows.map((row) => `${row.role}:${row.permission}`));
+    const missing: Array<{ role: PermissionRole; permission: PermissionKey; allowed: boolean }> = [];
+
+    for (const role of ["STUDENT", "TRAINER"] as const) {
+        for (const permission of PERMISSION_KEYS) {
+            const key = `${role}:${permission}`;
+            if (existing.has(key)) continue;
+            missing.push({
+                role,
+                permission,
+                allowed: DEFAULT_PERMISSION_MATRIX[role][permission],
+            });
+        }
+    }
+
+    if (missing.length > 0) {
+        await prisma.rolePermission.createMany({
+            data: missing,
+            skipDuplicates: true,
+        });
+    }
+}
+
+export async function getPermissionMatrix() {
+    await ensurePermissionDefaults();
+    const rows = await prisma.rolePermission.findMany({ where: { role: { in: ["STUDENT", "TRAINER"] } } });
+    return normalizeMatrix(rows as Array<{ role: PermissionRole; permission: string; allowed: boolean }>);
+}
+
+export async function setRolePermission(role: PermissionRole, permission: PermissionKey, allowed: boolean) {
+    if (role === "ADMIN") {
+        throw HttpError.badRequest("Admin permissions are fixed and always allowed");
+    }
+
+    await prisma.rolePermission.upsert({
+        where: { role_permission: { role, permission } },
+        create: { role, permission, allowed },
+        update: { allowed },
+    });
+
+    return getPermissionMatrix();
+}
+
+export async function resetRolePermissions() {
+    await prisma.rolePermission.deleteMany({ where: { role: { in: ["STUDENT", "TRAINER"] } } });
+
+    const data: Array<{ role: PermissionRole; permission: PermissionKey; allowed: boolean }> = [];
+    for (const role of ["STUDENT", "TRAINER"] as const) {
+        for (const permission of PERMISSION_KEYS) {
+            data.push({
+                role,
+                permission,
+                allowed: DEFAULT_PERMISSION_MATRIX[role][permission],
+            });
+        }
+    }
+
+    await prisma.rolePermission.createMany({ data });
+
+    return getPermissionMatrix();
+}
+
 const safeStudentProfileSelect = {
     id: true, userId: true, collegeId: true, heightCm: true, weightKg: true,
     fitnessGoal: true, streak: true, totalPlansCompleted: true, totalPoints: true,
@@ -62,6 +186,42 @@ export async function changeUserRole(userId: string, newRole: "STUDENT" | "TRAIN
 
         return updated;
     });
+}
+
+export async function verifyTrainer(userId: string) {
+    const user = await prisma.user.findUnique({ where: { id: userId }, include: { trainerProfile: true } });
+    if (!user) throw HttpError.notFound("User not found");
+    if (user.role !== "TRAINER") throw HttpError.badRequest("User is not a trainer");
+
+    const profile = await prisma.trainerProfile.upsert({
+        where: { userId },
+        create: { userId, isVerified: true },
+        update: { isVerified: true },
+    });
+
+    return { userId, isVerified: profile.isVerified };
+}
+
+export async function assignTrainerToStudent(studentId: string, trainerId: string | null) {
+    const student = await prisma.user.findUnique({ where: { id: studentId }, select: { id: true, role: true } });
+    if (!student || student.role !== "STUDENT") {
+        throw HttpError.badRequest("Student not found");
+    }
+
+    if (trainerId) {
+        const trainer = await prisma.user.findUnique({ where: { id: trainerId }, select: { id: true, role: true } });
+        if (!trainer || trainer.role !== "TRAINER") {
+            throw HttpError.badRequest("Trainer not found");
+        }
+    }
+
+    const updated = await prisma.studentProfile.upsert({
+        where: { userId: studentId },
+        create: { userId: studentId, trainerId },
+        update: { trainerId },
+    });
+
+    return { userId: updated.userId, trainerId: updated.trainerId };
 }
 
 // Content moderation
