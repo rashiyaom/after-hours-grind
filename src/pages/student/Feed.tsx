@@ -1,9 +1,9 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Search, Plus, X, Heart, MessageCircle, Share2, Send,
   Play, Image as ImageIcon, Filter, Bookmark, ArrowUpRight,
-  Flame, TrendingUp,
+  Flame, TrendingUp, Loader2,
 } from "lucide-react";
 import FeedPostCard from "@/components/FeedPostCard";
 import { useStore } from "@/hooks/useStore";
@@ -16,7 +16,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { filterPostsByTab } from "@/lib/feedFilters";
 import { LUXURY_TWEEN_MEDIUM } from "@/lib/motionTokens";
 import { createPortal } from "react-dom";
-import { fetchFeedFromBackend, fetchCommentsAPI } from "@/lib/api";
+import { fetchFeedPageFromBackend, fetchCommentsAPI } from "@/lib/api";
 
 type FeedComment = {
   id: string;
@@ -27,6 +27,7 @@ type FeedComment = {
 };
 
 const TABS = ["All", "Videos", "Photos"] as const;
+const FEED_PAGE_SIZE = 12;
 
 function getInitials(name: string) {
   return name.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2);
@@ -44,6 +45,7 @@ function timeAgo(ts: string) {
 
 export default function FeedPage() {
   const { posts, likePost: toggleLike, addComment, loading, setLoading } = useStore();
+  const postMap = useAppStore((state) => state.posts);
   const currentUser = useCurrentUser();
   const permissions = usePermissions();
   const canPostFeed = Boolean(currentUser && permissions[currentUser.role].post_feed);
@@ -51,8 +53,46 @@ export default function FeedPage() {
   const [selectedPost, setSelectedPost] = useState<Post | null>(null);
   const [comments, setComments] = useState<FeedComment[]>([]);
   const [commentText, setCommentText] = useState("");
+  const [feedOrderIds, setFeedOrderIds] = useState<string[]>([]);
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
+  const [hasMore, setHasMore] = useState<boolean>(false);
+  const [isLoadingMore, setIsLoadingMore] = useState<boolean>(false);
+  const [initialLoadAttempted, setInitialLoadAttempted] = useState<boolean>(false);
+  const loadMoreRef = useRef<HTMLDivElement | null>(null);
 
-  const activePost = selectedPost ? posts.find((p) => p.id === selectedPost.id) : null;
+  const activePost = selectedPost ? postMap[selectedPost.id] ?? null : null;
+
+  const mergeRemotePosts = useCallback((remotePosts: Post[]) => {
+    if (remotePosts.length === 0) return;
+
+    useAppStore.setState((prev) => ({
+      ...prev,
+      posts: remotePosts.reduce((acc, post) => {
+        acc[post.id] = post;
+        return acc;
+      }, { ...prev.posts }),
+    }));
+  }, []);
+
+  const loadMoreFeed = useCallback(async () => {
+    if (!hasMore || !nextCursor || isLoadingMore) return;
+
+    setIsLoadingMore(true);
+    try {
+      const response = await fetchFeedPageFromBackend(nextCursor, FEED_PAGE_SIZE);
+      mergeRemotePosts(response.data);
+      setFeedOrderIds((prev) => {
+        const nextIds = response.data.map((post) => post.id);
+        return Array.from(new Set([...prev, ...nextIds]));
+      });
+      setNextCursor(response.nextCursor);
+      setHasMore(Boolean(response.nextCursor));
+    } catch {
+      // Keep existing page data if pagination request fails.
+    } finally {
+      setIsLoadingMore(false);
+    }
+  }, [hasMore, isLoadingMore, mergeRemotePosts, nextCursor]);
 
   useEffect(() => {
     if (selectedPost) {
@@ -68,20 +108,25 @@ export default function FeedPage() {
     const hydrateFeed = async () => {
       setLoading(true);
       try {
-        const remotePosts = await fetchFeedFromBackend();
-        if (!isMounted || remotePosts.length === 0) return;
+        const response = await fetchFeedPageFromBackend(undefined, FEED_PAGE_SIZE);
+        if (!isMounted) return;
 
-        useAppStore.setState((prev) => ({
-          ...prev,
-          posts: remotePosts.reduce((acc, post) => {
-            acc[post.id] = post;
-            return acc;
-          }, {} as Record<string, Post>),
-        }));
+        mergeRemotePosts(response.data);
+        setFeedOrderIds(response.data.map((post) => post.id));
+        setNextCursor(response.nextCursor);
+        setHasMore(Boolean(response.nextCursor));
       } catch {
-        // Keep local mock/store posts as fallback if backend is not reachable.
+        // Keep existing in-memory posts if this page request fails.
+        const fallbackPosts = Object.values(useAppStore.getState().posts)
+          .sort((a, b) => +new Date(b.timestamp) - +new Date(a.timestamp));
+        if (isMounted) {
+          setFeedOrderIds(fallbackPosts.map((post) => post.id));
+          setNextCursor(null);
+          setHasMore(false);
+        }
       } finally {
         if (isMounted) {
+          setInitialLoadAttempted(true);
           setLoading(false);
         }
       }
@@ -91,7 +136,26 @@ export default function FeedPage() {
     return () => {
       isMounted = false;
     };
-  }, [setLoading]);
+  }, [mergeRemotePosts, setLoading]);
+
+  useEffect(() => {
+    if (!initialLoadAttempted || !hasMore) return;
+    const target = loadMoreRef.current;
+    if (!target) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const first = entries[0];
+        if (first?.isIntersecting) {
+          void loadMoreFeed();
+        }
+      },
+      { rootMargin: "400px 0px" }
+    );
+
+    observer.observe(target);
+    return () => observer.disconnect();
+  }, [hasMore, initialLoadAttempted, loadMoreFeed]);
 
   const handleComment = () => {
     if (!commentText.trim() || !activePost) return;
@@ -100,7 +164,19 @@ export default function FeedPage() {
     setCommentText("");
   };
 
-  const filteredPosts = filterPostsByTab(posts, activeTab);
+  const fallbackPostList = useMemo(
+    () => [...posts].sort((a, b) => +new Date(b.timestamp) - +new Date(a.timestamp)),
+    [posts]
+  );
+
+  const orderedFeedPosts = useMemo(() => {
+    if (feedOrderIds.length === 0) return fallbackPostList;
+    return feedOrderIds
+      .map((id) => postMap[id])
+      .filter((post): post is Post => Boolean(post));
+  }, [fallbackPostList, feedOrderIds, postMap]);
+
+  const filteredPosts = filterPostsByTab(orderedFeedPosts, activeTab);
 
   if (loading) {
     return (
@@ -376,6 +452,9 @@ export default function FeedPage() {
         >
           <TrendingUp className="h-10 w-10 text-white/15 mx-auto mb-3" />
           <p className="text-sm text-white/30">No posts for this filter.</p>
+          {hasMore && (
+            <p className="mt-2 text-xs text-white/20">Loading more posts in the background...</p>
+          )}
         </motion.div>
       ) : (
         <div className="space-y-6 pb-10">
@@ -389,6 +468,19 @@ export default function FeedPage() {
               <FeedPostCard post={post} onClick={() => setSelectedPost(post)} />
             </motion.div>
           ))}
+
+          <div ref={loadMoreRef} className="h-8 w-full" />
+
+          {isLoadingMore && (
+            <div className="flex items-center justify-center gap-2 py-3 text-xs text-white/35">
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              <span>Loading more posts</span>
+            </div>
+          )}
+
+          {!hasMore && feedOrderIds.length > 0 && (
+            <p className="py-2 text-center text-xs text-white/20">You have reached the end of the feed.</p>
+          )}
         </div>
       )}
     </div>

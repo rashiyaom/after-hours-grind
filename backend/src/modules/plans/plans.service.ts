@@ -114,7 +114,20 @@ export async function createPlan(trainerId: string, input: {
 export async function getTrainerStudents(trainerId: string) {
     return prisma.studentProfile.findMany({
         where: { trainerId },
-        include: { user: true }
+        include: {
+          user: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              avatar: true,
+              role: true,
+              createdAt: true,
+              updatedAt: true,
+              isBanned: true,
+            },
+          },
+        }
     });
 }
 

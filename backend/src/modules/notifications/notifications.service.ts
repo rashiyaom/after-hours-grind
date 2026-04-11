@@ -1,12 +1,21 @@
 import { prisma } from "../../config/prisma.js";
 import { HttpError } from "../../lib/httpError.js";
 
-export async function getNotifications(userId: string) {
-  return prisma.notification.findMany({
+export async function getNotifications(userId: string, cursor?: string, limit = 20) {
+  const rows = await prisma.notification.findMany({
     where: { userId },
     orderBy: { createdAt: "desc" },
-    take: 50,
+    take: limit + 1,
+    ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
   });
+
+  const hasMore = rows.length > limit;
+  const data = hasMore ? rows.slice(0, limit) : rows;
+
+  return {
+    data,
+    nextCursor: hasMore ? data[data.length - 1].id : null,
+  };
 }
 
 export async function markRead(userId: string, notificationId: string) {

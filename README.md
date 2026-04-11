@@ -1,11 +1,11 @@
 # After Hours Grind
 
-After Hours Grind is a frontend-first fitness accountability platform built for two roles:
+After Hours Grind is a full-stack fitness accountability platform built for two roles:
 
 1. Student users who execute daily plans, upload progress proof, and track performance.
 2. Trainer users who monitor submissions, review student activity, and build plans.
 
-This project is currently focused on complete UI and flow readiness on the frontend. Backend and database integration are intentionally deferred.
+The project now includes an Express + Prisma backend connected to PostgreSQL, with API flows for authentication, feed, plans/submissions, events, chat, notifications, and admin controls.
 
 ## Product Flow Overview
 
@@ -94,53 +94,41 @@ Unauthorized users are redirected to login, and users with the wrong role are re
 
 ## State and Data Flow
 
-The app currently uses frontend state providers and mock datasets.
+The app uses a hybrid model: backend APIs for core persisted flows plus frontend compatibility layers for selected legacy UX paths.
 
 1. Auth state
-- Maintains user session and selected role.
-- Session is persisted in sessionStorage for browser session continuity.
+- Uses backend login/signup/refresh/logout endpoints.
+- Access token is kept in memory and refresh is cookie-based.
 
 2. App/store state
-- Holds student profile, trainer info, tasks, submissions, posts, notifications, leaderboard, and UI loading states.
-- Powers all page interactions during frontend-only phase.
+- Holds role-specific UI state and mirrors backend data for feed, plans, submissions, chat, and events.
+- Supports offline/development-safe fallbacks when backend is unavailable.
 
 3. Settings persistence
 - Notification and privacy preferences are stored in localStorage.
 
-## Frontend-Only Scope Right Now
+## Current Integration Scope
 
-The following areas are intentionally simulated until backend integration:
+Server-backed today:
 
-1. Authentication verification is mock-based and not server validated.
-2. File upload uses browser object URLs and does not store media remotely.
-3. Feed, submissions, and leaderboards are state-driven with mock source data.
-4. Plan publishing and messaging are UI-first with limited persistence.
+1. Auth/session APIs
+2. Feed + comments + likes
+3. Plan submissions + trainer/admin review
+4. Events + registration
+5. Chat threads/messages
+6. Notifications and admin moderation routes
 
-## Planned Backend Integration Points
+Still pending full production hardening:
 
-When backend is connected, replace these frontend stubs:
-
-1. Auth provider
-- Connect login/signup/logout to API endpoints.
-- Replace sessionStorage user with token-based auth.
-
-2. Media upload
-- Upload files to storage service and persist media URLs in DB.
-
-3. Store actions
-- Replace in-memory updates with API mutations and caching.
-
-4. Notifications and messaging
-- Add real-time updates via sockets or polling.
-
-5. Role and profile sources
-- Fetch role-specific data from server and remove hardcoded assumptions.
+1. Media object storage + CDN for uploads
+2. Real-time transport (SSE/WebSocket) for high-scale chat/notification freshness
+3. Expanded DB-backed integration tests for non-happy paths and load behavior
 
 ## Tech Stack
 
 1. React + TypeScript + Vite
 2. React Router for navigation
-3. Context-based state management
+3. Zustand store with backend synchronization
 4. Tailwind-based design system with UI primitives
 5. Framer Motion for animation
 6. Vitest for unit test setup
@@ -164,9 +152,9 @@ npm run build
 
 ## Current Quality Status
 
-1. Frontend role flows are implemented and navigable.
-2. Lint has non-blocking warnings to clean up progressively.
-3. Tests are currently minimal and should be expanded for core flows.
+1. Frontend build, tests, and lint run successfully.
+2. Backend build and integration test suite run successfully.
+3. Prisma schema and migration files are present for PostgreSQL lifecycle management.
 
 ## Recommended Next Step
 

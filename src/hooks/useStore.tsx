@@ -22,17 +22,16 @@ import {
   NotificationItem,
 } from '@/types';
 import { generateAutoPlan } from '@/lib/planGeneration';
-import { hashPassword, looksHashedPassword } from '@/lib/auth';
-import { SEED_USERS, SEED_POSTS, SEED_PLANS } from '@/data/seed-users';
 import { 
   loginBackend, 
   signupBackend, 
+  logoutBackend,
+  clearBackendAccessToken,
   fetchCurrentUser, 
   fetchFeedFromBackend, 
   fetchChatThreads, 
-  fetchChatMessages, 
+  createChatThreadAPI,
   sendChatMessageAPI, 
-  fetchTodayPlanAPI, 
   submitTaskAPI,
   approveSubmissionAPI,
   rejectSubmissionAPI,
@@ -49,6 +48,8 @@ import {
   createEventAPI,
   updateEventAPI,
   deleteEventAPI,
+  fetchNotificationsAPI,
+  markNotificationReadAPI,
 } from '@/lib/api';
 
 type LegacyTodayTask = {
@@ -106,171 +107,12 @@ type PlanUpdateNotification = {
   read: boolean;
 };
 
-const defaultWeeklyData = [
-  { name: 'Mon', uv: 72 },
-  { name: 'Tue', uv: 80 },
-  { name: 'Wed', uv: 76 },
-  { name: 'Thu', uv: 84 },
-  { name: 'Fri', uv: 88 },
-  { name: 'Sat', uv: 74 },
-  { name: 'Sun', uv: 82 },
-];
-
 const defaultTodayTask: LegacyTodayTask = {
-  stepTarget: 10000,
-  hydrationGoal: '3.5L',
-  workout: [
-    {
-      id: 'w1',
-      name: 'Incline Dumbbell Press',
-      sets: 4,
-      reps: 12,
-      rest: '60s',
-      completed: true,
-      focus: 'Upper chest and front delts',
-      equipmentMode: 'basic',
-      alternatives: ['Elevated push-ups', 'Resistance-band press'],
-    },
-    {
-      id: 'w2',
-      name: 'Cable Fly',
-      sets: 3,
-      reps: 15,
-      rest: '45s',
-      completed: false,
-      focus: 'Chest isolation and contraction quality',
-      equipmentMode: 'full_gym',
-      alternatives: ['Dumbbell fly on floor', 'Band fly'],
-    },
-    {
-      id: 'w3',
-      name: 'Overhead Triceps Extension',
-      sets: 3,
-      reps: 12,
-      rest: '45s',
-      completed: false,
-      focus: 'Long-head triceps loading',
-      equipmentMode: 'basic',
-      alternatives: ['Chair dips', 'Close-grip push-ups'],
-    },
-    {
-      id: 'w4',
-      name: 'Push-ups',
-      sets: 3,
-      reps: 20,
-      rest: '30s',
-      completed: false,
-      focus: 'Volume finisher',
-      equipmentMode: 'bodyweight_only',
-      alternatives: ['Knee push-ups', 'Tempo push-ups'],
-    },
-  ],
-  diet: [
-    {
-      id: 'd1',
-      meal: 'Breakfast',
-      description: 'Oats + eggs + fruit',
-      time: '08:00',
-      calories: 520,
-      completed: true,
-      foods: [
-        { item: 'Rolled oats', grams: 70 },
-        { item: 'Whole eggs', grams: 100 },
-        { item: 'Banana', grams: 120 },
-      ],
-      macros: { protein: 31, carbs: 57, fats: 16 },
-    },
-    {
-      id: 'd2',
-      meal: 'Lunch',
-      description: 'Chicken + rice + salad',
-      time: '13:30',
-      calories: 680,
-      completed: false,
-      foods: [
-        { item: 'Chicken breast', grams: 180 },
-        { item: 'Cooked rice', grams: 220 },
-        { item: 'Salad mix', grams: 120 },
-      ],
-      macros: { protein: 52, carbs: 64, fats: 14 },
-    },
-    {
-      id: 'd3',
-      meal: 'Snack',
-      description: 'Greek yogurt + nuts',
-      time: '17:00',
-      calories: 320,
-      completed: false,
-      foods: [
-        { item: 'Greek yogurt', grams: 200 },
-        { item: 'Mixed nuts', grams: 25 },
-      ],
-      macros: { protein: 24, carbs: 18, fats: 15 },
-    },
-    {
-      id: 'd4',
-      meal: 'Dinner',
-      description: 'Paneer + veggies + roti',
-      time: '20:30',
-      calories: 610,
-      completed: false,
-      foods: [
-        { item: 'Paneer', grams: 160 },
-        { item: 'Mixed vegetables', grams: 200 },
-        { item: 'Roti', grams: 100 },
-      ],
-      macros: { protein: 36, carbs: 48, fats: 24 },
-    },
-  ],
+  stepTarget: 0,
+  hydrationGoal: '',
+  workout: [],
+  diet: [],
 };
-
-const defaultSubmissions: LegacySubmission[] = [
-  {
-    id: 'sub-1',
-    studentId: 's1',
-    studentName: 'Arjun Mehta',
-    taskName: 'Workout Check-in',
-    timestamp: 'Today, 8:35 AM',
-    status: 'pending' as const,
-    mediaUrl: '',
-    trainerNote: '',
-  },
-  {
-    id: 'sub-2',
-    studentId: 's2',
-    studentName: 'Priya Sharma',
-    taskName: 'Nutrition Check-in',
-    timestamp: 'Today, 7:10 AM',
-    status: 'approved' as const,
-    mediaUrl: '',
-    trainerNote: 'Nice consistency',
-  },
-];
-
-const defaultAppNotifications: NotificationItem[] = [
-  {
-    id: 'sys-notif-1',
-    message: 'Coach Vikram approved your latest check-in',
-    icon: 'check-circle',
-    type: 'trainer',
-    userAvatar: '',
-    userName: 'Coach Vikram',
-    action: 'approved your latest check-in',
-    timestamp: '2h ago',
-    read: false,
-  },
-  {
-    id: 'sys-notif-2',
-    message: 'After Hours sent a reminder for your daily plan',
-    icon: 'clipboard',
-    type: 'plan',
-    userAvatar: '',
-    userName: 'After Hours',
-    action: 'sent a reminder for your daily plan',
-    timestamp: '1d ago',
-    read: true,
-  },
-];
 
 const cloneTodayTask = (): LegacyTodayTask => ({
   ...defaultTodayTask,
@@ -620,8 +462,9 @@ interface AppState {
 // ========= STORE ACTIONS =========
 interface AppActions {
   // Session Actions
+  initializeSession: () => Promise<void>;
   login: (email: string, password: string, role: UserRole) => Promise<boolean>;
-  logout: () => void;
+  logout: () => Promise<void>;
   signup: (userData: {
     name: string;
     email: string;
@@ -681,7 +524,7 @@ interface AppActions {
     threadId?: string;
     recipientId?: string;
     text?: string;
-    type?: string;
+    type?: 'text' | 'reel-share' | 'voice-note';
     reelPostId?: string;
     voiceSeconds?: number;
     voiceAudioUrl?: string;
@@ -745,29 +588,6 @@ const MAX_MESSAGES_PER_THREAD = 80;
 const MAX_VOICE_DATA_URL_LENGTH = 1_200_000;
 const storageWarningTracker = new Set<string>();
 
-type PersistedSession = {
-  currentUserId: string | null;
-  isAuthenticated: boolean;
-};
-
-const migrateUserPasswordShape = (users: Record<string, User>): Record<string, User> => {
-  return Object.fromEntries(
-    Object.entries(users).map(([id, user]) => {
-      const candidate = user as User & { password?: string };
-      const legacyPassword = candidate.password;
-      const migratedHash = looksHashedPassword(candidate.passwordHash)
-        ? candidate.passwordHash
-        : hashPassword(candidate.passwordHash || legacyPassword || 'changeme');
-
-      const { password: _legacyPassword, ...safeUser } = candidate;
-      return [id, { ...safeUser, passwordHash: migratedHash } as User];
-    })
-  );
-};
-
-const buildDirectThreadId = (a: string, b: string) =>
-  `thread-${[a, b].sort().join('--')}`;
-
 const createId = (prefix: string): string => {
   const hasCrypto =
     typeof globalThis !== 'undefined' &&
@@ -797,45 +617,237 @@ const getLocalStorage = (): Storage | null => {
   return candidate;
 };
 
-const createDefaultChatThreads = (users: Record<string, User>): ChatThread[] => {
-  const now = new Date().toISOString();
-  const threads: ChatThread[] = [];
-
-  Object.values(users).forEach((user) => {
-    if (user.role !== 'student') return;
-    const student = user as Student;
-    if (!student.trainerId) return;
-
-    const trainer = users[student.trainerId];
-    if (!trainer || trainer.role !== 'trainer') return;
-
-    const id = buildDirectThreadId(student.id, trainer.id);
-    const message: ChatMessage = {
-      id: `msg-init-${student.id}`,
-      senderId: trainer.id,
-      text: `Daily metrics check: send bodyweight, sleep hours, and energy score (1-10) before 9 PM.`,
-      createdAt: now,
-      type: 'text',
-      seenBy: [trainer.id],
-    };
-
-    threads.push({
-      id,
-      participantIds: [student.id, trainer.id],
-      messages: [message],
-      updatedAt: now,
-      unreadBy: [student.id],
-    });
-  });
-
-  return threads;
-};
-
 const isLegacyTaskType = (value: unknown): value is 'workout' | 'diet' | 'checkin' =>
   value === 'workout' || value === 'diet' || value === 'checkin';
 
 const isLegacySubmissionStatus = (value: unknown): value is 'pending' | 'approved' | 'rejected' =>
   value === 'pending' || value === 'approved' || value === 'rejected';
+
+const asRecord = (value: unknown): Record<string, unknown> | null =>
+  value && typeof value === 'object' ? (value as Record<string, unknown>) : null;
+
+const asString = (value: unknown, fallback = ''): string =>
+  typeof value === 'string' ? value : fallback;
+
+const asNumber = (value: unknown, fallback = 0): number =>
+  typeof value === 'number' && Number.isFinite(value) ? value : fallback;
+
+const asBoolean = (value: unknown, fallback = false): boolean =>
+  typeof value === 'boolean' ? value : fallback;
+
+const asStringArray = (value: unknown, fallback: string[] = []): string[] =>
+  Array.isArray(value) ? value.filter((item): item is string => typeof item === 'string') : fallback;
+
+const mapBackendRoleToFrontendRole = (role: unknown): UserRole => {
+  if (typeof role !== 'string') return 'student';
+  switch (role.toUpperCase()) {
+    case 'TRAINER':
+      return 'trainer';
+    case 'ADMIN':
+      return 'admin';
+    case 'STUDENT':
+    default:
+      return 'student';
+  }
+};
+
+const normalizeBackendUser = (input: unknown, existingUser?: User): User | null => {
+  const raw = asRecord(input);
+  if (!raw) return null;
+
+  const id = asString(raw.id);
+  if (!id) return null;
+
+  const role = mapBackendRoleToFrontendRole(raw.role ?? existingUser?.role);
+  const baseUser = {
+    id,
+    name: asString(raw.name, existingUser?.name ?? ''),
+    email: asString(raw.email, existingUser?.email ?? ''),
+    passwordHash: existingUser?.passwordHash ?? '',
+    avatar: asString(raw.avatar, existingUser?.avatar ?? ''),
+    role,
+  } as const;
+
+  if (role === 'student') {
+    const existingStudent = existingUser?.role === 'student' ? (existingUser as Student) : undefined;
+    const profile = asRecord(raw.studentProfile) ?? raw;
+    const onboardingStep = asNumber(profile.onboardingStep, existingStudent?.onboardingStep ?? 0);
+    const onboardingCompleted = asBoolean(
+      profile.onboardingCompleted,
+      existingStudent?.onboardingStatus === 'completed'
+    );
+
+    return {
+      ...baseUser,
+      role: 'student',
+      collegeId: asString(profile.collegeId, existingStudent?.collegeId ?? ''),
+      height: asNumber(profile.heightCm ?? profile.height, existingStudent?.height ?? 0),
+      weight: asNumber(profile.weightKg ?? profile.weight, existingStudent?.weight ?? 0),
+      fitnessGoal: asString(profile.fitnessGoal, existingStudent?.fitnessGoal ?? ''),
+      streak: asNumber(profile.streak, existingStudent?.streak ?? 0),
+      totalPlansCompleted: asNumber(profile.totalPlansCompleted, existingStudent?.totalPlansCompleted ?? 0),
+      followers: asNumber(asRecord(raw._count)?.followers, existingStudent?.followers ?? 0),
+      following: asNumber(asRecord(raw._count)?.following, existingStudent?.following ?? 0),
+      trainerId: asString(profile.trainerId, existingStudent?.trainerId ?? '') || null,
+      currentPlanId: asString(profile.currentPlanId, existingStudent?.currentPlanId ?? '') || null,
+      currentDay: asNumber((raw as Record<string, unknown>).currentDay, existingStudent?.currentDay ?? 1),
+      totalDays: asNumber((raw as Record<string, unknown>).totalDays, existingStudent?.totalDays ?? 28),
+      completionPercentage: asNumber(
+        (raw as Record<string, unknown>).completionPercentage,
+        existingStudent?.completionPercentage ?? 0
+      ),
+      todaySteps: asNumber((raw as Record<string, unknown>).todaySteps, existingStudent?.todaySteps ?? 0),
+      rank: asNumber((raw as Record<string, unknown>).rank, existingStudent?.rank ?? 0),
+      badges: existingStudent?.badges ?? [],
+      isBanned: asBoolean(profile.isBanned ?? raw.isBanned, existingStudent?.isBanned ?? false),
+      warnings: asNumber((raw as Record<string, unknown>).warnings, existingStudent?.warnings ?? 0),
+      onboardingStatus: onboardingCompleted
+        ? 'completed'
+        : onboardingStep > 0
+          ? 'in_progress'
+          : 'not_started',
+      onboardingStep,
+      onboardingDraft:
+        asRecord(profile.onboardingDraft) && existingStudent?.onboardingDraft
+          ? existingStudent.onboardingDraft
+          : existingStudent?.onboardingDraft,
+      taskCompletions: existingStudent?.taskCompletions ?? {},
+      totalPoints: asNumber(profile.totalPoints, existingStudent?.totalPoints ?? 0),
+    } as Student;
+  }
+
+  if (role === 'trainer') {
+    const existingTrainer = existingUser?.role === 'trainer' ? (existingUser as Trainer) : undefined;
+    const profile = asRecord(raw.trainerProfile) ?? raw;
+
+    return {
+      ...baseUser,
+      role: 'trainer',
+      specialization: asString(profile.specialization, existingTrainer?.specialization ?? ''),
+      experience: asNumber(profile.experience, existingTrainer?.experience ?? 0),
+      certifications: asStringArray(profile.certifications, existingTrainer?.certifications ?? []),
+      totalStudents: asNumber(raw.totalStudents, existingTrainer?.totalStudents ?? 0),
+      activePlans: asNumber(raw.activePlans, existingTrainer?.activePlans ?? 0),
+      isVerified: asBoolean(profile.isVerified, existingTrainer?.isVerified ?? false),
+    } as Trainer;
+  }
+
+  const existingAdmin = existingUser?.role === 'admin' ? (existingUser as Admin) : undefined;
+  return {
+    ...baseUser,
+    role: 'admin',
+    permissions: existingAdmin?.permissions ?? [],
+  } as Admin;
+};
+
+const normalizeTrainerStudentRecord = (input: unknown, existingUser?: User): Student | null => {
+  const raw = asRecord(input);
+  if (!raw) return null;
+
+  const nestedUser = asRecord(raw.user);
+  if (!nestedUser) return null;
+
+  const normalized = normalizeBackendUser(
+    {
+      ...nestedUser,
+      studentProfile: {
+        collegeId: raw.collegeId,
+        heightCm: raw.heightCm,
+        weightKg: raw.weightKg,
+        fitnessGoal: raw.fitnessGoal,
+        streak: raw.streak,
+        totalPlansCompleted: raw.totalPlansCompleted,
+        totalPoints: raw.totalPoints,
+        trainerId: raw.trainerId,
+        currentPlanId: raw.currentPlanId,
+        onboardingCompleted: raw.onboardingCompleted,
+        onboardingStep: raw.onboardingStep,
+        sport: raw.sport,
+        team: raw.team,
+      },
+    },
+    existingUser
+  );
+
+  return normalized?.role === 'student' ? (normalized as Student) : null;
+};
+
+const formatRelativeTime = (value: string): string => {
+  const ms = new Date(value).getTime();
+  if (!Number.isFinite(ms)) return value;
+  const diffMinutes = Math.max(1, Math.floor((Date.now() - ms) / 60000));
+  if (diffMinutes < 60) return `${diffMinutes}m ago`;
+  const diffHours = Math.floor(diffMinutes / 60);
+  if (diffHours < 24) return `${diffHours}h ago`;
+  return `${Math.floor(diffHours / 24)}d ago`;
+};
+
+const mapBackendNotificationType = (value: unknown): NotificationItem['type'] => {
+  const normalized = asString(value).toLowerCase();
+  if (normalized === 'streak') return 'streak';
+  if (normalized === 'rank') return 'rank';
+  if (normalized === 'trainer') return 'trainer';
+  if (normalized === 'plan') return 'plan';
+  return 'social';
+};
+
+const mapBackendNotificationIcon = (type: NotificationItem['type']): string => {
+  if (type === 'streak') return 'flame';
+  if (type === 'rank') return 'trending-up';
+  if (type === 'trainer') return 'check-circle';
+  if (type === 'plan') return 'clipboard';
+  return 'message-circle';
+};
+
+const mapBackendNotificationToLegacy = (input: unknown): NotificationItem | null => {
+  const raw = asRecord(input);
+  if (!raw) return null;
+
+  const id = asString(raw.id);
+  const message = asString(raw.message);
+  const createdAt = asString(raw.createdAt);
+  if (!id || !message || !createdAt) return null;
+
+  const type = mapBackendNotificationType(raw.type);
+  return {
+    id,
+    message,
+    icon: mapBackendNotificationIcon(type),
+    type,
+    timestamp: formatRelativeTime(createdAt),
+    read: asBoolean(raw.read, false),
+    userName: asString(raw.title, 'After Hours Grind'),
+    action: message,
+  };
+};
+
+const mapBackendNotificationToSystem = (input: unknown): SystemNotification | null => {
+  const raw = asRecord(input);
+  if (!raw) return null;
+
+  const id = asString(raw.id);
+  const title = asString(raw.title, 'Notification');
+  const message = asString(raw.message);
+  const createdAt = asString(raw.createdAt);
+  if (!id || !message || !createdAt) return null;
+
+  const notificationType = mapBackendNotificationType(raw.type);
+  const severity: SystemNotification['type'] =
+    notificationType === 'trainer' || notificationType === 'plan'
+      ? 'info'
+      : notificationType === 'streak'
+        ? 'warning'
+        : 'info';
+
+  return {
+    id,
+    title,
+    message,
+    type: severity,
+    timestamp: createdAt,
+    read: asBoolean(raw.read, false),
+  };
+};
 
 const normalizeChatThreads = (input: unknown): ChatThread[] => {
   if (!Array.isArray(input)) return [];
@@ -933,57 +945,13 @@ const sanitizeChatThreads = (threads: ChatThread[]): ChatThread[] => {
 };
 
 const readPersistedChats = (
-  users: Record<string, User>,
+  _users: Record<string, User>,
   fallback: ChatThread[]
 ): ChatThread[] => {
-  const storage = getLocalStorage();
-  if (!storage) return fallback;
-  try {
-    const raw = storage.getItem(CHAT_STORAGE_KEY);
-    if (!raw) return fallback;
-    const parsed = JSON.parse(raw) as ChatThread[];
-    if (!Array.isArray(parsed)) return fallback;
-
-    const cleaned = parsed
-      .map((thread) => {
-        const participants = (thread.participantIds ?? []).filter((id) => Boolean(users[id]));
-        if (participants.length < 2) return null;
-        return {
-          ...thread,
-          participantIds: Array.from(new Set(participants)).sort(),
-          messages: Array.isArray(thread.messages)
-            ? thread.messages.map((message) => ({
-                ...message,
-                seenBy: Array.isArray(message.seenBy)
-                  ? message.seenBy.filter((id) => participants.includes(id))
-                  : [message.senderId].filter((id) => participants.includes(id)),
-              }))
-            : [],
-          unreadBy: Array.isArray(thread.unreadBy)
-            ? thread.unreadBy.filter((id) => participants.includes(id))
-            : [],
-          updatedAt: thread.updatedAt ?? new Date().toISOString(),
-        } as ChatThread;
-      })
-      .filter((thread): thread is ChatThread => Boolean(thread));
-
-    const sanitized = sanitizeChatThreads(cleaned);
-    return sanitized.length > 0 ? sanitized : sanitizeChatThreads(fallback);
-  } catch (error) {
-    reportStorageIssue('readPersistedChats', error);
-    return sanitizeChatThreads(fallback);
-  }
+  return sanitizeChatThreads(fallback);
 };
 
-const persistChats = (threads: ChatThread[]) => {
-  const storage = getLocalStorage();
-  if (!storage) return;
-  try {
-    storage.setItem(CHAT_STORAGE_KEY, JSON.stringify(sanitizeChatThreads(threads)));
-  } catch (error) {
-    reportStorageIssue('persistChats', error);
-  }
-};
+const persistChats = (_threads: ChatThread[]) => {};
 
 const clonePermissions = (source: PermissionMatrix): PermissionMatrix => ({
   student: { ...source.student },
@@ -1007,101 +975,39 @@ const persistPermissions = (permissions: PermissionMatrix) => {
 };
 
 const readPersistedUsers = (baseUsers: Record<string, User>): Record<string, User> => {
-  const storage = getLocalStorage();
-  if (!storage) return baseUsers;
-  try {
-    const raw = storage.getItem(USERS_STORAGE_KEY);
-    if (!raw) return baseUsers;
-    const parsed = JSON.parse(raw) as Record<string, User>;
-    const mergedUsers = {
-      ...baseUsers,
-      ...(parsed ?? {}),
-    };
-    return migrateUserPasswordShape(mergedUsers);
-  } catch (error) {
-    reportStorageIssue('readPersistedUsers', error);
-    return migrateUserPasswordShape(baseUsers);
-  }
+  return baseUsers;
 };
 
-const persistUsers = (users: Record<string, User>) => {
-  const storage = getLocalStorage();
-  if (!storage) return;
-  try {
-    storage.setItem(
-      USERS_STORAGE_KEY,
-      JSON.stringify(migrateUserPasswordShape(users))
-    );
-  } catch (error) {
-    reportStorageIssue('persistUsers', error);
-  }
+const persistUsers = (_users: Record<string, User>) => {};
+
+const readPersistedSession = (_users: Record<string, User>): AppState['session'] => {
+  return { currentUser: null, isAuthenticated: false };
 };
 
-const readPersistedSession = (users: Record<string, User>): AppState['session'] => {
-  const storage = getLocalStorage();
-  if (!storage) {
-    return { currentUser: null, isAuthenticated: false };
-  }
-
-  try {
-    const raw = storage.getItem(SESSION_STORAGE_KEY);
-    if (!raw) return { currentUser: null, isAuthenticated: false };
-
-    const parsed = JSON.parse(raw) as PersistedSession;
-    if (!parsed.isAuthenticated || !parsed.currentUserId) {
-      return { currentUser: null, isAuthenticated: false };
-    }
-
-    const user = users[parsed.currentUserId] ?? null;
-    if (!user) return { currentUser: null, isAuthenticated: false };
-
-    return {
-      currentUser: user,
-      isAuthenticated: true,
-    };
-  } catch (error) {
-    reportStorageIssue('readPersistedSession', error);
-    return { currentUser: null, isAuthenticated: false };
-  }
-};
-
-const persistSession = (session: AppState['session']) => {
-  const storage = getLocalStorage();
-  if (!storage) return;
-  try {
-    const payload: PersistedSession = {
-      currentUserId: session.currentUser?.id ?? null,
-      isAuthenticated: session.isAuthenticated && Boolean(session.currentUser),
-    };
-    storage.setItem(SESSION_STORAGE_KEY, JSON.stringify(payload));
-  } catch (error) {
-    reportStorageIssue('persistSession', error);
-  }
-};
+const persistSession = (_session: AppState['session']) => {};
 
 const clearPersistedSecurityState = () => {
   const storage = getLocalStorage();
   if (!storage) return;
   try {
     storage.removeItem(SESSION_STORAGE_KEY);
+    storage.removeItem(USERS_STORAGE_KEY);
+    storage.removeItem(CHAT_STORAGE_KEY);
     storage.removeItem(PERMISSIONS_STORAGE_KEY);
   } catch (error) {
     reportStorageIssue('clearPersistedSecurityState', error);
   }
 };
 
-const initialUsers = readPersistedUsers(
-  migrateUserPasswordShape(SEED_USERS)
-);
+const initialUsers = readPersistedUsers({});
 
 const initialSession = readPersistedSession(initialUsers);
-const allowOfflineAuthFallback = import.meta.env.DEV;
 
 // ========= INITIAL STATE =========
 const initialState: AppState = {
   users: initialUsers,
-  posts: SEED_POSTS,
-  plans: SEED_PLANS,
+  posts: {},
+  plans: {},
   system: {
     notifications: [],
     activityLogs: [],
@@ -1114,9 +1020,9 @@ const initialState: AppState = {
     permissions: readPersistedPermissions(),
     legacyTodayTask: cloneTodayTask(),
     legacySubmissions: [],
-    legacyNotifications: defaultAppNotifications.map((notification) => ({ ...notification })),
+    legacyNotifications: [],
     planUpdateNotifications: [],
-    chatThreads: readPersistedChats(initialUsers, createDefaultChatThreads(initialUsers)),
+    chatThreads: readPersistedChats(initialUsers, []),
     events: [],
   },
   session: initialSession,
@@ -1133,44 +1039,39 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
     try {
       set((state) => ({ system: { ...state.system, isLoading: true } }));
 
-      // Try backend first
-      try {
-        const authResponse = await loginBackend(email, password);
-        const userProfile = await fetchCurrentUser();
-        set((state) => ({
-          system: { ...state.system, isLoading: false },
-          session: { currentUser: userProfile, isAuthenticated: true },
-          users: { ...state.users, [userProfile.id]: userProfile },
-        }));
-        await get().refreshData();
-        return true;
-      } catch (backendError) {
-        if (!allowOfflineAuthFallback) {
-          throw backendError;
+      await loginBackend(email, password);
+      const userProfile = await fetchCurrentUser();
+      const userRecord = asRecord(userProfile);
+      const userId = asString(userRecord?.id);
+      const normalizedUser = normalizeBackendUser(userProfile, userId ? get().users[userId] : undefined);
+      if (!normalizedUser) {
+        set((state) => ({ system: { ...state.system, isLoading: false } }));
+        return false;
+      }
+
+      if (normalizedUser.role !== role) {
+        try {
+          await logoutBackend();
+        } catch {
+          // noop
         }
-        console.warn("Backend unreachable, falling back to offline mode:", backendError);
-      }
-
-      // Offline fallback: authenticate against local seed users
-      const state = get();
-      const user = Object.values(state.users).find(
-        (u) => u.email === email && u.role === role
-      );
-      if (!user) {
-        set((s) => ({ system: { ...s.system, isLoading: false } }));
-        return false;
-      }
-      const expectedHash = hashPassword(password);
-      if (user.passwordHash !== expectedHash) {
-        set((s) => ({ system: { ...s.system, isLoading: false } }));
+        clearBackendAccessToken();
+        set((state) => ({
+          ...state,
+          system: { ...state.system, isLoading: false },
+          session: { currentUser: null, isAuthenticated: false },
+        }));
         return false;
       }
 
-      set((s) => ({
-        system: { ...s.system, isLoading: false },
-        session: { currentUser: user, isAuthenticated: true },
+      set((state) => ({
+        ...state,
+        system: { ...state.system, isLoading: false },
+        session: { currentUser: normalizedUser, isAuthenticated: true },
+        users: { ...state.users, [normalizedUser.id]: normalizedUser },
       }));
-      persistSession({ currentUser: user, isAuthenticated: true });
+
+      await get().refreshData();
       return true;
     } catch (error) {
       console.error("Login failed:", error);
@@ -1178,73 +1079,82 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
       return false;
     }
   },
-  logout: () =>
-    set((state) => {
-      clearPersistedSecurityState();
-      return {
+  logout: async () => {
+    try {
+      await logoutBackend();
+    } catch (error) {
+      console.warn('Backend logout failed, clearing local session anyway.', error);
+    } finally {
+      clearBackendAccessToken();
+      set((state) => {
+        clearPersistedSecurityState();
+        return {
+          ...state,
+          session: { currentUser: null, isAuthenticated: false },
+        };
+      });
+    }
+  },
+  initializeSession: async () => {
+    try {
+      set((state) => ({ system: { ...state.system, isLoading: true } }));
+      const userProfile = await fetchCurrentUser();
+      const userRecord = asRecord(userProfile);
+      const userId = asString(userRecord?.id);
+      const normalizedUser = normalizeBackendUser(userProfile, userId ? get().users[userId] : undefined);
+
+      if (!normalizedUser) {
+        clearBackendAccessToken();
+        set((state) => ({
+          ...state,
+          system: { ...state.system, isLoading: false },
+          session: { currentUser: null, isAuthenticated: false },
+        }));
+        return;
+      }
+
+      set((state) => ({
         ...state,
+        session: { currentUser: normalizedUser, isAuthenticated: true },
+        users: { ...state.users, [normalizedUser.id]: normalizedUser },
+      }));
+      await get().refreshData();
+    } catch {
+      clearBackendAccessToken();
+      set((state) => ({
+        ...state,
+        system: { ...state.system, isLoading: false },
         session: { currentUser: null, isAuthenticated: false },
-      };
-    }),
+      }));
+    }
+  },
   signup: async (userData) => {
     try {
       set((state) => ({ system: { ...state.system, isLoading: true } }));
 
-      // Try backend first
-      try {
-        await signupBackend({
-          name: userData.name,
-          email: userData.email,
-          password: userData.password,
-          role: userData.role.toUpperCase(),
-        });
-        const userProfile = await fetchCurrentUser();
-        set((state) => ({
-          system: { ...state.system, isLoading: false },
-          session: { currentUser: userProfile, isAuthenticated: true },
-          users: { ...state.users, [userProfile.id]: userProfile },
-        }));
-        return;
-      } catch (backendError) {
-        if (!allowOfflineAuthFallback) {
-          throw backendError;
-        }
-        console.warn("Backend unreachable, falling back to offline signup:", backendError);
-      }
-
-      // Offline fallback: create user locally
-      const id = createId('user');
-      const newUser = {
-        id,
+      await signupBackend({
         name: userData.name,
         email: userData.email,
-        passwordHash: hashPassword(userData.password),
-        avatar: "",
-        role: userData.role,
-        ...(userData.role === "student" ? {
-          collegeId: userData.collegeId ?? "",
-          height: userData.height ?? 170,
-          weight: userData.weight ?? 70,
-          fitnessGoal: userData.fitnessGoal ?? "",
-          streak: 0, totalPlansCompleted: 0, followers: 0, following: 0,
-          trainerId: null, currentPlanId: null, currentDay: 1, totalDays: 28,
-          completionPercentage: 0, todaySteps: 0, rank: 0, badges: [],
-          isBanned: false, warnings: 0,
-          onboardingStatus: "not_started" as const, onboardingStep: 0,
-          taskCompletions: {}, totalPoints: 0,
-        } : {
-          specialization: userData.specialization ?? "",
-          experience: userData.experience ?? 0,
-          certifications: userData.certifications ? userData.certifications.split(",").map((c: string) => c.trim()) : [],
-          totalStudents: 0, activePlans: 0, isVerified: false,
-        }),
-      };
+        password: userData.password,
+        role: userData.role.toUpperCase(),
+      });
+
+      const userProfile = await fetchCurrentUser();
+      const userRecord = asRecord(userProfile);
+      const userId = asString(userRecord?.id);
+      const normalizedUser = normalizeBackendUser(userProfile, userId ? get().users[userId] : undefined);
+      if (!normalizedUser) {
+        throw new Error('Could not hydrate newly created user');
+      }
 
       set((state) => ({
+        ...state,
         system: { ...state.system, isLoading: false },
-        session: { currentUser: newUser as User, isAuthenticated: true },
-        users: { ...state.users, [id]: newUser as User },
+        session: { currentUser: normalizedUser, isAuthenticated: true },
+        users: { ...state.users, [normalizedUser.id]: normalizedUser },
       }));
+
+      await get().refreshData();
     } catch (error) {
       console.error("Signup failed:", error);
       set((state) => ({ system: { ...state.system, isLoading: false } }));
@@ -1728,56 +1638,71 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
     }),
 
   createOrGetChatThread: (targetUserId) => {
-    let threadId: string | null = null;
-    set((state) => {
-      const actor = state.session.currentUser;
-      if (!actor) return state;
-      if (!state.users[targetUserId] || targetUserId === actor.id) return state;
+    const state = get();
+    const actor = state.session.currentUser;
+    if (!actor) return null;
+    if (!state.users[targetUserId] || targetUserId === actor.id) return null;
 
-      const participants = [actor.id, targetUserId].sort();
-      const existing = state.system.chatThreads.find(
-        (thread) =>
-          thread.participantIds.length === 2 &&
-          thread.participantIds[0] === participants[0] &&
-          thread.participantIds[1] === participants[1]
-      );
+    const participants = [actor.id, targetUserId].sort();
+    const existing = state.system.chatThreads.find(
+      (thread) =>
+        thread.participantIds.length === 2 &&
+        thread.participantIds[0] === participants[0] &&
+        thread.participantIds[1] === participants[1]
+    );
 
-      if (existing) {
-        threadId = existing.id;
-        return state;
-      }
+    if (existing) {
+      return existing.id;
+    }
 
-      const now = new Date().toISOString();
-      threadId = buildDirectThreadId(participants[0], participants[1]);
-      const newThread: ChatThread = {
-        id: threadId,
-        participantIds: participants,
-        messages: [],
-        updatedAt: now,
-        unreadBy: [],
-      };
+    void createChatThreadAPI(targetUserId)
+      .then(() => get().refreshData())
+      .catch((error) => {
+        console.error('Failed to create chat thread:', error);
+      });
 
-      return {
-        ...state,
-        system: {
-          ...state.system,
-          chatThreads: [newThread, ...state.system.chatThreads],
-        },
-      };
-    });
-
-    return threadId;
+    return null;
   },
 
-  sendChatMessage: async ({ threadId, recipientId, text, type }) => {
+  sendChatMessage: async ({ threadId, recipientId, text, type, reelPostId, voiceSeconds, voiceAudioUrl }) => {
     try {
+      const normalizedType: 'text' | 'reel-share' | 'voice-note' =
+        voiceAudioUrl
+          ? 'voice-note'
+          : reelPostId
+            ? 'reel-share'
+            : type === 'voice-note' || type === 'reel-share'
+              ? type
+              : 'text';
+      const trimmedText = (text ?? '').trim();
+
+      if (normalizedType === 'text' && !trimmedText) return;
+
       let activeThreadId = threadId;
       if (!activeThreadId && recipientId) {
-        activeThreadId = buildDirectThreadId(get().session.currentUser?.id ?? "", recipientId);
+        const created = await createChatThreadAPI(recipientId);
+        activeThreadId = typeof created.id === 'string' ? created.id : undefined;
       }
       if (!activeThreadId) return;
+
+      const reelPost = reelPostId ? get().posts[reelPostId] : undefined;
+      const payloadText =
+        trimmedText ||
+        (normalizedType === 'voice-note'
+          ? 'Voice note'
+          : normalizedType === 'reel-share'
+            ? 'Shared a reel'
+            : '');
       
-      await sendChatMessageAPI(activeThreadId, text ?? "", type ?? "text");
+      await sendChatMessageAPI(activeThreadId, {
+        text: payloadText,
+        type: normalizedType,
+        voiceSeconds,
+        voiceAudioUrl,
+        reelPostId,
+        reelPreviewUrl: reelPost?.mediaUrl,
+        reelCaption: reelPost?.caption,
+      });
       await get().refreshData();
     } catch (error) {
       console.error("Failed to send message:", error);
@@ -1931,11 +1856,12 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
     try {
       set((state) => ({ system: { ...state.system, isLoading: true } }));
 
-      // Try fetching from backend; if it fails, keep existing seed/local data
+      // Pull live data from backend APIs and keep existing state only if a call fails.
       const results = await Promise.allSettled([
         fetchFeedFromBackend(),
         fetchChatThreads(),
         fetchEventsAPI(),
+        fetchNotificationsAPI(undefined, 40),
       ]);
 
       const feedPosts = results[0].status === "fulfilled" ? results[0].value : [];
@@ -1944,10 +1870,20 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
           ? normalizeChatThreads(results[1].value)
           : null;
       const events = results[2].status === "fulfilled" ? results[2].value : null;
+      const backendNotifications =
+        results[3].status === 'fulfilled'
+          ? results[3].value.data
+          : [];
+      const legacyNotifications = backendNotifications
+        .map(mapBackendNotificationToLegacy)
+        .filter((item): item is NotificationItem => Boolean(item));
+      const systemNotifications = backendNotifications
+        .map(mapBackendNotificationToSystem)
+        .filter((item): item is SystemNotification => Boolean(item));
 
       const role = get().session.currentUser?.role;
       let trainersStudents: Record<string, unknown>[] = [];
-      let adminUsers: User[] = [];
+      let adminUsers: unknown[] = [];
 
       if (role === "trainer") {
         const [tsRes] = await Promise.allSettled([fetchTrainerStudentsAPI()]);
@@ -1960,43 +1896,46 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
       }
 
       set((state) => ({
-        // Only override posts if backend returned data
+        // Merge first-page backend posts to avoid dropping already-loaded feed pages.
         posts: feedPosts.length > 0
           ? feedPosts.reduce<Record<string, Post>>((acc, post) => {
               acc[post.id] = post;
               return acc;
-            }, {})
+            }, { ...state.posts })
           : state.posts,
         system: {
           ...state.system,
           chatThreads: chatThreads ?? state.system.chatThreads,
           events: events ?? state.system.events,
+          notifications: systemNotifications,
+          legacyNotifications,
           isLoading: false,
         },
-        users: {
-          ...state.users,
-          ...adminUsers.reduce<Record<string, User>>((acc, user) => {
-            acc[user.id] = user;
-            return acc;
-          }, {}),
-          ...trainersStudents.reduce<Record<string, User>>((acc, studentRecord) => {
-            const nestedUser = studentRecord.user;
-            if (!nestedUser || typeof nestedUser !== "object") {
-              return acc;
-            }
+        users: (() => {
+          const nextUsers = { ...state.users };
 
-            const userCandidate = nestedUser as User;
-            if (!userCandidate.id) {
-              return acc;
-            }
+          adminUsers.forEach((adminUserCandidate) => {
+            const record = asRecord(adminUserCandidate);
+            if (!record) return;
+            const id = asString(record.id);
+            const normalized = normalizeBackendUser(record, id ? nextUsers[id] : undefined);
+            if (!normalized) return;
+            nextUsers[normalized.id] = normalized;
+          });
 
-            acc[userCandidate.id] = {
-              ...userCandidate,
-              ...(studentRecord as Record<string, unknown>),
-            } as User;
-            return acc;
-          }, {}),
-        },
+          trainersStudents.forEach((studentRecord) => {
+            const normalized = normalizeTrainerStudentRecord(
+              studentRecord,
+              asRecord(studentRecord)
+                ? nextUsers[asString(asRecord(studentRecord)?.userId)]
+                : undefined
+            );
+            if (!normalized) return;
+            nextUsers[normalized.id] = normalized;
+          });
+
+          return nextUsers;
+        })(),
       }));
     } catch (error) {
       console.error("Data refresh failed:", error);
@@ -2079,13 +2018,13 @@ const normalizeStudent = (candidate: Partial<Student> & Pick<User, 'id' | 'name'
   id: candidate.id,
   name: candidate.name,
   email: candidate.email,
-  passwordHash: candidate.passwordHash ?? hashPassword('changeme'),
+  passwordHash: candidate.passwordHash ?? '',
   avatar: candidate.avatar ?? '',
   role: 'student',
-  collegeId: candidate.collegeId ?? 'COL000',
-  height: candidate.height ?? 170,
-  weight: candidate.weight ?? 70,
-  fitnessGoal: candidate.fitnessGoal ?? 'General fitness',
+  collegeId: candidate.collegeId ?? '',
+  height: candidate.height ?? 0,
+  weight: candidate.weight ?? 0,
+  fitnessGoal: candidate.fitnessGoal ?? '',
   streak: candidate.streak ?? 0,
   totalPlansCompleted: candidate.totalPlansCompleted ?? 0,
   followers: candidate.followers ?? 0,
@@ -2096,12 +2035,12 @@ const normalizeStudent = (candidate: Partial<Student> & Pick<User, 'id' | 'name'
   totalDays: candidate.totalDays ?? 28,
   completionPercentage: candidate.completionPercentage ?? 0,
   todaySteps: candidate.todaySteps ?? 0,
-  rank: candidate.rank ?? 999,
+  rank: candidate.rank ?? 0,
   badges: candidate.badges ?? [],
   isBanned: candidate.isBanned ?? false,
   warnings: candidate.warnings ?? 0,
   onboardingStatus: candidate.onboardingStatus ?? 'not_started',
-  onboardingStep: candidate.onboardingStep ?? 1,
+  onboardingStep: candidate.onboardingStep ?? 0,
   onboardingDraft: candidate.onboardingDraft,
   taskCompletions: candidate.taskCompletions ?? {},
 });
@@ -2110,10 +2049,10 @@ const normalizeTrainer = (candidate: Partial<Trainer> & Pick<User, 'id' | 'name'
   id: candidate.id,
   name: candidate.name,
   email: candidate.email,
-  passwordHash: candidate.passwordHash ?? hashPassword('changeme'),
+  passwordHash: candidate.passwordHash ?? '',
   avatar: candidate.avatar ?? '',
   role: 'trainer',
-  specialization: candidate.specialization ?? 'General',
+  specialization: candidate.specialization ?? '',
   experience: candidate.experience ?? 0,
   certifications: candidate.certifications ?? [],
   totalStudents: candidate.totalStudents ?? 0,
@@ -2135,11 +2074,11 @@ export const useStore = () => {
       ? normalizeStudent(state.session.currentUser as Student)
       : normalizedStudents[0]) ??
     normalizeStudent({
-      id: 's-fallback',
-      name: 'Student',
-      email: 'student@test.com',
-      passwordHash: hashPassword('student123'),
-      avatar: '',
+      id: state.session.currentUser?.id ?? '',
+      name: state.session.currentUser?.name ?? '',
+      email: state.session.currentUser?.email ?? '',
+      passwordHash: state.session.currentUser?.passwordHash ?? '',
+      avatar: state.session.currentUser?.avatar ?? '',
     });
 
   const trainer =
@@ -2147,13 +2086,13 @@ export const useStore = () => {
       ? normalizeTrainer(state.session.currentUser as Trainer)
       : normalizedTrainers[0]) ??
     normalizeTrainer({
-      id: 't-fallback',
-      name: 'Coach',
-      email: 'trainer@test.com',
-      passwordHash: hashPassword('trainer123'),
-      avatar: '',
+      id: state.session.currentUser?.id ?? '',
+      name: state.session.currentUser?.name ?? '',
+      email: state.session.currentUser?.email ?? '',
+      passwordHash: state.session.currentUser?.passwordHash ?? '',
+      avatar: state.session.currentUser?.avatar ?? '',
       totalStudents: normalizedStudents.length,
-      isVerified: true,
+      isVerified: false,
     });
 
   const leaderboard = normalizedStudents
@@ -2419,6 +2358,10 @@ export const useStore = () => {
       }));
     },
     markNotificationRead: (notificationId: string) => {
+      void markNotificationReadAPI(notificationId).catch((error) => {
+        console.error("Failed to mark notification read on backend:", error);
+      });
+
       useAppStore.setState((prev) => ({
         ...prev,
         system: {
@@ -2433,6 +2376,17 @@ export const useStore = () => {
       }));
     },
     markAllNotificationsRead: () => {
+      const unreadIds = useAppStore
+        .getState()
+        .system.legacyNotifications.filter((notification) => !notification.read)
+        .map((notification) => notification.id);
+
+      if (unreadIds.length > 0) {
+        void Promise.allSettled(unreadIds.map((id) => markNotificationReadAPI(id))).catch((error) => {
+          console.error("Failed to mark all notifications read on backend:", error);
+        });
+      }
+
       useAppStore.setState((prev) => ({
         ...prev,
         system: {

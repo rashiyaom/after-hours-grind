@@ -7,6 +7,13 @@ import apiRouter from "./routes/index.js";
 import { errorHandler } from "./middleware/errorHandler.js";
 import { notFound } from "./middleware/notFound.js";
 import { requestContext } from "./middleware/requestContext.js";
+import { createRateLimit } from "./middleware/rateLimit.js";
+
+const apiGlobalLimiter = createRateLimit({
+  key: "api-global",
+  windowMs: 60 * 1000,
+  maxRequests: 300,
+});
 
 const app = express();
 if (env.TRUST_PROXY) {
@@ -47,7 +54,7 @@ app.get("/", (req, res) => {
 });
 
 // Routes
-app.use("/api", apiRouter);
+app.use("/api", apiGlobalLimiter, apiRouter);
 
 // 404 + error
 app.use(notFound);

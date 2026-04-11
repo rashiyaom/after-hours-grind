@@ -146,12 +146,7 @@ export default function StudentDetail() {
     }
 
     const threadId = createOrGetChatThread(s.id);
-    if (!threadId) {
-      toast.error("Could not start chat thread for this student.");
-      return;
-    }
-
-    sendChatMessage({ threadId, text: message });
+    sendChatMessage({ threadId: threadId ?? undefined, recipientId: s.id, text: message });
     setCoachMessage("");
     toast.success("Message sent to student community chat.");
   };

@@ -8,7 +8,6 @@ const navLinks = [
   { label: "Home", path: "/" },
   { label: "Features", path: "/#features" },
   { label: "Events", path: "/events" },
-  { label: "ELITE", path: "/athletes" },
 ];
 
 export default function PublicLayout() {

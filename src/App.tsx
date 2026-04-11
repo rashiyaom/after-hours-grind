@@ -1,8 +1,10 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Route, Routes, Navigate } from "react-router-dom";
+import { useEffect, useState } from "react";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { useAppStore } from "@/hooks/useStore";
 
 import PublicLayout from "@/layouts/PublicLayout";
 import AppLayout from "@/layouts/AppLayout";
@@ -49,13 +51,27 @@ import AthletesPage from "@/pages/AthletesPage";
 
 const queryClient = new QueryClient();
 
-const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <BrowserRouter>
-        <Routes>
+const App = () => {
+  const initializeSession = useAppStore((state) => state.initializeSession);
+  const [isSessionReady, setIsSessionReady] = useState(false);
+
+  useEffect(() => {
+    void initializeSession().finally(() => {
+      setIsSessionReady(true);
+    });
+  }, [initializeSession]);
+
+  if (!isSessionReady) {
+    return null;
+  }
+
+  return (
+    <QueryClientProvider client={queryClient}>
+      <TooltipProvider>
+        <Toaster />
+        <Sonner />
+        <BrowserRouter>
+          <Routes>
           {/* Public Routes */}
           <Route element={<PublicLayout />}>
             <Route path="/" element={<LandingPage />} />
@@ -122,10 +138,11 @@ const App = () => (
 
           {/* Not Found */}
           <Route path="*" element={<NotFound />} />
-        </Routes>
-      </BrowserRouter>
-    </TooltipProvider>
-  </QueryClientProvider>
-);
+          </Routes>
+        </BrowserRouter>
+      </TooltipProvider>
+    </QueryClientProvider>
+  );
+};
 
 export default App;

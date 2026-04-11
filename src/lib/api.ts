@@ -34,6 +34,23 @@ type BackendFeedResponse = {
   nextCursor: string | null;
 };
 
+type FeedPageResponse = {
+  data: Post[];
+  nextCursor: string | null;
+};
+
+type BackendNotificationsResponse = {
+  data: Array<{
+    id: string;
+    type: string;
+    title: string;
+    message: string;
+    read: boolean;
+    createdAt: string;
+  }>;
+  nextCursor: string | null;
+};
+
 type ApiRecord = Record<string, unknown>;
 
 type ApiComment = {
@@ -53,6 +70,16 @@ type ApiSubmission = {
   trainerNote?: string | null;
   student?: { name?: string };
   planTask?: { name?: string; type?: string; points?: number };
+};
+
+type ApiChatMessagePayload = {
+  text?: string;
+  type?: "text" | "reel-share" | "voice-note";
+  voiceSeconds?: number;
+  voiceAudioUrl?: string;
+  reelPostId?: string;
+  reelPreviewUrl?: string;
+  reelCaption?: string;
 };
 
 type ApiEventPayload = Omit<AHGEvent, "id" | "createdAt" | "entries" | "status">;
@@ -163,9 +190,33 @@ export async function refreshBackendAccessToken(): Promise<string> {
   return response.accessToken;
 }
 
+export async function logoutBackend(): Promise<void> {
+  try {
+    await authedRequest<ApiRecord>("/auth/logout", { method: "POST" });
+  } finally {
+    clearAccessToken();
+  }
+}
+
 export async function fetchFeedFromBackend(): Promise<Post[]> {
-  const response = await authedRequest<BackendFeedResponse>("/feed", { method: "GET" });
-  return response.data.map(toFrontendPost);
+  const response = await fetchFeedPageFromBackend();
+  return response.data;
+}
+
+export async function fetchFeedPageFromBackend(cursor?: string, limit = 20): Promise<FeedPageResponse> {
+  const params = new URLSearchParams();
+  if (cursor) {
+    params.set("cursor", cursor);
+  }
+  params.set("limit", String(limit));
+
+  const query = params.toString();
+  const path = query ? `/feed?${query}` : "/feed";
+  const response = await authedRequest<BackendFeedResponse>(path, { method: "GET" });
+  return {
+    data: response.data.map(toFrontendPost),
+    nextCursor: response.nextCursor,
+  };
 }
 
 export function clearBackendAccessToken(): void {
@@ -203,10 +254,17 @@ export async function fetchChatMessages(threadId: string): Promise<ApiRecord[]> 
   return authedRequest<ApiRecord[]>(`/threads/${threadId}/messages`, { method: "GET" });
 }
 
-export async function sendChatMessageAPI(threadId: string, text: string, type: string = "text"): Promise<ApiRecord> {
+export async function createChatThreadAPI(participantId: string): Promise<ApiRecord> {
+  return authedRequest<ApiRecord>("/threads", {
+    method: "POST",
+    body: JSON.stringify({ participantId }),
+  });
+}
+
+export async function sendChatMessageAPI(threadId: string, payload: ApiChatMessagePayload): Promise<ApiRecord> {
   return authedRequest<ApiRecord>(`/threads/${threadId}/messages`, {
     method: "POST",
-    body: JSON.stringify({ text, type })
+    body: JSON.stringify(payload)
   });
 }
 
@@ -311,6 +369,22 @@ export async function likePostAPI(postId: string): Promise<ApiRecord> {
 
 export async function unlikePostAPI(postId: string): Promise<ApiRecord> {
   return authedRequest<ApiRecord>(`/posts/${postId}/likes`, { method: "DELETE" });
+}
+
+export async function fetchNotificationsAPI(cursor?: string, limit = 30): Promise<BackendNotificationsResponse> {
+  const params = new URLSearchParams();
+  if (cursor) {
+    params.set("cursor", cursor);
+  }
+  params.set("limit", String(limit));
+
+  const query = params.toString();
+  const path = query ? `/notifications?${query}` : "/notifications";
+  return authedRequest<BackendNotificationsResponse>(path, { method: "GET" });
+}
+
+export async function markNotificationReadAPI(notificationId: string): Promise<ApiRecord> {
+  return authedRequest<ApiRecord>(`/notifications/${notificationId}/read`, { method: "POST" });
 }
 
 export async function updateProfileAPI(payload: ApiRecord): Promise<ApiCurrentUser> {

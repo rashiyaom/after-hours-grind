@@ -269,6 +269,11 @@ model ChatMessage {
   sender    User       @relation(fields: [senderId], references: [id], onDelete: Cascade)
   text      String
   type      String     @default("text") // text | reel-share | voice-note
+  voiceSeconds Int?
+  voiceAudioUrl String?
+  reelPostId String?
+  reelPreviewUrl String?
+  reelCaption String?
   createdAt DateTime   @default(now())
 
   @@index([threadId, createdAt])

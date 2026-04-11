@@ -13,7 +13,9 @@ export async function toggleUserBanHandler(req: Request, res: Response) {
 }
 
 export async function updatePostModerationHandler(req: Request, res: Response) {
-    const { status } = z.object({ status: z.string() }).parse(req.body);
+    const { status } = z
+      .object({ status: z.enum(["visible", "hidden", "under-review"]) })
+      .parse(req.body);
     const post = await svc.updatePostModeration(req.params.postId, status);
     res.json(post);
 }

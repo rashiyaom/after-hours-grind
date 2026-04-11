@@ -3,6 +3,12 @@ import type { CookieOptions } from "express";
 import { signupSchema, loginSchema } from "./auth.schema.js";
 import * as authService from "./auth.service.js";
 import { env } from "../../config/env.js";
+import { parseDurationToMs } from "../../lib/duration.js";
+
+const DEFAULT_REFRESH_COOKIE_MS = 7 * 24 * 60 * 60 * 1000;
+const DEFAULT_ACCESS_COOKIE_MS = 15 * 60 * 1000;
+const REFRESH_COOKIE_MAX_AGE_MS = parseDurationToMs(env.REFRESH_TOKEN_TTL, DEFAULT_REFRESH_COOKIE_MS);
+const ACCESS_COOKIE_MAX_AGE_MS = parseDurationToMs(env.ACCESS_TOKEN_TTL, DEFAULT_ACCESS_COOKIE_MS);
 
 const sameSitePolicy: CookieOptions["sameSite"] = env.AUTH_COOKIE_SAME_SITE;
 const baseCookieOptions: Pick<CookieOptions, "httpOnly" | "secure" | "sameSite" | "domain"> = {
@@ -15,13 +21,13 @@ const baseCookieOptions: Pick<CookieOptions, "httpOnly" | "secure" | "sameSite" 
 const COOKIE_OPTIONS: CookieOptions = {
   ...baseCookieOptions,
   path: "/api/auth",
-  maxAge: 7 * 24 * 60 * 60 * 1000, // 7d
+  maxAge: REFRESH_COOKIE_MAX_AGE_MS,
 };
 
 const ACCESS_COOKIE_OPTIONS: CookieOptions = {
   ...baseCookieOptions,
   path: "/api",
-  maxAge: 15 * 60 * 1000, // 15m
+  maxAge: ACCESS_COOKIE_MAX_AGE_MS,
 };
 
 export async function signupHandler(req: Request, res: Response) {

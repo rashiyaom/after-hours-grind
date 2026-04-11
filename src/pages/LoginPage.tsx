@@ -6,7 +6,6 @@ import { useAppStore } from "@/hooks/useStore";
 import { toast } from "sonner";
 import { Student, UserRole } from "@/types";
 import { LUXURY_TWEEN_SLOW } from "@/lib/motionTokens";
-import { clearBackendAccessToken, loginBackend } from "@/lib/api";
 
 export default function LoginPage() {
   const navigate = useNavigate();
@@ -102,7 +101,7 @@ export default function LoginPage() {
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder={`${role}@test.com`}
+                placeholder="you@example.com"
                 required
                 className="w-full bg-background border border-white/10 rounded-xl px-4 py-3 text-sm text-foreground focus:outline-none focus:border-primary transition-colors"
               />

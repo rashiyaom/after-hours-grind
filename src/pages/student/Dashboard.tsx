@@ -24,7 +24,7 @@ const DASHBOARD_TABS: DashboardTab[] = ["Overview", "Training", "Nutrition", "Pr
 const DASHBOARD_PILLS: DashboardPill[] = ["All", "Workout", "Nutrition", "Recovery"];
 
 export default function StudentDashboard() {
-  const { student: s, leaderboard, todayTask, loading, setLoading, onboardingRequired, notifications } = useStore();
+  const { student: s, leaderboard, todayTask, getDayTask, loading, setLoading, onboardingRequired, notifications } = useStore();
   const currentUser = useCurrentUser();
   const permissions = usePermissions();
   const canPostFeed = Boolean(currentUser && permissions[currentUser.role].post_feed);
@@ -71,18 +71,49 @@ export default function StudentDashboard() {
 
   const streakCellCount = streakWindow === "5w" ? 35 : 70;
   const streakCells = useMemo(() => {
-    return Array.from({ length: streakCellCount }).map((_, idx) => {
-      const seed = (idx + s.streak + Math.floor(s.completionPercentage / 10)) % 10;
-      if (seed <= 2) return 0;
-      if (seed <= 4) return 1;
-      if (seed <= 6) return 2;
-      if (seed <= 8) return 3;
+    const boundedCurrentDay = Math.max(1, Math.min(s.totalDays, s.currentDay));
+    const startDay = Math.max(1, boundedCurrentDay - streakCellCount + 1);
+    const generated = Array.from({ length: boundedCurrentDay - startDay + 1 }).map((_, idx) => {
+      const day = startDay + idx;
+      const dayTask = getDayTask(day);
+      const total = dayTask.workout.length + dayTask.diet.length;
+      if (total === 0) return 0;
+
+      const completed =
+        dayTask.workout.filter((item) => item.completed).length +
+        dayTask.diet.filter((item) => item.completed).length;
+      const ratio = completed / total;
+
+      if (ratio === 0) return 0;
+      if (ratio < 0.35) return 1;
+      if (ratio < 0.7) return 2;
+      if (ratio < 1) return 3;
       return 4;
     });
-  }, [streakCellCount, s.streak, s.completionPercentage]);
+
+    if (generated.length >= streakCellCount) {
+      return generated.slice(-streakCellCount);
+    }
+
+    return [...Array.from({ length: streakCellCount - generated.length }, () => 0), ...generated];
+  }, [getDayTask, s.currentDay, s.totalDays, streakCellCount]);
 
   const activeStreakDays = streakCells.filter((cell) => cell > 0).length;
-  const longestStreak = Math.max(s.streak + 6, Math.round(s.streak * 1.4));
+  const longestStreak = useMemo(() => {
+    let currentRun = 0;
+    let maxRun = 0;
+
+    streakCells.forEach((cell) => {
+      if (cell > 0) {
+        currentRun += 1;
+        maxRun = Math.max(maxRun, currentRun);
+      } else {
+        currentRun = 0;
+      }
+    });
+
+    return maxRun;
+  }, [streakCells]);
 
   const filteredLeaderboard = useMemo(() => {
     const q = searchQuery.toLowerCase().trim();

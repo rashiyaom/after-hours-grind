@@ -2,11 +2,16 @@ import { prisma } from "../../config/prisma.js";
 import { hashPassword, verifyPassword } from "../../lib/password.js";
 import { signAccessToken, signRefreshToken, verifyRefreshToken } from "../../lib/jwt.js";
 import { HttpError } from "../../lib/httpError.js";
+import { env } from "../../config/env.js";
+import { parseDurationToMs } from "../../lib/duration.js";
 import type { SignupInput, LoginInput } from "./auth.schema.js";
 import crypto from "crypto";
 
+const DEFAULT_REFRESH_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+const REFRESH_TOKEN_TTL_MS = parseDurationToMs(env.REFRESH_TOKEN_TTL, DEFAULT_REFRESH_TTL_MS);
+
 function refreshTokenExpiry(): Date {
-  return new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
+  return new Date(Date.now() + REFRESH_TOKEN_TTL_MS);
 }
 
 const hashRefreshToken = (token: string): string =>

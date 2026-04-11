@@ -18,7 +18,27 @@ export async function getUser(id: string) {
     where: { id },
     select: {
       id: true, name: true, avatar: true, role: true, createdAt: true,
-      studentProfile: true, trainerProfile: true,
+      studentProfile: {
+        select: {
+          collegeId: true,
+          heightCm: true,
+          weightKg: true,
+          fitnessGoal: true,
+          streak: true,
+          totalPlansCompleted: true,
+          totalPoints: true,
+          sport: true,
+          team: true,
+        },
+      },
+      trainerProfile: {
+        select: {
+          specialization: true,
+          experience: true,
+          certifications: true,
+          isVerified: true,
+        },
+      },
       _count: { select: { followers: true, following: true, posts: true } },
     },
   });
@@ -35,9 +55,13 @@ export async function updateMe(userId: string, role: string, input: UpdateProfil
   });
 
   if (role === "STUDENT") {
-    const { 
-      collegeId, heightCm, weightKg, fitnessGoal, 
-      onboardingDraft, onboardingStep, onboardingCompleted, currentPlanId 
+    const {
+      collegeId,
+      heightCm,
+      weightKg,
+      fitnessGoal,
+      onboardingDraft,
+      onboardingStep,
     } = input;
     
     await prisma.studentProfile.update({
@@ -49,8 +73,6 @@ export async function updateMe(userId: string, role: string, input: UpdateProfil
         ...(fitnessGoal !== undefined ? { fitnessGoal } : {}),
         ...(onboardingDraft !== undefined ? { onboardingDraft: onboardingDraft as Prisma.InputJsonValue } : {}),
         ...(onboardingStep !== undefined ? { onboardingStep } : {}),
-        ...(onboardingCompleted !== undefined ? { onboardingCompleted } : {}),
-        ...(currentPlanId !== undefined ? { currentPlanId } : {}),
       },
     });
   }
@@ -85,7 +107,17 @@ export async function unfollowUser(followerId: string, followingId: string) {
 
 export async function getFeaturedAthletes() {
   return prisma.studentProfile.findMany({
-    include: { user: true },
+    include: {
+      user: {
+        select: {
+          id: true,
+          name: true,
+          avatar: true,
+          role: true,
+          createdAt: true,
+        },
+      },
+    },
     where: { sport: { not: null } }
   });
 }

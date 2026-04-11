@@ -68,9 +68,16 @@ export default function AppLayout() {
   } = useAppStore();
 
   useEffect(() => {
-    if (isAuthenticated) {
-      refreshData();
-    }
+    if (!isAuthenticated) return;
+
+    void refreshData();
+    const intervalId = window.setInterval(() => {
+      void refreshData();
+    }, 15000);
+
+    return () => {
+      window.clearInterval(intervalId);
+    };
   }, [isAuthenticated, refreshData]);
 
 
@@ -111,8 +118,8 @@ export default function AppLayout() {
         : null;
 
   const unreadCount = notifications.filter((n) => !n.read).length;
-  const handleLogout = () => {
-    logout();
+  const handleLogout = async () => {
+    await logout();
     navigate("/");
   };
 
