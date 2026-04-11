@@ -24,6 +24,7 @@ type FeedComment = {
   createdAt: string;
   userId: string;
   postId: string;
+  user?: { id: string; name: string; avatar: string };
 };
 
 const TABS = ["All", "Videos", "Photos"] as const;
