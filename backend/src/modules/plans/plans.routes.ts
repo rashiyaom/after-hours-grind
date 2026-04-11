@@ -6,14 +6,23 @@ import * as ctrl from "./plans.controller.js";
 
 const router = Router();
 
+// Student
 router.get("/student/plan/today", requireAuth, requireRole("STUDENT"), asyncHandler(ctrl.getTodayPlanHandler));
 router.post("/submissions", requireAuth, requireRole("STUDENT"), asyncHandler(ctrl.createSubmissionHandler));
+router.post("/plans/:id/submit", requireAuth, requireRole("STUDENT"), asyncHandler(ctrl.submitForApprovalHandler));
+
+// Trainer
+router.get("/trainer/students", requireAuth, requireRole("TRAINER"), asyncHandler(ctrl.getTrainerStudentsHandler));
+router.get("/trainer/students/:id", requireAuth, requireRole("TRAINER"), asyncHandler(ctrl.getStudentDetailHandler));
+router.post("/trainer/students", requireAuth, requireRole("TRAINER"), asyncHandler(ctrl.assignStudentHandler));
+router.delete("/trainer/students/:id", requireAuth, requireRole("TRAINER"), asyncHandler(ctrl.unassignStudentHandler));
+router.post("/plans", requireAuth, requireRole("TRAINER"), asyncHandler(ctrl.createPlanHandler));
+router.get("/plans/pending", requireAuth, requireRole("TRAINER", "ADMIN"), asyncHandler(ctrl.getPendingPlansHandler));
+router.post("/plans/:id/review", requireAuth, requireRole("TRAINER", "ADMIN"), asyncHandler(ctrl.reviewPlanHandler));
+
+// Trainer + Admin
 router.get("/submissions", requireAuth, requireRole("TRAINER", "ADMIN"), asyncHandler(ctrl.getSubmissionsHandler));
 router.post("/submissions/:id/approve", requireAuth, requireRole("TRAINER", "ADMIN"), asyncHandler(ctrl.approveHandler));
 router.post("/submissions/:id/reject", requireAuth, requireRole("TRAINER", "ADMIN"), asyncHandler(ctrl.rejectHandler));
-
-// Trainer plan management
-router.get("/trainer/students", requireAuth, requireRole("TRAINER"), asyncHandler(ctrl.getTrainerStudentsHandler));
-router.post("/plans", requireAuth, requireRole("TRAINER"), asyncHandler(ctrl.createPlanHandler));
 
 export default router;

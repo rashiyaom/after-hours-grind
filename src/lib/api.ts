@@ -393,3 +393,104 @@ export async function updateProfileAPI(payload: ApiRecord): Promise<ApiCurrentUs
     body: JSON.stringify(payload)
   });
 }
+
+// === ACHIEVEMENTS ===
+
+export async function fetchAchievementsAPI(): Promise<ApiRecord[]> {
+  return authedRequest<ApiRecord[]>("/achievements", { method: "GET" });
+}
+
+export async function checkAchievementsAPI(): Promise<{ awarded: string[] }> {
+  return authedRequest<{ awarded: string[] }>("/achievements/check", { method: "POST" });
+}
+
+// === LEADERBOARD ===
+
+export async function fetchLeaderboardAPI(limit = 50): Promise<ApiRecord[]> {
+  return authedRequest<ApiRecord[]>(`/leaderboard?limit=${limit}`, { method: "GET" });
+}
+
+// === PROGRESS ===
+
+export async function logProgressAPI(data: ApiRecord): Promise<ApiRecord> {
+  return authedRequest<ApiRecord>("/progress", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+export async function fetchProgressHistoryAPI(days = 30): Promise<ApiRecord[]> {
+  return authedRequest<ApiRecord[]>(`/progress?days=${days}`, { method: "GET" });
+}
+
+export async function fetchProgressSummaryAPI(): Promise<ApiRecord> {
+  return authedRequest<ApiRecord>("/progress/summary", { method: "GET" });
+}
+
+// === SETTINGS ===
+
+export async function fetchSettingsAPI(): Promise<ApiRecord> {
+  return authedRequest<ApiRecord>("/settings", { method: "GET" });
+}
+
+export async function updateSettingsAPI(data: ApiRecord): Promise<ApiRecord> {
+  return authedRequest<ApiRecord>("/settings", {
+    method: "PATCH",
+    body: JSON.stringify(data),
+  });
+}
+
+// === PLAN WORKFLOW ===
+
+export async function submitPlanForApprovalAPI(planId: string): Promise<ApiRecord> {
+  return authedRequest<ApiRecord>(`/plans/${planId}/submit`, { method: "POST" });
+}
+
+export async function reviewPlanAPI(planId: string, action: "approve" | "reject", note?: string): Promise<ApiRecord> {
+  return authedRequest<ApiRecord>(`/plans/${planId}/review`, {
+    method: "POST",
+    body: JSON.stringify({ action, note }),
+  });
+}
+
+export async function fetchPendingPlansAPI(): Promise<ApiRecord[]> {
+  return authedRequest<ApiRecord[]>("/plans/pending", { method: "GET" });
+}
+
+// === TRAINER STUDENT MANAGEMENT ===
+
+export async function assignStudentAPI(studentId: string): Promise<ApiRecord> {
+  return authedRequest<ApiRecord>("/trainer/students", {
+    method: "POST",
+    body: JSON.stringify({ studentId }),
+  });
+}
+
+export async function unassignStudentAPI(studentId: string): Promise<ApiRecord> {
+  return authedRequest<ApiRecord>(`/trainer/students/${studentId}`, { method: "DELETE" });
+}
+
+export async function fetchStudentDetailAPI(studentId: string): Promise<ApiRecord> {
+  return authedRequest<ApiRecord>(`/trainer/students/${studentId}`, { method: "GET" });
+}
+
+// === ADMIN ENHANCED ===
+
+export async function fetchAdminStatsAPI(): Promise<ApiRecord> {
+  return authedRequest<ApiRecord>("/admin/stats", { method: "GET" });
+}
+
+export async function fetchFlaggedContentAPI(): Promise<ApiRecord> {
+  return authedRequest<ApiRecord>("/admin/moderation", { method: "GET" });
+}
+
+export async function changeUserRoleAPI(userId: string, role: string): Promise<ApiRecord> {
+  return authedRequest<ApiRecord>(`/admin/users/${userId}/role`, {
+    method: "PATCH",
+    body: JSON.stringify({ role }),
+  });
+}
+
+export async function deletePostAdminAPI(postId: string): Promise<ApiRecord> {
+  return authedRequest<ApiRecord>(`/admin/posts/${postId}`, { method: "DELETE" });
+}

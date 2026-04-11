@@ -24,6 +24,7 @@ type FeedComment = {
   createdAt: string;
   userId: string;
   postId: string;
+  user?: { id: string; name: string; avatar: string };
 };
 
 const TABS = ["All", "Videos", "Photos"] as const;
@@ -304,11 +305,11 @@ export default function FeedPage() {
                     {comments.map((c, i) => (
                       <div key={i} className="flex gap-3 group">
                         <div className="w-8 h-8 rounded-xl bg-[#1D1D1D] border border-white/5 flex items-center justify-center text-[9px] font-bold text-white/50 flex-shrink-0 group-hover:border-[#C9F85A]/20 transition-colors">
-                          {getInitials(c.user.name)}
+                          {getInitials(c.user?.name ?? "U")}
                         </div>
                         <div className="flex-1 pt-0.5">
                           <p className="text-xs leading-relaxed text-white/70">
-                            <span className="font-semibold text-white mr-1.5">{c.user.name}</span>
+                            <span className="font-semibold text-white mr-1.5">{c.user?.name ?? "User"}</span>
                             {c.text}
                           </p>
                           <div className="flex items-center gap-3 mt-1.5 text-[10px] text-white/25">

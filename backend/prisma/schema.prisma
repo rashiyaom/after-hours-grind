@@ -41,6 +41,7 @@ model User {
 
   studentProfile StudentProfile?
   trainerProfile TrainerProfile?
+  settings       UserSettings?
 
   posts        Post[]
   comments     Comment[]
@@ -56,6 +57,8 @@ model User {
   threadParticipants ThreadParticipant[]
 
   refreshTokens RefreshToken[]
+  achievements  UserAchievement[]
+  progress      ProgressEntry[]
 
   @@index([role])
 }
@@ -86,7 +89,7 @@ model StudentProfile {
   currentPlanId       String?
   onboardingCompleted Boolean  @default(false)
   onboardingStep      Int      @default(1)
-  onboardingDraft     Json?    // Stores the Questionnaire state
+  onboardingDraft     Json?
   sport               String?
   team                String?
 
@@ -101,6 +104,21 @@ model TrainerProfile {
   experience     Int      @default(0)
   certifications String[] @default([])
   isVerified     Boolean  @default(false)
+}
+
+// ─── USER SETTINGS ───────────────────────────────────────
+
+model UserSettings {
+  id                 String   @id @default(cuid())
+  userId             String   @unique
+  user               User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  emailNotifications Boolean  @default(true)
+  pushNotifications  Boolean  @default(true)
+  profileVisibility  String   @default("public")
+  showStreak         Boolean  @default(true)
+  showLeaderboard    Boolean  @default(true)
+  theme              String   @default("dark")
+  updatedAt          DateTime @updatedAt
 }
 
 // ─── SOCIAL ──────────────────────────────────────────────
@@ -121,12 +139,12 @@ model Post {
   id        String   @id @default(cuid())
   userId    String
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  type      String   @default("image") // image | video | reel
+  type      String   @default("image")
   mediaUrl  String   @default("")
   caption   String   @default("")
-  source    String   @default("general") // general | task-proof
+  source    String   @default("general")
   location  String   @default("")
-  status    String   @default("visible") // visible | hidden | under-review
+  status    String   @default("visible")
   createdAt DateTime @default(now())
 
   comments Comment[]
@@ -194,7 +212,7 @@ model PlanTask {
   id          String @id @default(cuid())
   planDayId   String
   planDay     PlanDay @relation(fields: [planDayId], references: [id], onDelete: Cascade)
-  type        String  // workout | nutrition | habit
+  type        String
   title       String
   description String  @default("")
   durationMin Int     @default(0)
@@ -230,7 +248,7 @@ model Notification {
   id        String   @id @default(cuid())
   userId    String
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  type      String   // streak | rank | social | trainer | plan | system
+  type      String
   title     String
   message   String
   read      Boolean  @default(false)
@@ -268,7 +286,7 @@ model ChatMessage {
   senderId  String
   sender    User       @relation(fields: [senderId], references: [id], onDelete: Cascade)
   text      String
-  type      String     @default("text") // text | reel-share | voice-note
+  type      String     @default("text")
   voiceSeconds Int?
   voiceAudioUrl String?
   reelPostId String?
@@ -280,6 +298,7 @@ model ChatMessage {
 }
 
 // ─── EVENTS ──────────────────────────────────────────────
+
 model Event {
   id               String       @id @default(cuid())
   title            String
@@ -287,13 +306,13 @@ model Event {
   date             DateTime
   location         String
   category         String       @default("General")
-  status           String       @default("upcoming") // upcoming | ongoing | completed | cancelled
+  status           String       @default("upcoming")
   mediaType        String       @default("image")
   mediaUrl         String       @default("")
   registrationOpen Boolean      @default(true)
-  formFields       Json         @default("[]") // AHGEventFormField[]
+  formFields       Json         @default("[]")
   createdAt        DateTime     @default(now())
-  createdBy        String       // userId
+  createdBy        String
 
   entries          EventEntry[]
 }
@@ -304,7 +323,57 @@ model EventEntry {
   event       Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
   userId      String?
   submittedAt DateTime @default(now())
-  responses   Json     @default("{}") // Record<string, string | string[]>
+  responses   Json     @default("{}")
 
   @@index([eventId])
+}
+
+// ─── ACHIEVEMENTS ────────────────────────────────────────
+
+model AchievementDef {
+  id          String @id @default(cuid())
+  key         String @unique
+  name        String
+  description String @default("")
+  icon        String @default("🏆")
+  category    String @default("general")
+  threshold   Int    @default(1)
+  points      Int    @default(0)
+  createdAt   DateTime @default(now())
+
+  earned UserAchievement[]
+}
+
+model UserAchievement {
+  id            String   @id @default(cuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  achievementId String
+  achievement   AchievementDef @relation(fields: [achievementId], references: [id], onDelete: Cascade)
+  earnedAt      DateTime @default(now())
+
+  @@unique([userId, achievementId])
+  @@index([userId])
+}
+
+// ─── PROGRESS TRACKING ──────────────────────────────────
+
+model ProgressEntry {
+  id              String   @id @default(cuid())
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  date            DateTime @default(now()) @db.Date
+  weightKg        Float?
+  bodyFatPct      Float?
+  stepCount       Int?
+  workoutMinutes  Int?
+  caloriesBurned  Int?
+  sleepHours      Float?
+  waterLiters     Float?
+  mood            String?
+  notes           String?
+  createdAt       DateTime @default(now())
+
+  @@unique([userId, date])
+  @@index([userId])
 }
