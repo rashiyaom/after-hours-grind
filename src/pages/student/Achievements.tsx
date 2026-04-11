@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import {
   Award, Flame, Footprints, Trophy, Star, Sun, Leaf,
@@ -8,6 +8,8 @@ import { useStore } from "@/hooks/useStore";
 import { Badge } from "@/types";
 import { LUXURY_TWEEN_MEDIUM, LUXURY_TWEEN_SLOW } from "@/lib/motionTokens";
 import { Link } from "react-router-dom";
+import { fetchAchievementProgressAPI } from "@/lib/api";
+import { Skeleton } from "@/components/ui/skeleton";
 
 const iconMap: Record<string, React.ElementType> = {
   flame: Flame,
@@ -32,24 +34,62 @@ const MILESTONE_COLORS = ["#C9F85A", "#4DD2FF", "#FFD36E", "#A78BFA", "#FF4D00"]
 
 export default function AchievementsPage() {
   const { student: s } = useStore();
+  const [loading, setLoading] = useState(true);
+  const [progress, setProgress] = useState<any>(null);
+  const [error, setError] = useState<string | null>(null);
 
-  const allBadges: Badge[] = [
-    ...s.badges,
-    { id: "b7", name: "Upload King", description: "Submit 50 check-in photos", icon: "trophy", earned: false, date: "" },
-    { id: "b8", name: "Community Anchor", description: "Follow 20 athletes", icon: "star", earned: false, date: "" },
-    { id: "b9", name: "Early Riser", description: "Complete a workout before 7am", icon: "flame", earned: false, date: "" },
-  ];
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+        const data = await fetchAchievementProgressAPI();
+        setProgress(data);
+        setError(null);
+      } catch (err) {
+        console.error("Failed to fetch achievements:", err);
+        setError("Failed to load achievements");
+        setLoading(false);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, []);
+
+  const badges = progress?.badges || [];
+  const stats = progress?.stats || { totalEarned: 0, streak: 0, totalPoints: 0, totalPlansCompleted: 0 };
+
+  const earned = badges.filter((b: any) => b.earned);
+  const locked = badges.filter((b: any) => !b.earned);
 
   const milestones = [
-    { label: "7-Day Streak", current: s.streak, target: 7, done: s.streak >= 7, color: "#C9F85A" },
-    { label: "14-Day Streak", current: s.streak, target: 14, done: s.streak >= 14, color: "#4DD2FF" },
-    { label: "10k Steps Day", current: 8432, target: 10000, done: false, color: "#FFD36E" },
-    { label: "50 Check-Ins", current: 30, target: 50, done: false, color: "#A78BFA" },
-    { label: "Plan Mastery", current: s.completionPercentage, target: 100, done: s.completionPercentage >= 100, color: "#FF4D00" },
+    { label: "7-Day Streak", current: stats.streak, target: 7, done: stats.streak >= 7, color: "#C9F85A" },
+    { label: "14-Day Streak", current: stats.streak, target: 14, done: stats.streak >= 14, color: "#4DD2FF" },
+    { label: "30 Workouts", current: stats.totalPlansCompleted, target: 30, done: stats.totalPlansCompleted >= 30, color: "#FFD36E" },
+    { label: "100 Points", current: stats.totalPoints, target: 100, done: stats.totalPoints >= 100, color: "#A78BFA" },
+    { label: "All Badges", current: stats.totalEarned, target: badges.length, done: stats.totalEarned === badges.length, color: "#FF4D00" },
   ];
 
-  const earned = allBadges.filter((b) => b.earned);
-  const locked = allBadges.filter((b) => !b.earned);
+  if (loading) {
+    return (
+      <div className="mx-auto max-w-4xl space-y-6 p-4 sm:p-6 lg:p-8 pb-10">
+        <Skeleton className="h-48 w-full rounded-[32px]" />
+        <Skeleton className="h-96 w-full rounded-[32px]" />
+        <Skeleton className="h-64 w-full rounded-[32px]" />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="mx-auto max-w-4xl space-y-6 p-4 sm:p-6 lg:p-8 pb-10">
+        <div className="rounded-[32px] border border-red-500/20 bg-red-500/5 p-6 text-center">
+          <p className="text-red-400">{error}</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="mx-auto max-w-4xl space-y-6 p-4 sm:p-6 lg:p-8 pb-10">
@@ -76,7 +116,7 @@ export default function AchievementsPage() {
             </div>
             <h1 className="text-4xl font-bold text-white tracking-tight">Your Badges</h1>
             <p className="text-sm text-white/40 mt-1">
-              <span className="text-[#C9F85A] font-bold">{earned.length}</span> / {allBadges.length} unlocked
+              <span className="text-[#C9F85A] font-bold">{earned.length}</span> / {badges.length} unlocked
             </p>
           </div>
 
@@ -107,12 +147,11 @@ export default function AchievementsPage() {
           </div>
 
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-            {earned.map((badge, i) => {
-              const Icon = iconMap[badge.icon] || Award;
+            {earned.map((badge: any, i: number) => {
               const palette = BADGE_PALETTES[i % BADGE_PALETTES.length];
               return (
                 <motion.div
-                  key={badge.id}
+                  key={badge.badgeId}
                   initial={{ opacity: 0, scale: 0.9 }}
                   animate={{ opacity: 1, scale: 1 }}
                   transition={{ ...LUXURY_TWEEN_MEDIUM, delay: i * 0.06 }}
@@ -120,10 +159,10 @@ export default function AchievementsPage() {
                 >
                   <div className="relative">
                     <div
-                      className={`w-14 h-14 rounded-2xl border-2 ${palette.ring} flex items-center justify-center group-hover:scale-110 group-hover:rotate-6 transition-all duration-500`}
+                      className={`w-14 h-14 rounded-2xl border-2 ${palette.ring} flex items-center justify-center group-hover:scale-110 group-hover:rotate-6 transition-all duration-500 text-2xl`}
                       style={{ background: palette.glow }}
                     >
-                      <Icon className={`h-7 w-7 ${palette.text}`} />
+                      {badge.icon}
                     </div>
                     <div className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-[#C9F85A] flex items-center justify-center">
                       <CheckCircle2 className="h-3 w-3 text-black" />
@@ -137,7 +176,7 @@ export default function AchievementsPage() {
 
                   {badge.earnedDate && (
                     <div className="rounded-full bg-white/5 px-3 py-1 text-[10px] text-white/25 border border-white/5">
-                      {badge.earnedDate}
+                      {new Date(badge.earnedDate).toLocaleDateString()}
                     </div>
                   )}
                 </motion.div>
@@ -159,16 +198,15 @@ export default function AchievementsPage() {
         </div>
 
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-          {locked.map((badge, i) => {
-            const Icon = iconMap[badge.icon] || Award;
+          {locked.map((badge: any, i: number) => {
             return (
               <div
-                key={badge.id}
+                key={badge.badgeId}
                 className="rounded-[24px] border border-dashed border-white/8 bg-[#0D0D0D] p-6 flex flex-col items-center text-center gap-4 opacity-50"
               >
                 <div className="relative">
-                  <div className="w-14 h-14 rounded-2xl bg-white/3 border border-white/5 flex items-center justify-center">
-                    <Icon className="h-7 w-7 text-white/10" />
+                  <div className="w-14 h-14 rounded-2xl bg-white/3 border border-white/5 flex items-center justify-center text-2xl">
+                    {badge.icon}
                   </div>
                   <div className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-[#1D1D1D] border border-white/10 flex items-center justify-center">
                     <Lock className="h-3 w-3 text-white/20" />
@@ -178,6 +216,11 @@ export default function AchievementsPage() {
                   <p className="text-xs font-bold text-white/20 uppercase tracking-wider mb-1">{badge.name}</p>
                   <p className="text-[10px] text-white/15 leading-snug">{badge.description}</p>
                 </div>
+                {badge.progress && (
+                  <div className="text-[10px] text-white/30 mt-2">
+                    {badge.progress.current} / {badge.progress.target}
+                  </div>
+                )}
               </div>
             );
           })}

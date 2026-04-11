@@ -7,6 +7,8 @@ const router = Router();
 
 router.get("/me", requireAuth, asyncHandler(ctrl.getMeHandler));
 router.get("/athletes", asyncHandler(ctrl.getFeaturedAthletesHandler)); // Public
+router.get("/leaderboard", asyncHandler(ctrl.getLeaderboardHandler)); // Public
+router.get("/leaderboard/me", requireAuth, asyncHandler(ctrl.getLeaderboardMeHandler));
 router.patch("/me", requireAuth, asyncHandler(ctrl.updateMeHandler));
 router.get("/users/:id", requireAuth, asyncHandler(ctrl.getUserHandler));
 router.post("/users/:id/follow", requireAuth, asyncHandler(ctrl.followHandler));

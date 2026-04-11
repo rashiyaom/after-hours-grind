@@ -121,3 +121,110 @@ export async function getFeaturedAthletes() {
     where: { sport: { not: null } }
   });
 }
+
+export async function getLeaderboard(filter: "points" | "streak" | "completed" = "points", limit: number = 20) {
+  const orderBy: Record<string, any> = {};
+  
+  switch (filter) {
+    case "streak":
+      orderBy.streak = "desc";
+      break;
+    case "completed":
+      orderBy.totalPlansCompleted = "desc";
+      break;
+    case "points":
+    default:
+      orderBy.totalPoints = "desc";
+  }
+
+  const leaderboard = await prisma.studentProfile.findMany({
+    select: {
+      id: true,
+      totalPoints: true,
+      streak: true,
+      totalPlansCompleted: true,
+      user: {
+        select: {
+          id: true,
+          name: true,
+          avatar: true,
+        },
+      },
+    },
+    orderBy,
+    take: limit,
+  });
+
+  return leaderboard.map((entry, index) => ({
+    rank: index + 1,
+    userId: entry.user.id,
+    name: entry.user.name,
+    avatar: entry.user.avatar,
+    totalPoints: entry.totalPoints,
+    streak: entry.streak,
+    totalPlansCompleted: entry.totalPlansCompleted,
+  }));
+}
+
+export async function getLeaderboardMe(userId: string, filter: "points" | "streak" | "completed" = "points") {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { studentProfile: { select: { id: true } } },
+  });
+
+  if (!user?.studentProfile) throw HttpError.notFound("Student profile not found");
+
+  const orderBy: Record<string, any> = {};
+  
+  switch (filter) {
+    case "streak":
+      orderBy.streak = "desc";
+      break;
+    case "completed":
+      orderBy.totalPlansCompleted = "desc";
+      break;
+    case "points":
+    default:
+      orderBy.totalPoints = "desc";
+  }
+
+  const rank = await prisma.studentProfile.count({
+    where: {
+      [filter === "streak" ? "streak" : filter === "completed" ? "totalPlansCompleted" : "totalPoints"]: {
+        gt: filter === "streak" 
+          ? (await prisma.studentProfile.findUnique({ where: { id: user.studentProfile.id } }))?.streak || 0
+          : filter === "completed"
+          ? (await prisma.studentProfile.findUnique({ where: { id: user.studentProfile.id } }))?.totalPlansCompleted || 0
+          : (await prisma.studentProfile.findUnique({ where: { id: user.studentProfile.id } }))?.totalPoints || 0,
+      },
+    },
+  });
+
+  const userProfile = await prisma.studentProfile.findUnique({
+    where: { id: user.studentProfile.id },
+    select: {
+      totalPoints: true,
+      streak: true,
+      totalPlansCompleted: true,
+      user: {
+        select: {
+          id: true,
+          name: true,
+          avatar: true,
+        },
+      },
+    },
+  });
+
+  if (!userProfile) throw HttpError.notFound("Student profile not found");
+
+  return {
+    rank: rank + 1,
+    userId: userProfile.user.id,
+    name: userProfile.user.name,
+    avatar: userProfile.user.avatar,
+    totalPoints: userProfile.totalPoints,
+    streak: userProfile.streak,
+    totalPlansCompleted: userProfile.totalPlansCompleted,
+  };
+}

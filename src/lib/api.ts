@@ -393,3 +393,30 @@ export async function updateProfileAPI(payload: ApiRecord): Promise<ApiCurrentUs
     body: JSON.stringify(payload)
   });
 }
+
+// === ACHIEVEMENTS & LEADERBOARD ===
+
+export async function fetchAchievementsAPI(): Promise<ApiRecord> {
+  return authedRequest<ApiRecord>("/achievements", { method: "GET" });
+}
+
+export async function fetchAchievementProgressAPI(): Promise<ApiRecord> {
+  return authedRequest<ApiRecord>("/achievements/progress", { method: "GET" });
+}
+
+export async function earnBadgeAPI(badgeId: string): Promise<ApiRecord> {
+  return authedRequest<ApiRecord>(`/achievements/${badgeId}/earn`, { method: "POST" });
+}
+
+export async function fetchLeaderboardAPI(filter: "points" | "streak" | "completed" = "points", limit: number = 20): Promise<ApiRecord[]> {
+  const params = new URLSearchParams();
+  params.set("filter", filter);
+  params.set("limit", String(limit));
+  return apiRequest<ApiRecord[]>(`/leaderboard?${params.toString()}`, { method: "GET" });
+}
+
+export async function fetchLeaderboardMeAPI(filter: "points" | "streak" | "completed" = "points"): Promise<ApiRecord> {
+  const params = new URLSearchParams();
+  params.set("filter", filter);
+  return authedRequest<ApiRecord>(`/leaderboard/me?${params.toString()}`, { method: "GET" });
+}

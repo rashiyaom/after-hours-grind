@@ -70,16 +70,16 @@ export default function LeaderboardRow({
           </p>
           <div className="flex items-center gap-2 mt-0.5">
             <Flame className="h-3 w-3 text-[#FF4D00]" />
-            <span className="text-[11px] text-white/35">{entry.streak}d streak</span>
+            <span className="text-[11px] text-white/35">{entry.streak || 0}d streak</span>
             <span className="text-white/20">·</span>
-            <span className="text-[11px] text-white/35">{entry.completionPercentage}%</span>
+            <span className="text-[11px] text-white/35">{entry.totalPlansCompleted || 0} done</span>
           </div>
         </div>
 
         {/* Score */}
         <div className="text-right flex-shrink-0">
           <p className={`text-sm font-bold tabular-nums ${highlight ? "text-[#C9F85A]" : "text-white"}`}>
-            {entry.score.toLocaleString()}
+            {(entry.totalPoints || 0).toLocaleString()}
           </p>
           <p className="text-[10px] text-white/25">pts</p>
         </div>

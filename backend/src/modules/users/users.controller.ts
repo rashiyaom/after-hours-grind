@@ -32,3 +32,16 @@ export async function getFeaturedAthletesHandler(req: Request, res: Response) {
   const athletes = await svc.getFeaturedAthletes();
   res.json(athletes);
 }
+
+export async function getLeaderboardHandler(req: Request, res: Response) {
+  const filter = (req.query.filter as string) || "points";
+  const limit = Math.min(parseInt(req.query.limit as string) || 20, 100);
+  const leaderboard = await svc.getLeaderboard(filter as any, limit);
+  res.json(leaderboard);
+}
+
+export async function getLeaderboardMeHandler(req: Request, res: Response) {
+  const filter = (req.query.filter as string) || "points";
+  const userRank = await svc.getLeaderboardMe(req.user!.userId, filter as any);
+  res.json(userRank);
+}

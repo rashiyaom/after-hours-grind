@@ -6,43 +6,38 @@ import { Trophy, Flame, Footprints, Target, Crown, Activity, Zap } from "lucide-
 import { LeaderboardEntry } from "@/types";
 import { Skeleton } from "@/components/ui/skeleton";
 import { LUXURY_TWEEN_MEDIUM } from "@/lib/motionTokens";
+import { fetchLeaderboardAPI, fetchLeaderboardMeAPI } from "@/lib/api";
 
-const filters = ["Weekly", "Monthly", "Streak", "Steps", "Uploads"] as const;
+const filters = ["Points", "Streak", "Completed"] as const;
 type Filter = typeof filters[number];
 
 const filterIcons: Record<Filter, React.ElementType> = {
-  Weekly: Trophy,
-  Monthly: Target,
+  Points: Trophy,
   Streak: Flame,
-  Steps: Footprints,
-  Uploads: Zap,
+  Completed: Target,
 };
 
 const filterColors: Record<Filter, string> = {
-  Weekly: "#C9F85A",
-  Monthly: "#4DD2FF",
+  Points: "#C9F85A",
   Streak: "#FF4D00",
-  Steps: "#A78BFA",
-  Uploads: "#FFD36E",
+  Completed: "#4DD2FF",
 };
 
-function getSortedData(data: LeaderboardEntry[], filter: Filter) {
-  switch (filter) {
-    case "Streak":  return [...data].sort((a, b) => b.streak - a.streak).map((e, i) => ({ ...e, rank: i + 1 }));
-    case "Steps":   return [...data].sort((a, b) => b.steps - a.steps).map((e, i) => ({ ...e, rank: i + 1 }));
-    case "Uploads": return [...data].sort((a, b) => b.uploads - a.uploads).map((e, i) => ({ ...e, rank: i + 1 }));
-    case "Monthly": return [...data].sort((a, b) => b.completionPercentage - a.completionPercentage).map((e, i) => ({ ...e, rank: i + 1 }));
-    default:        return [...data].sort((a, b) => b.score - a.score).map((e, i) => ({ ...e, rank: i + 1 }));
-  }
+const filterKeyMap: Record<Filter, "points" | "streak" | "completed"> = {
+  Points: "points",
+  Streak: "streak",
+  Completed: "completed",
+};
+
+function getSortedData(data: any[], filter: Filter) {
+  return data.map((e, i) => ({ ...e, rank: i + 1 }));
 }
 
-function getScoreLabel(entry: LeaderboardEntry, filter: Filter) {
+function getScoreLabel(entry: any, filter: Filter) {
   switch (filter) {
-    case "Monthly": return `${entry.completionPercentage}%`;
     case "Streak":  return `${entry.streak} days`;
-    case "Steps":   return `${(entry.steps / 1000).toFixed(1)}k`;
-    case "Uploads": return `${entry.uploads} logs`;
-    default:        return entry.score.toLocaleString();
+    case "Completed": return `${entry.totalPlansCompleted} done`;
+    default:        return entry.totalPoints.toLocaleString() + " pts";
   }
 }
 
@@ -72,25 +67,37 @@ function getInitials(name: string) {
 }
 
 export default function LeaderboardPage() {
-  const { leaderboard, student, loading, setLoading } = useStore();
-  const [activeFilter, setActiveFilter] = useState<Filter>("Weekly");
+  const { student } = useStore();
+  const [activeFilter, setActiveFilter] = useState<Filter>("Points");
+  const [loading, setLoading] = useState(true);
+  const [leaderboardData, setLeaderboardData] = useState<any[]>([]);
+  const [myEntry, setMyEntry] = useState<any>(null);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    setLoading(true);
-    const timer = setTimeout(() => setLoading(false), 700);
-    return () => clearTimeout(timer);
-  }, [activeFilter, setLoading]);
+    const fetchLeaderboard = async () => {
+      try {
+        setLoading(true);
+        const apiFilter = filterKeyMap[activeFilter];
+        const data = await fetchLeaderboardAPI(apiFilter, 50);
+        const me = await fetchLeaderboardMeAPI(apiFilter);
+        setLeaderboardData(data || []);
+        setMyEntry(me);
+        setError(null);
+      } catch (err) {
+        console.error("Failed to fetch leaderboard:", err);
+        setError("Failed to load leaderboard");
+      } finally {
+        setLoading(false);
+      }
+    };
 
-  const allEntries = leaderboard.map((e) =>
-    e.userId === student.id
-      ? { ...e, streak: student.streak, steps: student.todaySteps, completionPercentage: student.completionPercentage }
-      : e
-  );
+    fetchLeaderboard();
+  }, [activeFilter]);
 
-  const sorted = getSortedData(allEntries, activeFilter);
+  const sorted = getSortedData(leaderboardData, activeFilter);
   // podium order: 2nd, 1st, 3rd
   const top3 = sorted.length >= 3 ? [sorted[1], sorted[0], sorted[2]] : sorted;
-  const myEntry = sorted.find((e) => e.userId === student.id);
   const accentColor = filterColors[activeFilter];
 
   if (loading) {
@@ -107,6 +114,16 @@ export default function LeaderboardPage() {
         </div>
         <div className="space-y-2">
           {[1, 2, 3, 4, 5].map((i) => <Skeleton key={i} className="h-14 w-full rounded-2xl" />)}
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="mx-auto max-w-2xl space-y-6 p-4 sm:p-6 lg:p-8">
+        <div className="rounded-[32px] border border-red-500/20 bg-red-500/5 p-6 text-center">
+          <p className="text-red-400">{error}</p>
         </div>
       </div>
     );
@@ -142,7 +159,7 @@ export default function LeaderboardPage() {
             <div className="rounded-2xl bg-[#1A1A1A] border border-white/8 p-4 text-center">
               <p className="text-[10px] text-white/30 uppercase tracking-wider mb-1">Your Rank</p>
               <p className="text-2xl font-bold" style={{ color: accentColor }}>#{myEntry.rank}</p>
-              <p className="text-[10px] text-white/30 mt-0.5">{myEntry.score.toLocaleString()} pts</p>
+              <p className="text-[10px] text-white/30 mt-0.5">{getScoreLabel(myEntry, activeFilter)}</p>
             </div>
           )}
         </div>
@@ -254,7 +271,7 @@ export default function LeaderboardPage() {
           </div>
           <div className="text-right">
             <p className="text-base font-bold" style={{ color: accentColor }}>{getScoreLabel(myEntry, activeFilter)}</p>
-            <p className="text-[10px] text-white/30">{myEntry.score.toLocaleString()} pts</p>
+            <p className="text-[10px] text-white/30">{myEntry.totalPoints.toLocaleString()} pts</p>
           </div>
         </motion.div>
       )}
@@ -275,7 +292,7 @@ export default function LeaderboardPage() {
         </div>
 
         {sorted.map((entry) => (
-          <LeaderboardRow key={entry.userId + activeFilter} entry={entry} highlight={entry.userId === student.id} />
+          <LeaderboardRow key={entry.userId + activeFilter} entry={entry} highlight={entry.userId === student.id || entry.userId === (myEntry?.userId)} />
         ))}
       </motion.div>
     </div>

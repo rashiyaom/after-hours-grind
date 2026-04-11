@@ -50,6 +50,11 @@ import {
   deleteEventAPI,
   fetchNotificationsAPI,
   markNotificationReadAPI,
+  fetchAchievementsAPI,
+  fetchAchievementProgressAPI,
+  earnBadgeAPI,
+  fetchLeaderboardAPI,
+  fetchLeaderboardMeAPI,
 } from '@/lib/api';
 
 type LegacyTodayTask = {
@@ -536,6 +541,12 @@ interface AppActions {
   updateEvent: (eventId: string, updates: Partial<AHGEvent>) => Promise<void>;
   deleteEvent: (eventId: string) => Promise<void>;
   submitEventEntry: (eventId: string, responses: Record<string, string | string[]>) => Promise<void>;
+
+  // Achievements & Leaderboard
+  fetchAchievements: () => Promise<void>;
+  fetchAchievementProgress: () => Promise<void>;
+  fetchLeaderboard: (filter?: "points" | "streak" | "completed") => Promise<void>;
+  fetchLeaderboardMe: (filter?: "points" | "streak" | "completed") => Promise<void>;
 
   // System Actions
   dismissNotification: (notificationId: string) => void;
