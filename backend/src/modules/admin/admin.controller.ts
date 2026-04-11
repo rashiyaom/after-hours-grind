@@ -12,6 +12,12 @@ export async function toggleUserBanHandler(req: Request, res: Response) {
     res.json(user);
 }
 
+export async function changeUserRoleHandler(req: Request, res: Response) {
+    const { role } = z.object({ role: z.enum(["STUDENT", "TRAINER", "ADMIN"]) }).parse(req.body);
+    const user = await svc.changeUserRole(req.params.userId, role);
+    res.json(user);
+}
+
 export async function updatePostModerationHandler(req: Request, res: Response) {
     const { status } = z
       .object({ status: z.enum(["visible", "hidden", "under-review"]) })
@@ -20,7 +26,22 @@ export async function updatePostModerationHandler(req: Request, res: Response) {
     res.json(post);
 }
 
+export async function deletePostHandler(req: Request, res: Response) {
+    await svc.deletePostAdmin(req.params.postId);
+    res.json({ message: "Post deleted" });
+}
+
+export async function getFlaggedContentHandler(req: Request, res: Response) {
+    const content = await svc.getFlaggedContent();
+    res.json(content);
+}
+
 export async function getActivityLogsHandler(req: Request, res: Response) {
     const logs = await svc.getActivityLogs();
     res.json(logs);
+}
+
+export async function getAdminStatsHandler(req: Request, res: Response) {
+    const stats = await svc.getAdminStats();
+    res.json(stats);
 }
