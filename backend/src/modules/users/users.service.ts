@@ -13,7 +13,7 @@ export async function getMe(userId: string) {
   return safe;
 }
 
-export async function getUser(id: string) {
+export async function getUser(id: string, currentUserId?: string) {
   const user = await prisma.user.findUnique({
     where: { id },
     select: {
@@ -43,7 +43,18 @@ export async function getUser(id: string) {
     },
   });
   if (!user) throw HttpError.notFound("User not found");
-  return user;
+
+  const isFollowing =
+    currentUserId && currentUserId !== id
+      ? Boolean(
+          await prisma.follow.findUnique({
+            where: { followerId_followingId: { followerId: currentUserId, followingId: id } },
+            select: { id: true },
+          })
+        )
+      : false;
+
+  return { ...user, isFollowing };
 }
 
 export async function updateMe(userId: string, role: string, input: UpdateProfileInput) {
@@ -105,6 +116,40 @@ export async function unfollowUser(followerId: string, followingId: string) {
   const record = await prisma.follow.findUnique({ where: { followerId_followingId: { followerId, followingId } } });
   if (!record) throw HttpError.notFound("Not following this user");
   await prisma.follow.delete({ where: { id: record.id } });
+}
+
+export async function getFollowers(userId: string) {
+  return prisma.follow.findMany({
+    where: { followingId: userId },
+    orderBy: { createdAt: "desc" },
+    include: {
+      follower: {
+        select: {
+          id: true,
+          name: true,
+          avatar: true,
+          role: true,
+        },
+      },
+    },
+  });
+}
+
+export async function getFollowing(userId: string) {
+  return prisma.follow.findMany({
+    where: { followerId: userId },
+    orderBy: { createdAt: "desc" },
+    include: {
+      following: {
+        select: {
+          id: true,
+          name: true,
+          avatar: true,
+          role: true,
+        },
+      },
+    },
+  });
 }
 
 export async function getFeaturedAthletes() {

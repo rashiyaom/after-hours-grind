@@ -43,3 +43,19 @@ $env:NODE_ENV="production"; npm start
 ## API Base
 
 All endpoints under `/api`. See `src/routes/index.ts` for full route map.
+
+## Media Uploads (DB URL-only)
+
+Use `POST /api/uploads/media` (multipart form field: `file`) to upload image/video and get back a URL.
+
+- Default provider: `MEDIA_PROVIDER=local`
+- Local files are stored in `backend/uploads` and served from `/media/*`
+- Optional provider: `MEDIA_PROVIDER=cloudinary`
+
+Required env keys for Cloudinary mode:
+
+- `CLOUDINARY_CLOUD_NAME`
+- `CLOUDINARY_API_KEY`
+- `CLOUDINARY_API_SECRET`
+
+All post/submission media should use the returned URL instead of storing Base64 in the database.

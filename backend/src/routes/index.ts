@@ -13,6 +13,7 @@ import leaderboardRoutes from "../modules/leaderboard/leaderboard.routes.js";
 import progressRoutes from "../modules/progress/progress.routes.js";
 import settingsRoutes from "../modules/settings/settings.routes.js";
 import realtimeRoutes from "../modules/realtime/realtime.routes.js";
+import uploadsRoutes from "../modules/uploads/uploads.routes.js";
 
 const router = Router();
 
@@ -30,5 +31,6 @@ router.use(leaderboardRoutes);
 router.use(progressRoutes);
 router.use(settingsRoutes);
 router.use(realtimeRoutes);
+router.use(uploadsRoutes);
 
 export default router;

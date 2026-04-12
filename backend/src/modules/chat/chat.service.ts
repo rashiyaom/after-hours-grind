@@ -178,6 +178,13 @@ export async function sendMessage(userId: string, threadId: string, input: SendM
       threadId,
       messageId: msg.id,
       senderId: msg.senderId,
+      text: msg.text,
+      type: msg.type,
+      voiceSeconds: msg.voiceSeconds,
+      voiceAudioUrl: msg.voiceAudioUrl,
+      reelPostId: msg.reelPostId,
+      reelPreviewUrl: msg.reelPreviewUrl,
+      reelCaption: msg.reelCaption,
       createdAt: msg.createdAt.toISOString(),
     });
   }

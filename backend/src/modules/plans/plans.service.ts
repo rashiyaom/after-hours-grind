@@ -164,9 +164,39 @@ export async function createSubmission(studentId: string, input: { planTaskId?: 
     throw HttpError.badRequest("Task already approved");
   }
 
-  return prisma.submission.create({
+  const createdSubmission = await prisma.submission.create({
     data: { studentId, planTaskId: task.id, mediaUrl: input.mediaUrl },
+    include: {
+      student: { select: { id: true, name: true } },
+      planTask: { include: { planDay: true } },
+    },
   });
+
+  const submissionCreatedPayload = {
+    submissionId: createdSubmission.id,
+    studentId,
+    studentName: createdSubmission.student.name,
+    planTaskId: task.id,
+    taskName: createdSubmission.planTask?.title ?? "Task",
+    taskType: createdSubmission.planTask?.type ?? "workout",
+    dayNumber: createdSubmission.planTask?.planDay?.day ?? null,
+    mediaUrl: createdSubmission.mediaUrl,
+    status: createdSubmission.status,
+    trainerNote: createdSubmission.trainerNote ?? "",
+    createdAt: createdSubmission.createdAt.toISOString(),
+  };
+
+  if (profile.trainerId) {
+    publishUserEvent(profile.trainerId, "submission.created", {
+      ...submissionCreatedPayload,
+    });
+  }
+
+  publishUserEvent(studentId, "submission.created", {
+    ...submissionCreatedPayload,
+  });
+
+  return createdSubmission;
 }
 
 export async function generatePersonalizedPlan(studentId: string) {
@@ -218,6 +248,20 @@ export async function approveSubmission(reviewerId: string, reviewerRole: string
       createdAt: createdNotification.createdAt.toISOString(),
     });
 
+    if (sub.student.studentProfile?.trainerId) {
+      publishUserEvent(sub.student.studentProfile.trainerId, "submission.updated", {
+        submissionId: updated.id,
+        status: updated.status,
+        reviewedAt: updated.reviewedAt?.toISOString() ?? null,
+      });
+    }
+
+    publishUserEvent(sub.studentId, "submission.updated", {
+      submissionId: updated.id,
+      status: updated.status,
+      reviewedAt: updated.reviewedAt?.toISOString() ?? null,
+    });
+
     return updated;
   });
 }
@@ -254,6 +298,20 @@ export async function rejectSubmission(reviewerId: string, reviewerRole: string,
     type: createdNotification.type,
     title: createdNotification.title,
     createdAt: createdNotification.createdAt.toISOString(),
+  });
+
+  if (sub.student.studentProfile?.trainerId) {
+    publishUserEvent(sub.student.studentProfile.trainerId, "submission.updated", {
+      submissionId: updated.id,
+      status: updated.status,
+      reviewedAt: updated.reviewedAt?.toISOString() ?? null,
+    });
+  }
+
+  publishUserEvent(sub.studentId, "submission.updated", {
+    submissionId: updated.id,
+    status: updated.status,
+    reviewedAt: updated.reviewedAt?.toISOString() ?? null,
   });
 
   return updated;

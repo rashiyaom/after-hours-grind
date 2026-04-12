@@ -11,6 +11,7 @@ import { Link, useParams } from "react-router-dom";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
 import { LUXURY_TWEEN_MEDIUM } from "@/lib/motionTokens";
+import { fetchFollowersAPI, fetchFollowingAPI, fetchUserProfileAPI } from "@/lib/api";
 
 const POST_PALETTES = [
   { bg: "from-[#0D1117] to-[#1a1f2e]", accent: "#4DD2FF" },
@@ -36,20 +37,82 @@ function getInitials(name: string) {
 const tabs = ["Posts", "Stats"] as const;
 type Tab = typeof tabs[number];
 
+type SocialListItem = {
+  id: string;
+  name: string;
+  avatar: string;
+};
+
+function normalizeSocialList(
+  edges: Array<Record<string, unknown>>,
+  direction: "followers" | "following"
+): SocialListItem[] {
+  return edges
+    .map((edge) => {
+      const candidate = (direction === "followers" ? edge.follower : edge.following) as Record<string, unknown> | undefined;
+      if (!candidate || typeof candidate.id !== "string") return null;
+
+      return {
+        id: candidate.id,
+        name: typeof candidate.name === "string" ? candidate.name : "User",
+        avatar: typeof candidate.avatar === "string" ? candidate.avatar : "",
+      };
+    })
+    .filter((item): item is SocialListItem => Boolean(item));
+}
+
 export default function ProfilePage() {
   const { userId } = useParams();
-  const { student: me, posts, students, loading, setLoading } = useStore();
+  const { student: me, posts, students, loading, setLoading, followUser, unfollowUser } = useStore();
   const users = useAppStore((state) => state.users);
   const [activeTab, setActiveTab] = useState<Tab>("Posts");
   const [isFollowing, setIsFollowing] = useState(false);
-
-  useEffect(() => {
-    setLoading(true);
-    const timer = setTimeout(() => setLoading(false), 600);
-    return () => clearTimeout(timer);
-  }, [userId, setLoading]);
+  const [socialLoading, setSocialLoading] = useState(false);
+  const [socialOpen, setSocialOpen] = useState<"followers" | "following" | null>(null);
+  const [followersList, setFollowersList] = useState<SocialListItem[]>([]);
+  const [followingList, setFollowingList] = useState<SocialListItem[]>([]);
 
   const isMe = !userId || userId === me.id;
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadSocial = async () => {
+      const targetId = isMe ? me.id : userId;
+      if (!targetId) {
+        setLoading(false);
+        return;
+      }
+
+      setLoading(true);
+      setSocialLoading(true);
+      try {
+        const [profile, followers, following] = await Promise.all([
+          fetchUserProfileAPI(targetId),
+          fetchFollowersAPI(targetId),
+          fetchFollowingAPI(targetId),
+        ]);
+
+        if (!isMounted) return;
+        setFollowersList(normalizeSocialList(followers as Array<Record<string, unknown>>, "followers"));
+        setFollowingList(normalizeSocialList(following as Array<Record<string, unknown>>, "following"));
+        setIsFollowing(Boolean(profile.isFollowing));
+      } catch {
+        if (!isMounted) return;
+        setFollowersList([]);
+        setFollowingList([]);
+      } finally {
+        if (!isMounted) return;
+        setSocialLoading(false);
+        setLoading(false);
+      }
+    };
+
+    void loadSocial();
+    return () => {
+      isMounted = false;
+    };
+  }, [isMe, me.id, setLoading, userId]);
 
   const s = useMemo(() => {
     if (isMe) return me;
@@ -79,10 +142,33 @@ export default function ProfilePage() {
   }, [userId, isMe, me, students, users]);
 
   const gradIdx = s.id.charCodeAt(0) % AVATAR_GRADIENTS.length;
+  const userPosts = useMemo(
+    () => posts.filter((post) => post.userId === s.id),
+    [posts, s.id]
+  );
+  const followersCount = followersList.length > 0 ? followersList.length : s.followers;
+  const followingCount = followingList.length > 0 ? followingList.length : s.following;
 
-  const handleFollow = () => {
-    setIsFollowing(!isFollowing);
-    toast[isFollowing ? "info" : "success"](isFollowing ? `Unfollowed ${s.name}` : `Following ${s.name}!`);
+  const handleFollow = async () => {
+    try {
+      if (isFollowing) {
+        await unfollowUser(s.id);
+        setIsFollowing(false);
+        setFollowersList((prev) => prev.filter((entry) => entry.id !== me.id));
+        toast.info(`Unfollowed ${s.name}`);
+      } else {
+        await followUser(s.id);
+        setIsFollowing(true);
+        setFollowersList((prev) =>
+          prev.some((entry) => entry.id === me.id)
+            ? prev
+            : [{ id: me.id, name: me.name, avatar: me.avatar }, ...prev]
+        );
+        toast.success(`Following ${s.name}!`);
+      }
+    } catch {
+      toast.error("Could not update follow status");
+    }
   };
 
   if (loading) {
@@ -153,14 +239,23 @@ export default function ProfilePage() {
             {/* Social counts */}
             <div className="flex items-center justify-center sm:justify-start gap-6">
               {[
-                { label: "Posts", value: posts.filter((p) => p.userId === s.id).length },
-                { label: "Followers", value: s.followers, color: "#C9F85A" },
-                { label: "Following", value: s.following },
+                { label: "Posts", value: userPosts.length },
+                { label: "Followers", value: followersCount, color: "#C9F85A" },
+                { label: "Following", value: followingCount },
               ].map((st) => (
-                <div key={st.label} className="text-center cursor-default hover:scale-105 transition-transform">
+                <button
+                  key={st.label}
+                  type="button"
+                  disabled={st.label === "Posts" || socialLoading}
+                  onClick={() => {
+                    if (st.label === "Followers") setSocialOpen("followers");
+                    if (st.label === "Following") setSocialOpen("following");
+                  }}
+                  className="text-center cursor-default hover:scale-105 transition-transform disabled:opacity-100"
+                >
                   <p className="text-xl font-bold" style={{ color: st.color ?? "white" }}>{st.value.toLocaleString()}</p>
                   <p className="text-[10px] text-white/35 uppercase tracking-wider">{st.label}</p>
-                </div>
+                </button>
               ))}
             </div>
 
@@ -187,6 +282,7 @@ export default function ProfilePage() {
                   <motion.button
                     whileTap={{ scale: 0.95 }}
                     onClick={handleFollow}
+                    disabled={socialLoading}
                     className={`flex items-center gap-2 rounded-full px-5 py-2.5 text-sm font-bold transition-all ${
                       isFollowing
                         ? "bg-[#1D1D1D] border border-white/10 text-white/60"
@@ -257,11 +353,11 @@ export default function ProfilePage() {
           transition={{ duration: 0.3 }}
           className="grid grid-cols-3 gap-2"
         >
-          {Array.from({ length: isMe ? 9 : 6 }).map((_, i) => {
+          {userPosts.map((post, i) => {
             const palette = POST_PALETTES[i % POST_PALETTES.length];
             return (
               <motion.div
-                key={i}
+                key={post.id}
                 initial={{ opacity: 0, scale: 0.92 }}
                 animate={{ opacity: 1, scale: 1 }}
                 transition={{ ...LUXURY_TWEEN_MEDIUM, delay: i * 0.04 }}
@@ -278,12 +374,17 @@ export default function ProfilePage() {
                   style={{ background: `${palette.accent}18`, backdropFilter: "blur(2px)" }}>
                   <div className="flex items-center gap-1.5 bg-black/60 px-3 py-1.5 rounded-full border border-white/10">
                     <Users className="h-3 w-3 text-white" />
-                    <span className="text-[10px] font-bold text-white">{47 + i * 12}</span>
+                    <span className="text-[10px] font-bold text-white">{post.likes}</span>
                   </div>
                 </div>
               </motion.div>
             );
           })}
+          {userPosts.length === 0 && (
+            <div className="col-span-3 rounded-2xl border border-dashed border-white/15 px-4 py-10 text-center text-xs text-white/40">
+              No posts yet.
+            </div>
+          )}
         </motion.div>
       )}
 
@@ -343,6 +444,48 @@ export default function ProfilePage() {
             </div>
           </div>
         </motion.div>
+      )}
+
+      {socialOpen && (
+        <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/70 px-4" onClick={() => setSocialOpen(null)}>
+          <div className="w-full max-w-md rounded-3xl border border-white/10 bg-[#111111] p-5" onClick={(event) => event.stopPropagation()}>
+            <div className="mb-4 flex items-center justify-between">
+              <h3 className="text-sm font-semibold text-white">
+                {socialOpen === "followers" ? "Followers" : "Following"}
+              </h3>
+              <button onClick={() => setSocialOpen(null)} className="text-xs text-white/50 hover:text-white">
+                Close
+              </button>
+            </div>
+
+            <div className="max-h-[50vh] space-y-2 overflow-y-auto">
+              {(socialOpen === "followers" ? followersList : followingList).map((entry) => (
+                <Link
+                  key={entry.id}
+                  to={`/student/profile/${entry.id}`}
+                  className="flex items-center gap-3 rounded-2xl border border-white/8 bg-[#181818] px-3 py-2.5 hover:border-white/20"
+                  onClick={() => setSocialOpen(null)}
+                >
+                  {entry.avatar ? (
+                    <img src={entry.avatar} alt={entry.name} className="h-8 w-8 rounded-xl object-cover" />
+                  ) : (
+                    <div className="h-8 w-8 rounded-xl bg-gradient-to-br from-[#C9F85A] to-[#4DD2FF] p-[1px]">
+                      <div className="h-full w-full rounded-[11px] bg-[#171717] flex items-center justify-center text-[9px] font-bold text-white/80">
+                        {getInitials(entry.name)}
+                      </div>
+                    </div>
+                  )}
+                  <span className="text-sm text-white/80">{entry.name}</span>
+                </Link>
+              ))}
+              {(socialOpen === "followers" ? followersList : followingList).length === 0 && (
+                <p className="rounded-2xl border border-dashed border-white/15 px-4 py-8 text-center text-xs text-white/40">
+                  No users to show.
+                </p>
+              )}
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

@@ -2,6 +2,7 @@ import express from "express";
 import cors from "cors";
 import helmet from "helmet";
 import cookieParser from "cookie-parser";
+import path from "node:path";
 import { corsOrigins, env } from "./config/env.js";
 import apiRouter from "./routes/index.js";
 import { errorHandler } from "./middleware/errorHandler.js";
@@ -43,6 +44,7 @@ app.use(
 );
 app.use(cookieParser());
 app.use(express.json({ limit: "2mb" }));
+app.use("/media", express.static(path.resolve(process.cwd(), "uploads")));
 app.use(requestContext);
 app.use(csrfProtection);
 

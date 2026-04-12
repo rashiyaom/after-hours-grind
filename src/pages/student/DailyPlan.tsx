@@ -10,6 +10,7 @@ import { useCurrentUser, usePermissions, useStore } from "@/hooks/useStore";
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
 import { LUXURY_TWEEN_MEDIUM, LUXURY_TWEEN_SLOW } from "@/lib/motionTokens";
+import { uploadMediaFile } from "@/lib/api";
 
 const dayTypes = [
   "Push Day — Chest & Triceps",
@@ -148,7 +149,7 @@ export default function DailyPlanPage() {
   } | null>(null);
   const [proofFile, setProofFile] = useState<File | null>(null);
   const [proofPreview, setProofPreview] = useState<string | null>(null);
-  const [proofMediaDataUrl, setProofMediaDataUrl] = useState<string | null>(null);
+  const [proofMediaKind, setProofMediaKind] = useState<"image" | "video" | null>(null);
   const [proofCaption, setProofCaption] = useState("");
   const [submittingProof, setSubmittingProof] = useState(false);
 
@@ -168,7 +169,7 @@ export default function DailyPlanPage() {
     setProofModal({ taskId, taskType, taskName });
     setProofFile(null);
     setProofPreview(null);
-    setProofMediaDataUrl(null);
+    setProofMediaKind(null);
     setProofCaption("");
   };
 
@@ -179,7 +180,7 @@ export default function DailyPlanPage() {
       URL.revokeObjectURL(proofPreview);
     }
     setProofPreview(null);
-    setProofMediaDataUrl(null);
+    setProofMediaKind(null);
     setProofCaption("");
     setSubmittingProof(false);
   };
@@ -187,8 +188,15 @@ export default function DailyPlanPage() {
   const handleProofFileChange = (event: ChangeEvent<HTMLInputElement>) => {
     const selected = event.target.files?.[0];
     if (!selected) return;
-    if (!selected.type.startsWith("image/")) {
-      toast.error("Please upload an image as proof.");
+
+    const mediaKind: "image" | "video" | null = selected.type.startsWith("image/")
+      ? "image"
+      : selected.type.startsWith("video/")
+        ? "video"
+        : null;
+
+    if (!mediaKind) {
+      toast.error("Please upload an image or video as proof.");
       return;
     }
 
@@ -198,47 +206,38 @@ export default function DailyPlanPage() {
 
     setProofFile(selected);
     setProofPreview(URL.createObjectURL(selected));
-
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      if (typeof reader.result === "string") {
-        setProofMediaDataUrl(reader.result);
-      } else {
-        setProofMediaDataUrl(null);
-        toast.error("Could not process image file. Please try another photo.");
-      }
-    };
-    reader.onerror = () => {
-      setProofMediaDataUrl(null);
-      toast.error("Could not process image file. Please try another photo.");
-    };
-    reader.readAsDataURL(selected);
+    setProofMediaKind(mediaKind);
   };
 
   const submitProof = async () => {
     if (!proofModal) return;
-    if (!proofFile || !proofPreview || !proofMediaDataUrl) {
-      toast.error("Proof photo is required to complete this task.");
+    if (!proofFile || !proofPreview) {
+      toast.error("Proof photo or video is required to complete this task.");
       return;
     }
 
     setSubmittingProof(true);
 
-    submitTaskProof({
-      taskId: proofModal.taskId,
-      taskType: proofModal.taskType,
-      dayNumber: selectedDay,
-      taskName: proofModal.taskName,
-      mediaUrl: proofMediaDataUrl,
-      caption:
-        proofCaption.trim() ||
-        `${proofModal.taskType === "workout" ? "Workout" : "Meal"} proof · Day ${selectedDay} · ${proofModal.taskName}`,
-      location: "Campus",
-    });
+    try {
+      const uploaded = await uploadMediaFile(proofFile);
+      await submitTaskProof({
+        taskId: proofModal.taskId,
+        taskType: proofModal.taskType,
+        dayNumber: selectedDay,
+        taskName: proofModal.taskName,
+        mediaUrl: uploaded.url,
+        caption:
+          proofCaption.trim() ||
+          `${proofModal.taskType === "workout" ? "Workout" : "Meal"} proof · Day ${selectedDay} · ${proofModal.taskName}`,
+        location: "Campus",
+      });
 
-    setSubmittingProof(false);
-    closeProofModal();
-    toast.success("Proof uploaded. Waiting for trainer/admin approval before completion.");
+      closeProofModal();
+      toast.success("Proof uploaded. Waiting for trainer/admin approval before completion.");
+    } catch {
+      setSubmittingProof(false);
+      toast.error("Proof upload failed. Please try again.");
+    }
   };
 
   const toggleWorkout = (id: string) => {
@@ -442,7 +441,7 @@ export default function DailyPlanPage() {
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[#4DD2FF]">Proof Required</p>
-                  <h3 className="mt-1 text-xl font-semibold text-white tracking-tight">Submit task proof photo</h3>
+                  <h3 className="mt-1 text-xl font-semibold text-white tracking-tight">Submit task proof photo or video</h3>
                   <p className="mt-1 text-xs text-white/45">
                     {proofModal.taskType === "workout" ? "Workout" : "Meal"} will be marked complete only after trainer/admin approval.
                   </p>
@@ -455,14 +454,18 @@ export default function DailyPlanPage() {
               <div className="mt-5 space-y-4">
                 <label className="block rounded-2xl border border-dashed border-[#4DD2FF]/35 bg-[#4DD2FF]/5 p-5 text-center cursor-pointer hover:bg-[#4DD2FF]/10 transition-all">
                   <Upload className="mx-auto h-5 w-5 text-[#4DD2FF]" />
-                  <p className="mt-2 text-xs font-semibold text-[#4DD2FF]">Upload Photo Proof</p>
-                  <p className="text-[11px] text-white/35 mt-1">Image is mandatory for completion request.</p>
-                  <input type="file" accept="image/*" className="hidden" onChange={handleProofFileChange} />
+                  <p className="mt-2 text-xs font-semibold text-[#4DD2FF]">Upload Photo or Video Proof</p>
+                  <p className="text-[11px] text-white/35 mt-1">Attach image or video for trainer review.</p>
+                  <input type="file" accept="image/*,video/*" className="hidden" onChange={handleProofFileChange} />
                 </label>
 
                 {proofPreview && (
                   <div className="rounded-2xl overflow-hidden border border-white/10 bg-[#0D0D0D]">
-                    <img src={proofPreview} alt="Task proof preview" className="w-full h-52 object-cover" />
+                    {proofMediaKind === "video" ? (
+                      <video src={proofPreview} controls playsInline className="w-full h-52 object-cover" />
+                    ) : (
+                      <img src={proofPreview} alt="Task proof preview" className="w-full h-52 object-cover" />
+                    )}
                   </div>
                 )}
 

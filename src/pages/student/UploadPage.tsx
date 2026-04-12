@@ -8,6 +8,7 @@ import { useNavigate } from "react-router-dom";
 import { useStore } from "@/hooks/useStore";
 import { toast } from "sonner";
 import { LUXURY_SPRING, LUXURY_TWEEN_MEDIUM } from "@/lib/motionTokens";
+import { uploadMediaFile } from "@/lib/api";
 
 const suggestedTags = ["#push", "#pull", "#legs", "#discipline", "#afterhours", "#grind", "#bio_sync", "#apex"];
 
@@ -23,7 +24,6 @@ export default function UploadPage() {
   const [uploadType, setUploadType] = useState<"workout" | "meal" | null>(null);
   const [file, setFile] = useState<File | null>(null);
   const [filePreview, setFilePreview] = useState<string | null>(null);
-  const [mediaDataUrl, setMediaDataUrl] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -60,26 +60,9 @@ export default function UploadPage() {
     }
 
     setFile(selected);
-    setMediaDataUrl(null);
     if (filePreview) URL.revokeObjectURL(filePreview);
     const url = URL.createObjectURL(selected);
     setFilePreview(url);
-
-    const reader = new FileReader();
-    reader.onload = () => {
-      const result = typeof reader.result === "string" ? reader.result : null;
-      if (!result) {
-        toast.error("Unable to process file for upload.");
-        return;
-      }
-      setMediaDataUrl(result);
-    };
-    reader.onerror = () => {
-      setFile(null);
-      clearFile();
-      toast.error("Failed to read file. Please try again.");
-    };
-    reader.readAsDataURL(selected);
 
     toast.success(`${selected.name} selected`);
   };
@@ -88,7 +71,6 @@ export default function UploadPage() {
     if (filePreview) URL.revokeObjectURL(filePreview);
     setFile(null);
     setFilePreview(null);
-    setMediaDataUrl(null);
     setUploadType(null);
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
@@ -102,40 +84,38 @@ export default function UploadPage() {
       toast.error("Please select a file to upload");
       return;
     }
-    if (!mediaDataUrl) {
-      toast.error("Preparing media. Please try again in a moment.");
-      return;
-    }
-    
     setSubmitting(true);
-    await new Promise((r) => setTimeout(r, 2200));
-    
-    const mediaType = uploadType === "workout" ? "video" : "image";
-    const mediaUrl = mediaDataUrl;
-    const parsedSteps = Number.parseInt(steps, 10);
-    const validSteps = Number.isFinite(parsedSteps) && parsedSteps > 0 ? parsedSteps : null;
+    try {
+      const mediaType = uploadType === "workout" ? "video" : "image";
+      const uploaded = await uploadMediaFile(file);
+      const mediaUrl = uploaded.url;
+      const parsedSteps = Number.parseInt(steps, 10);
+      const validSteps = Number.isFinite(parsedSteps) && parsedSteps > 0 ? parsedSteps : null;
 
-    addPost({
-      userId: student.id,
-      userName: student.name,
-      userAvatar: student.avatar,
-      userRole: "student",
-      source: "general",
-      type: mediaType,
-      mediaUrl,
-      caption: `${caption}${validSteps ? `\n\nSteps: ${validSteps.toLocaleString()}` : ""}\n\n${Array.from(activeTags).join(" ")}`,
-      location: location || "College Gym",
-    });
+      await addPost({
+        userId: student.id,
+        userName: student.name,
+        userAvatar: student.avatar,
+        userRole: "student",
+        source: "general",
+        type: mediaType,
+        mediaUrl,
+        caption: `${caption}${validSteps ? `\n\nSteps: ${validSteps.toLocaleString()}` : ""}\n\n${Array.from(activeTags).join(" ")}`,
+        location: location || "College Gym",
+      });
 
-    if (validSteps !== null) {
-      updateProfile({ todaySteps: validSteps });
+      if (validSteps !== null) {
+        updateProfile({ todaySteps: validSteps });
+      }
+
+      setSubmitted(true);
+      toast.success("Post shared to feed");
+      navigate("/student/feed");
+    } catch {
+      toast.error("Upload failed. Please try again.");
+    } finally {
+      setSubmitting(false);
     }
-
-    setSubmitting(false);
-    setSubmitted(true);
-    toast.success("Post shared to feed");
-    await new Promise((r) => setTimeout(r, 1500));
-    navigate("/student/feed");
   };
 
   if (submitted) {

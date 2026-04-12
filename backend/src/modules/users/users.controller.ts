@@ -14,7 +14,7 @@ export async function updateMeHandler(req: Request, res: Response) {
 }
 
 export async function getUserHandler(req: Request, res: Response) {
-  const user = await svc.getUser(req.params.id);
+  const user = await svc.getUser(req.params.id, req.user!.userId);
   res.json(user);
 }
 
@@ -26,6 +26,16 @@ export async function followHandler(req: Request, res: Response) {
 export async function unfollowHandler(req: Request, res: Response) {
   await svc.unfollowUser(req.user!.userId, req.params.id);
   res.json({ message: "Unfollowed" });
+}
+
+export async function getFollowersHandler(req: Request, res: Response) {
+  const followers = await svc.getFollowers(req.params.id);
+  res.json(followers);
+}
+
+export async function getFollowingHandler(req: Request, res: Response) {
+  const following = await svc.getFollowing(req.params.id);
+  res.json(following);
 }
 
 export async function getFeaturedAthletesHandler(req: Request, res: Response) {

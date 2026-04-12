@@ -1,5 +1,16 @@
 import { prisma } from "../../config/prisma.js";
 import { HttpError } from "../../lib/httpError.js";
+import { publishUserEvent } from "../../lib/realtime.js";
+
+const publishFeedEventToAllUsers = async (
+  type: "post.created" | "post.updated",
+  payload: Record<string, unknown>
+) => {
+  const users = await prisma.user.findMany({ select: { id: true } });
+  for (const user of users) {
+    publishUserEvent(user.id, type, payload);
+  }
+};
 
 export async function getFeed(currentUserId?: string, cursor?: string, limit = 20) {
   const posts = await prisma.post.findMany({
@@ -27,19 +38,62 @@ export async function getFeed(currentUserId?: string, cursor?: string, limit = 2
 }
 
 export async function createPost(userId: string, input: { type: string; mediaUrl: string; caption: string; source: string; location: string }) {
-  return prisma.post.create({
+  const post = await prisma.post.create({
     data: { userId, ...input },
     include: { user: { select: { id: true, name: true, avatar: true, role: true } } },
   });
+
+  await publishFeedEventToAllUsers("post.created", {
+    postId: post.id,
+    userId: post.userId,
+    userName: post.user.name,
+    userAvatar: post.user.avatar,
+    userRole: post.user.role,
+    source: post.source,
+    type: post.type,
+    mediaUrl: post.mediaUrl,
+    caption: post.caption,
+    location: post.location,
+    status: post.status,
+    createdAt: post.createdAt.toISOString(),
+    likes: 0,
+    comments: 0,
+  });
+
+  return post;
 }
 
 export async function addComment(userId: string, postId: string, text: string) {
   const post = await prisma.post.findUnique({ where: { id: postId } });
   if (!post) throw HttpError.notFound("Post not found");
-  return prisma.comment.create({
+  const comment = await prisma.comment.create({
     data: { postId, userId, text },
     include: { user: { select: { id: true, name: true, avatar: true } } },
   });
+
+  const counts = await prisma.post.findUnique({
+    where: { id: postId },
+    select: { _count: { select: { comments: true, likes: true } } },
+  });
+
+  await publishFeedEventToAllUsers("post.updated", {
+    postId,
+    likes: counts?._count.likes ?? 0,
+    comments: counts?._count.comments ?? 0,
+    latestComment: {
+      id: comment.id,
+      text: comment.text,
+      createdAt: comment.createdAt.toISOString(),
+      userId: comment.userId,
+      user: {
+        id: comment.user.id,
+        name: comment.user.name,
+        avatar: comment.user.avatar,
+      },
+    },
+  });
+
+  return comment;
 }
 
 export async function likePost(userId: string, postId: string) {
@@ -48,12 +102,38 @@ export async function likePost(userId: string, postId: string) {
   await prisma.like.create({ data: { userId, postId } }).catch(() => {
     throw HttpError.conflict("Already liked");
   });
+
+  const counts = await prisma.post.findUnique({
+    where: { id: postId },
+    select: { _count: { select: { comments: true, likes: true } } },
+  });
+
+  await publishFeedEventToAllUsers("post.updated", {
+    postId,
+    likes: counts?._count.likes ?? 0,
+    comments: counts?._count.comments ?? 0,
+    likedByUserId: userId,
+    liked: true,
+  });
 }
 
 export async function unlikePost(userId: string, postId: string) {
   const record = await prisma.like.findUnique({ where: { userId_postId: { userId, postId } } });
   if (!record) throw HttpError.notFound("Like not found");
   await prisma.like.delete({ where: { id: record.id } });
+
+  const counts = await prisma.post.findUnique({
+    where: { id: postId },
+    select: { _count: { select: { comments: true, likes: true } } },
+  });
+
+  await publishFeedEventToAllUsers("post.updated", {
+    postId,
+    likes: counts?._count.likes ?? 0,
+    comments: counts?._count.comments ?? 0,
+    likedByUserId: userId,
+    liked: false,
+  });
 }
 
 export async function getComments(postId: string) {

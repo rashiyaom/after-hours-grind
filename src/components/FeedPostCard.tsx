@@ -41,9 +41,11 @@ function timeAgo(ts: string) {
 }
 
 export default function FeedPostCard({ post, onClick }: { post: Post; onClick?: () => void }) {
-  const { likePost } = useStore();
+  const { likePost, addComment } = useStore();
   const [bookmarked, setBookmarked] = useState(false);
   const [showComments, setShowComments] = useState(false);
+  const [commentText, setCommentText] = useState("");
+  const [submittingComment, setSubmittingComment] = useState(false);
 
   const colorIdx = post.id.charCodeAt(post.id.length - 1) % MEDIA_PALETTES.length;
   const palette = MEDIA_PALETTES[colorIdx];
@@ -51,6 +53,22 @@ export default function FeedPostCard({ post, onClick }: { post: Post; onClick?: 
 
   const handleLike = (e: React.MouseEvent) => { e.stopPropagation(); likePost(post.id); };
   const stop = (e: React.MouseEvent) => e.stopPropagation();
+  const handleAddComment = async (e: React.MouseEvent | React.KeyboardEvent<HTMLInputElement>) => {
+    e.stopPropagation();
+    const text = commentText.trim();
+    if (!text || submittingComment) return;
+
+    setSubmittingComment(true);
+    try {
+      await addComment(post.id, text);
+      setCommentText("");
+      toast.success("Comment posted");
+    } catch {
+      toast.error("Unable to post comment right now");
+    } finally {
+      setSubmittingComment(false);
+    }
+  };
 
   return (
     <motion.div
@@ -226,21 +244,9 @@ export default function FeedPostCard({ post, onClick }: { post: Post; onClick?: 
               className="space-y-3 border-t border-white/5 pt-3 overflow-hidden"
               onClick={stop}
             >
-              {[
-                { user: "Coach Vikram", text: "Excellent effort! 💪", initials: "CV" },
-                { user: "Priya Sharma", text: "Keep going! 🔥", initials: "PS" },
-              ].map((c, i) => (
-                <div key={i} className="flex gap-3 text-xs">
-                  <div className="w-7 h-7 rounded-full bg-[#1D1D1D] border border-white/8 flex items-center justify-center text-[9px] font-bold text-white/60 flex-shrink-0">
-                    {c.initials}
-                  </div>
-                  <div>
-                    <span className="font-semibold text-white">{c.user}</span>
-                    <span className="text-white/50 ml-1.5">{c.text}</span>
-                    <p className="text-[10px] text-white/25 mt-0.5">2h ago · Reply</p>
-                  </div>
-                </div>
-              ))}
+              <p className="text-xs text-white/35">
+                Open post to view all comments. New comments are saved instantly.
+              </p>
 
               {/* add comment input */}
               <div className="flex gap-3 items-center mt-3">
@@ -248,9 +254,25 @@ export default function FeedPostCard({ post, onClick }: { post: Post; onClick?: 
                   ME
                 </div>
                 <input
+                  value={commentText}
+                  onChange={(e) => setCommentText(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      void handleAddComment(e);
+                    }
+                  }}
                   placeholder="Add a comment…"
                   className="flex-1 bg-[#1A1A1A] border border-white/8 rounded-full px-4 py-2 text-xs text-white placeholder:text-white/25 focus:outline-none focus:border-[#C9F85A]/30 transition-colors"
                 />
+                <button
+                  onClick={(e) => {
+                    void handleAddComment(e);
+                  }}
+                  disabled={!commentText.trim() || submittingComment}
+                  className="rounded-full border border-white/10 px-3 py-1.5 text-[10px] font-semibold text-white/70 hover:text-white hover:border-white/25 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Send
+                </button>
               </div>
             </motion.div>
           )}

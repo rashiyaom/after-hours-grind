@@ -60,6 +60,10 @@ import {
   fetchProgressWeeklyAPI,
   fetchProgressMonthlyAPI,
   fetchProgressHeatmapAPI,
+  createPostAPI,
+  addCommentAPI,
+  followUserAPI,
+  unfollowUserAPI,
   fetchAdminPermissionsAPI,
   setAdminPermissionAPI,
   resetAdminPermissionsAPI,
@@ -984,33 +988,38 @@ const normalizeChatThreads = (input: unknown): ChatThread[] => {
     const raw = candidate as Record<string, unknown>;
     if (typeof raw.id !== 'string') return [];
 
-    const participantIds = Array.isArray(raw.participantIds)
+    const participantIdsFromLegacy = Array.isArray(raw.participantIds)
       ? raw.participantIds.filter((id): id is string => typeof id === 'string')
       : [];
+    const participantIdsFromBackend = Array.isArray(raw.participants)
+      ? raw.participants
+          .map((participant) => asRecord(participant))
+          .filter((participant): participant is Record<string, unknown> => Boolean(participant))
+          .map((participant) => asString(asRecord(participant.user)?.id || participant.userId))
+          .filter((id): id is string => Boolean(id))
+      : [];
+    const participantIds = participantIdsFromLegacy.length > 0 ? participantIdsFromLegacy : participantIdsFromBackend;
     if (participantIds.length < 2) return [];
 
     const messages = Array.isArray(raw.messages)
       ? raw.messages.flatMap((message): ChatMessage[] => {
           if (!message || typeof message !== 'object') return [];
           const m = message as Record<string, unknown>;
-          if (
-            typeof m.id !== 'string' ||
-            typeof m.senderId !== 'string' ||
-            typeof m.text !== 'string' ||
-            typeof m.createdAt !== 'string'
-          ) {
+          const senderId = asString(m.senderId || asRecord(m.sender)?.id);
+          if (typeof m.id !== 'string' || !senderId || typeof m.text !== 'string' || typeof m.createdAt !== 'string') {
             return [];
           }
 
-          const seenBy = Array.isArray(m.seenBy)
+          const seenByFromPayload = Array.isArray(m.seenBy)
             ? m.seenBy.filter((id): id is string => typeof id === 'string')
-            : [m.senderId];
+            : [];
+          const seenBy = seenByFromPayload.length > 0 ? seenByFromPayload : [senderId];
           const messageType = m.type === 'voice-note' || m.type === 'reel-share' ? m.type : 'text';
 
           return [
             {
               id: m.id,
-              senderId: m.senderId,
+              senderId,
               text: m.text,
               createdAt: m.createdAt,
               type: messageType,
@@ -1025,9 +1034,24 @@ const normalizeChatThreads = (input: unknown): ChatThread[] => {
         })
       : [];
 
-    const unreadBy = Array.isArray(raw.unreadBy)
+    const unreadByFromLegacy = Array.isArray(raw.unreadBy)
       ? raw.unreadBy.filter((id): id is string => typeof id === 'string')
       : [];
+    const unreadByFromBackend = Array.isArray(raw.participants)
+      ? raw.participants
+          .map((participant) => asRecord(participant))
+          .filter((participant): participant is Record<string, unknown> => Boolean(participant))
+          .flatMap((participant) => {
+            const participantUserId = asString(participant.userId || asRecord(participant.user)?.id);
+            const lastRead = asString(participant.lastRead);
+            const lastMessageCreatedAt = Array.isArray(raw.messages) && raw.messages.length > 0
+              ? asString(asRecord(raw.messages[raw.messages.length - 1])?.createdAt)
+              : "";
+            if (!participantUserId || !lastRead || !lastMessageCreatedAt) return [];
+            return new Date(lastMessageCreatedAt).getTime() > new Date(lastRead).getTime() ? [participantUserId] : [];
+          })
+      : [];
+    const unreadBy = unreadByFromLegacy.length > 0 ? unreadByFromLegacy : unreadByFromBackend;
 
     return [
       {
@@ -1681,41 +1705,121 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
 
   // Task submission approval flow
   approveTaskSubmission: async (submissionId, note) => {
+    const previousSubmissions = get().system.legacySubmissions;
+    set((state) => ({
+      ...state,
+      system: {
+        ...state.system,
+        legacySubmissions: state.system.legacySubmissions.map((submission) =>
+          submission.id === submissionId
+            ? {
+                ...submission,
+                status: 'approved',
+                trainerNote: note ?? submission.trainerNote,
+              }
+            : submission
+        ),
+      },
+    }));
+
     try {
-      set((state) => ({ system: { ...state.system, isLoading: true } }));
       await approveSubmissionAPI(submissionId, note || "");
-      await get().refreshData(); // Refresh to get updated points/status
-      set((state) => ({ system: { ...state.system, isLoading: false } }));
+      await get().refreshData({ background: true, scope: getRefreshScopeForRole(get().session.currentUser?.role) });
     } catch (error) {
       console.error("Approval failed:", error);
-      set((state) => ({ system: { ...state.system, isLoading: false } }));
+      set((state) => ({
+        ...state,
+        system: {
+          ...state.system,
+          legacySubmissions: previousSubmissions,
+        },
+      }));
+      throw error;
     }
   },
 
   rejectTaskSubmission: async (submissionId, note) => {
+    const previousSubmissions = get().system.legacySubmissions;
+    set((state) => ({
+      ...state,
+      system: {
+        ...state.system,
+        legacySubmissions: state.system.legacySubmissions.map((submission) =>
+          submission.id === submissionId
+            ? {
+                ...submission,
+                status: 'rejected',
+                trainerNote: note,
+              }
+            : submission
+        ),
+      },
+    }));
+
     try {
-      set((state) => ({ system: { ...state.system, isLoading: true } }));
       await rejectSubmissionAPI(submissionId, note);
-      await get().refreshData();
-      set((state) => ({ system: { ...state.system, isLoading: false } }));
+      await get().refreshData({ background: true, scope: getRefreshScopeForRole(get().session.currentUser?.role) });
     } catch (error) {
       console.error("Rejection failed:", error);
-      set((state) => ({ system: { ...state.system, isLoading: false } }));
+      set((state) => ({
+        ...state,
+        system: {
+          ...state.system,
+          legacySubmissions: previousSubmissions,
+        },
+      }));
+      throw error;
     }
   },
 
 
   submitTaskProof: async ({ taskId, taskType, dayNumber, taskName, mediaUrl }) => {
+    const actor = get().session.currentUser;
+    const optimisticId = createId('sub-local');
+    const previousSubmissions = get().system.legacySubmissions;
+
+    if (actor?.role === 'student') {
+      set((state) => ({
+        ...state,
+        system: {
+          ...state.system,
+          legacySubmissions: [
+            {
+              id: optimisticId,
+              studentId: actor.id,
+              studentName: actor.name,
+              taskName,
+              taskType,
+              taskId,
+              dayNumber,
+              timestamp: new Date().toLocaleString(),
+              status: 'pending',
+              mediaUrl,
+              trainerNote: '',
+              points: 10,
+              requiresApproval: true,
+            },
+            ...state.system.legacySubmissions,
+          ],
+        },
+      }));
+    }
+
     try {
-      set((state) => ({ system: { ...state.system, isLoading: true } }));
       // We need a way to find the planTaskId from the legacy taskId/dayNumber
       // For now, if we don't have it, we might need to adjust the UI to provide it
       await submitTaskAPI(taskId, mediaUrl);
-      await get().refreshData();
-      set((state) => ({ system: { ...state.system, isLoading: false } }));
+      await get().refreshData({ background: true, scope: getRefreshScopeForRole(get().session.currentUser?.role) });
     } catch (error) {
       console.error("Submission failed:", error);
-      set((state) => ({ system: { ...state.system, isLoading: false } }));
+      set((state) => ({
+        ...state,
+        system: {
+          ...state.system,
+          legacySubmissions: previousSubmissions,
+        },
+      }));
+      throw error;
     }
   },
 
@@ -1823,7 +1927,21 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
     }
 
     void createChatThreadAPI(targetUserId)
-      .then(() => get().refreshData())
+      .then((created) => {
+        const normalized = normalizeChatThreads([created]);
+        if (normalized.length === 0) {
+          void get().refreshData({ background: true, scope: getRefreshScopeForRole(get().session.currentUser?.role) });
+          return;
+        }
+
+        set((state) => ({
+          ...state,
+          system: {
+            ...state.system,
+            chatThreads: sanitizeChatThreads([...normalized, ...state.system.chatThreads]),
+          },
+        }));
+      })
       .catch((error) => {
         console.error('Failed to create chat thread:', error);
       });
@@ -1833,6 +1951,8 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
 
   sendChatMessage: async ({ threadId, recipientId, text, type, reelPostId, voiceSeconds, voiceAudioUrl }) => {
     try {
+      const actor = get().session.currentUser;
+      if (!actor) return;
       const normalizedType: 'text' | 'reel-share' | 'voice-note' =
         voiceAudioUrl
           ? 'voice-note'
@@ -1849,6 +1969,16 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
       if (!activeThreadId && recipientId) {
         const created = await createChatThreadAPI(recipientId);
         activeThreadId = typeof created.id === 'string' ? created.id : undefined;
+        const normalizedThread = normalizeChatThreads([created]);
+        if (normalizedThread.length > 0) {
+          set((state) => ({
+            ...state,
+            system: {
+              ...state.system,
+              chatThreads: sanitizeChatThreads([...normalizedThread, ...state.system.chatThreads]),
+            },
+          }));
+        }
       }
       if (!activeThreadId) return;
 
@@ -1860,6 +1990,51 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
           : normalizedType === 'reel-share'
             ? 'Shared a reel'
             : '');
+
+      const optimisticMessageId = createId('msg-local');
+      const nowIso = new Date().toISOString();
+      set((state) => {
+        const existingThread = state.system.chatThreads.find((thread) => thread.id === activeThreadId);
+        const optimisticMessage: ChatMessage = {
+          id: optimisticMessageId,
+          senderId: actor.id,
+          text: payloadText,
+          createdAt: nowIso,
+          type: normalizedType,
+          seenBy: [actor.id],
+          voiceSeconds,
+          voiceAudioUrl,
+          reelPostId,
+          reelPreviewUrl: reelPostId ? state.posts[reelPostId]?.mediaUrl : undefined,
+          reelCaption: reelPostId ? state.posts[reelPostId]?.caption : undefined,
+        };
+
+        const nextThread: ChatThread = existingThread
+          ? {
+              ...existingThread,
+              updatedAt: nowIso,
+              unreadBy: existingThread.participantIds.filter((id) => id !== actor.id),
+              messages: [...existingThread.messages, optimisticMessage],
+            }
+          : {
+              id: activeThreadId,
+              participantIds: recipientId ? [actor.id, recipientId].sort() : [actor.id],
+              messages: [optimisticMessage],
+              updatedAt: nowIso,
+              unreadBy: recipientId ? [recipientId] : [],
+            };
+
+        return {
+          ...state,
+          system: {
+            ...state.system,
+            chatThreads: sanitizeChatThreads([
+              nextThread,
+              ...state.system.chatThreads.filter((thread) => thread.id !== nextThread.id),
+            ]),
+          },
+        };
+      });
       
       await sendChatMessageAPI(activeThreadId, {
         text: payloadText,
@@ -1870,17 +2045,41 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
         reelPreviewUrl: reelPost?.mediaUrl,
         reelCaption: reelPost?.caption,
       });
-      await get().refreshData();
+
+      void get().refreshData({ background: true, scope: getRefreshScopeForRole(get().session.currentUser?.role) });
     } catch (error) {
       console.error("Failed to send message:", error);
+      void get().refreshData({ background: true, scope: getRefreshScopeForRole(get().session.currentUser?.role) });
     }
   },
 
   markChatThreadRead: async (threadId) => {
-    // Current backend doesn't have a markRead for chat specifically but we'll skeleton it
+    const actorId = get().session.currentUser?.id;
+    if (!actorId) return;
+
+    set((state) => ({
+      ...state,
+      system: {
+        ...state.system,
+        chatThreads: state.system.chatThreads.map((thread) =>
+          thread.id === threadId
+            ? {
+                ...thread,
+                unreadBy: thread.unreadBy.filter((id) => id !== actorId),
+                messages: thread.messages.map((message) =>
+                  message.seenBy.includes(actorId)
+                    ? message
+                    : { ...message, seenBy: [...message.seenBy, actorId] }
+                ),
+              }
+            : thread
+        ),
+      },
+    }));
+
+    // Current backend doesn't have a markRead endpoint for chat yet.
     try {
-      // await apiRequest(`/threads/${threadId}/read`, { method: 'POST' }, getAccessToken());
-      await get().refreshData();
+      await get().refreshData({ background: true, scope: getRefreshScopeForRole(get().session.currentUser?.role) });
     } catch (error) {
       console.error("Failed to mark read:", error);
     }
@@ -2027,7 +2226,7 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
       : getRefreshScopeForRole(role);
 
     const fetchFeed = effectiveScope === 'student' || effectiveScope === 'trainer';
-    const fetchChats = effectiveScope === 'trainer';
+    const fetchChats = effectiveScope === 'trainer' || effectiveScope === 'student' || effectiveScope === 'student-dashboard';
     const fetchEvents = effectiveScope === 'admin';
     const fetchStudentBundle =
       effectiveScope === 'student' ||
@@ -2482,7 +2681,8 @@ export const useStore = () => {
     likePost: state.toggleLike,
     submitTaskProof: state.submitTaskProof,
     updateProfile: (data: Partial<Student>) => state.updateUser(student.id, data),
-    followUser: (targetUserId: string) => {
+    followUser: async (targetUserId: string) => {
+      const snapshot = useAppStore.getState();
       useAppStore.setState((prev) => {
         const actor = prev.session.currentUser;
         if (!actor || actor.role !== 'student' || actor.id === targetUserId) return prev;
@@ -2514,6 +2714,56 @@ export const useStore = () => {
           },
         };
       });
+
+      try {
+        await followUserAPI(targetUserId);
+        void useAppStore.getState().refreshData({ background: true, scope: getRefreshScopeForRole(useAppStore.getState().session.currentUser?.role) });
+      } catch (error) {
+        useAppStore.setState(snapshot);
+        throw error;
+      }
+    },
+    unfollowUser: async (targetUserId: string) => {
+      const snapshot = useAppStore.getState();
+      useAppStore.setState((prev) => {
+        const actor = prev.session.currentUser;
+        if (!actor || actor.role !== 'student' || actor.id === targetUserId) return prev;
+
+        const target = prev.users[targetUserId];
+        if (!target || target.role !== 'student') return prev;
+
+        const actorStudent = prev.users[actor.id] as Student;
+        const targetStudent = target as Student;
+        const updatedActor: Student = {
+          ...actorStudent,
+          following: Math.max(0, actorStudent.following - 1),
+        };
+        const updatedTarget: Student = {
+          ...targetStudent,
+          followers: Math.max(0, targetStudent.followers - 1),
+        };
+
+        return {
+          ...prev,
+          users: {
+            ...prev.users,
+            [updatedActor.id]: updatedActor,
+            [updatedTarget.id]: updatedTarget,
+          },
+          session: {
+            ...prev.session,
+            currentUser: updatedActor,
+          },
+        };
+      });
+
+      try {
+        await unfollowUserAPI(targetUserId);
+        void useAppStore.getState().refreshData({ background: true, scope: getRefreshScopeForRole(useAppStore.getState().session.currentUser?.role) });
+      } catch (error) {
+        useAppStore.setState(snapshot);
+        throw error;
+      }
     },
     completeTask: (type: 'workout' | 'diet', itemId: string, dayNumber?: number) => {
       useAppStore.setState((prev) => {
@@ -2573,8 +2823,10 @@ export const useStore = () => {
         };
       });
     },
-    addComment: (postId: string, comment: string) => {
+    addComment: async (postId: string, comment: string) => {
       if (!comment.trim()) return;
+
+      const previous = useAppStore.getState().posts[postId];
       useAppStore.setState((prev) => {
         const post = prev.posts[postId];
         if (!post) return prev;
@@ -2589,6 +2841,21 @@ export const useStore = () => {
           },
         };
       });
+
+      try {
+        await addCommentAPI(postId, comment.trim());
+      } catch (error) {
+        if (previous) {
+          useAppStore.setState((prev) => ({
+            ...prev,
+            posts: {
+              ...prev.posts,
+              [postId]: previous,
+            },
+          }));
+        }
+        throw error;
+      }
     },
     addSubmission: (submission: {
       studentId?: string;
@@ -2626,33 +2893,57 @@ export const useStore = () => {
         };
       });
     },
-    addPost: (post: Partial<Post>) => {
-      const id = createId('post');
+    addPost: async (post: Partial<Post>) => {
+      const id = createId('post-local');
+      const optimisticPost: Post = {
+        id,
+        userId: post.userId ?? student.id,
+        userName: post.userName ?? student.name,
+        userAvatar: post.userAvatar ?? student.avatar,
+        userRole: post.userRole ?? 'student',
+        source: post.source ?? 'general',
+        type: (post.type as Post['type']) ?? 'image',
+        mediaUrl: post.mediaUrl ?? '',
+        caption: post.caption ?? '',
+        relatedTaskId: post.relatedTaskId,
+        relatedTaskType: post.relatedTaskType,
+        relatedDayNumber: post.relatedDayNumber,
+        likes: 0,
+        comments: 0,
+        location: post.location ?? 'Campus',
+        timestamp: new Date().toISOString(),
+        liked: false,
+        status: 'visible',
+      };
+
       useAppStore.setState((prev) => ({
+        ...prev,
         posts: {
           ...prev.posts,
-          [id]: {
-            id,
-            userId: post.userId ?? student.id,
-            userName: post.userName ?? student.name,
-            userAvatar: post.userAvatar ?? student.avatar,
-            userRole: post.userRole ?? 'student',
-            source: post.source ?? 'general',
-            type: (post.type as Post['type']) ?? 'image',
-            mediaUrl: post.mediaUrl ?? '',
-            caption: post.caption ?? '',
-            relatedTaskId: post.relatedTaskId,
-            relatedTaskType: post.relatedTaskType,
-            relatedDayNumber: post.relatedDayNumber,
-            likes: 0,
-            comments: 0,
-            location: post.location ?? 'Campus',
-            timestamp: new Date().toISOString(),
-            liked: false,
-            status: 'visible',
-          },
+          [id]: optimisticPost,
         },
       }));
+
+      try {
+        await createPostAPI({
+          type: optimisticPost.type,
+          mediaUrl: optimisticPost.mediaUrl,
+          caption: optimisticPost.caption,
+          source: optimisticPost.source,
+          location: optimisticPost.location,
+        });
+        void useAppStore.getState().refreshData({ background: true, scope: getRefreshScopeForRole(useAppStore.getState().session.currentUser?.role) });
+      } catch (error) {
+        useAppStore.setState((prev) => {
+          const nextPosts = { ...prev.posts };
+          delete nextPosts[id];
+          return {
+            ...prev,
+            posts: nextPosts,
+          };
+        });
+        throw error;
+      }
     },
     reviewSubmission: (submissionId: string, status: 'approved' | 'rejected', note?: string) => {
       useAppStore.setState((prev) => ({

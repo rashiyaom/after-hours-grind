@@ -18,6 +18,12 @@ const envSchema = z.object({
   AUTH_COOKIE_DOMAIN: z.string().optional(),
   LOG_LEVEL: z.enum(["debug", "info", "warn", "error"]).default("info"),
   ERROR_WEBHOOK_URL: z.string().url().optional(),
+  MEDIA_PROVIDER: z.enum(["local", "cloudinary"]).default("local"),
+  MEDIA_PUBLIC_BASE_URL: z.string().url().optional(),
+  MEDIA_CLOUDINARY_FOLDER: z.string().default("after-hours-grind"),
+  CLOUDINARY_CLOUD_NAME: z.string().optional(),
+  CLOUDINARY_API_KEY: z.string().optional(),
+  CLOUDINARY_API_SECRET: z.string().optional(),
 });
 
 const parsed = envSchema.safeParse(process.env);

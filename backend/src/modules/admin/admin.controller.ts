@@ -85,8 +85,14 @@ export async function resetPermissionsHandler(_req: Request, res: Response) {
     res.json(matrix);
 }
 
-export async function getExerciseTemplatesHandler(_req: Request, res: Response) {
-    const templates = await svc.getExerciseTemplates();
+export async function getExerciseTemplatesHandler(req: Request, res: Response) {
+    const query = z.object({
+        q: z.string().trim().min(1).optional(),
+        category: z.string().trim().min(1).optional(),
+        activeOnly: z.coerce.boolean().optional(),
+    }).parse(req.query);
+
+    const templates = await svc.getExerciseTemplates(query);
     res.json(templates);
 }
 
@@ -102,6 +108,9 @@ export async function createExerciseTemplateHandler(req: Request, res: Response)
         difficulty: z.string().optional(),
         equipment: z.string().optional(),
         youtubeUrl: z.string().url().nullable().optional(),
+        proteinGrams: z.coerce.number().int().min(0).max(400).nullable().optional(),
+        calories: z.coerce.number().int().min(0).max(5000).nullable().optional(),
+        mealTiming: z.string().max(80).nullable().optional(),
         isActive: z.boolean().optional(),
     }).parse(req.body);
 
@@ -121,6 +130,9 @@ export async function updateExerciseTemplateHandler(req: Request, res: Response)
         difficulty: z.string().optional(),
         equipment: z.string().optional(),
         youtubeUrl: z.string().url().nullable().optional(),
+        proteinGrams: z.coerce.number().int().min(0).max(400).nullable().optional(),
+        calories: z.coerce.number().int().min(0).max(5000).nullable().optional(),
+        mealTiming: z.string().max(80).nullable().optional(),
         isActive: z.boolean().optional(),
     }).parse(req.body);
 

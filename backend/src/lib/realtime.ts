@@ -5,7 +5,14 @@ import { logger } from "./logger.js";
 
 export type RealtimeEvent = {
   userId: string;
-  type: "chat.message" | "notification.created" | "notification.updated";
+  type:
+    | "chat.message"
+    | "notification.created"
+    | "notification.updated"
+    | "submission.created"
+    | "submission.updated"
+    | "post.created"
+    | "post.updated";
   payload: Record<string, unknown>;
 };
 

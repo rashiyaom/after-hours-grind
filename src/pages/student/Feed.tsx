@@ -97,11 +97,11 @@ export default function FeedPage() {
 
   useEffect(() => {
     if (selectedPost) {
-      fetchCommentsAPI(selectedPost.id).then(setComments);
+      fetchCommentsAPI(selectedPost.id).then(setComments).catch(() => setComments([]));
     } else {
       setComments([]);
     }
-  }, [selectedPost]);
+  }, [selectedPost, activePost?.comments]);
 
   useEffect(() => {
     let isMounted = true;
@@ -158,11 +158,19 @@ export default function FeedPage() {
     return () => observer.disconnect();
   }, [hasMore, initialLoadAttempted, loadMoreFeed]);
 
-  const handleComment = () => {
+  const handleComment = async () => {
     if (!commentText.trim() || !activePost) return;
-    addComment(activePost.id, commentText);
-    toast.success("Comment posted!");
-    setCommentText("");
+    const text = commentText.trim();
+
+    try {
+      await addComment(activePost.id, text);
+      setCommentText("");
+      toast.success("Comment posted!");
+      const latest = await fetchCommentsAPI(activePost.id);
+      setComments(latest);
+    } catch {
+      toast.error("Could not post comment right now");
+    }
   };
 
   const fallbackPostList = useMemo(
@@ -349,7 +357,7 @@ export default function FeedPage() {
                     <input
                       value={commentText}
                       onChange={(e) => setCommentText(e.target.value)}
-                      onKeyDown={(e) => { if (e.key === "Enter") handleComment(); }}
+                      onKeyDown={(e) => { if (e.key === "Enter") void handleComment(); }}
                       placeholder="Add a comment…"
                       className="w-full bg-[#1A1A1A] border border-white/8 rounded-2xl px-5 py-3.5 text-sm text-white placeholder:text-white/25 focus:outline-none focus:border-[#C9F85A]/40 pr-14 transition-all"
                     />
@@ -359,7 +367,9 @@ export default function FeedPage() {
                           initial={{ opacity: 0, scale: 0.8 }}
                           animate={{ opacity: 1, scale: 1 }}
                           exit={{ opacity: 0, scale: 0.8 }}
-                          onClick={handleComment}
+                          onClick={() => {
+                            void handleComment();
+                          }}
                           className="absolute right-3 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-[#C9F85A] flex items-center justify-center text-black hover:bg-[#d4ff60] transition-all"
                         >
                           <Send className="h-3.5 w-3.5" />

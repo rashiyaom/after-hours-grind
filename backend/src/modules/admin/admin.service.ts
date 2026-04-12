@@ -4,6 +4,53 @@ import { publishUserEvent } from "../../lib/realtime.js";
 import { randomUUID } from "node:crypto";
 import { getSmartPlanExerciseTemplateSeeds } from "../plans/personalizedPlan.js";
 
+const NUTRITION_TEMPLATE_SEEDS = [
+    {
+        name: "High Protein Breakfast Bowl",
+        description: "Greek yogurt/curd + oats + fruit + seeds. Keep sugar low.",
+        category: "nutrition",
+        durationMinutes: 15,
+        difficulty: "low",
+        equipment: "kitchen",
+        proteinGrams: 30,
+        calories: 450,
+        mealTiming: "Breakfast",
+    },
+    {
+        name: "Lean Lunch Plate",
+        description: "Lean protein + complex carbs + salad + hydration check.",
+        category: "nutrition",
+        durationMinutes: 20,
+        difficulty: "low",
+        equipment: "kitchen",
+        proteinGrams: 40,
+        calories: 650,
+        mealTiming: "Lunch",
+    },
+    {
+        name: "Recovery Dinner",
+        description: "Protein-rich dinner with vegetables and controlled carbs.",
+        category: "nutrition",
+        durationMinutes: 25,
+        difficulty: "low",
+        equipment: "kitchen",
+        proteinGrams: 45,
+        calories: 700,
+        mealTiming: "Dinner",
+    },
+    {
+        name: "Post Workout Protein Snack",
+        description: "Fast-digesting protein + fruit within 45 minutes after training.",
+        category: "nutrition",
+        durationMinutes: 10,
+        difficulty: "low",
+        equipment: "kitchen",
+        proteinGrams: 25,
+        calories: 300,
+        mealTiming: "Post-workout",
+    },
+];
+
 const PERMISSION_KEYS = [
     "view_dashboard",
     "manage_users",
@@ -343,10 +390,28 @@ const ensureExerciseTemplateTables = async () => {
             difficulty TEXT NOT NULL DEFAULT 'moderate',
             equipment TEXT NOT NULL DEFAULT 'basic',
             youtube_url TEXT,
+            protein_grams INTEGER,
+            calories INTEGER,
+            meal_timing TEXT,
             is_active BOOLEAN NOT NULL DEFAULT TRUE,
             created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
             updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
         );
+    `);
+
+    await prisma.$executeRawUnsafe(`
+        ALTER TABLE exercise_template
+        ADD COLUMN IF NOT EXISTS protein_grams INTEGER;
+    `);
+
+    await prisma.$executeRawUnsafe(`
+        ALTER TABLE exercise_template
+        ADD COLUMN IF NOT EXISTS calories INTEGER;
+    `);
+
+    await prisma.$executeRawUnsafe(`
+        ALTER TABLE exercise_template
+        ADD COLUMN IF NOT EXISTS meal_timing TEXT;
     `);
 
     await prisma.$executeRawUnsafe(`
@@ -420,9 +485,12 @@ const ensureExerciseTemplateTables = async () => {
                     difficulty,
                     equipment,
                     youtube_url,
+                    protein_grams,
+                    calories,
+                    meal_timing,
                     is_active
                 )
-                VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
+                VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)
             `,
             randomUUID(),
             seed.name,
@@ -435,6 +503,56 @@ const ensureExerciseTemplateTables = async () => {
             seed.difficulty,
             seed.equipment,
             null,
+            null,
+            null,
+            null,
+            true,
+        );
+
+        existingKeySet.add(dedupeKey);
+    }
+
+    for (const seed of NUTRITION_TEMPLATE_SEEDS) {
+        const dedupeKey = `${seed.name.toLowerCase()}::${seed.category.toLowerCase()}`;
+        if (existingKeySet.has(dedupeKey)) {
+            continue;
+        }
+
+        await prisma.$executeRawUnsafe(
+            `
+                INSERT INTO exercise_template (
+                    id,
+                    name,
+                    description,
+                    category,
+                    sets,
+                    reps,
+                    rest_seconds,
+                    duration_minutes,
+                    difficulty,
+                    equipment,
+                    youtube_url,
+                    protein_grams,
+                    calories,
+                    meal_timing,
+                    is_active
+                )
+                VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)
+            `,
+            randomUUID(),
+            seed.name,
+            seed.description,
+            seed.category,
+            null,
+            null,
+            null,
+            seed.durationMinutes,
+            seed.difficulty,
+            seed.equipment,
+            null,
+            seed.proteinGrams,
+            seed.calories,
+            seed.mealTiming,
             true,
         );
 
@@ -452,28 +570,44 @@ type TemplateAssignmentRow = {
     reps: number | null;
     rest_seconds: number | null;
     youtube_url: string | null;
+    protein_grams: number | null;
+    calories: number | null;
+    meal_timing: string | null;
+    category: string;
     sort_order: number;
 };
 
-const buildWorkoutDescriptionFromTemplate = (template: {
+const buildTemplateTaskDescription = (template: {
     description?: string | null;
     sets?: number | null;
     reps?: number | null;
     rest_seconds?: number | null;
     youtube_url?: string | null;
+    protein_grams?: number | null;
+    calories?: number | null;
+    meal_timing?: string | null;
+    category?: string | null;
 }) => {
+    const isNutrition = String(template.category ?? "").toLowerCase().includes("nutrition");
     const detailParts = [
         String(template.description ?? "").trim(),
-        template.sets ? `Sets: ${Number(template.sets)}` : "",
-        template.reps ? `Reps: ${Number(template.reps)}` : "",
-        template.rest_seconds ? `Rest: ${Number(template.rest_seconds)}s` : "",
+        !isNutrition && template.sets ? `Sets: ${Number(template.sets)}` : "",
+        !isNutrition && template.reps ? `Reps: ${Number(template.reps)}` : "",
+        !isNutrition && template.rest_seconds ? `Rest: ${Number(template.rest_seconds)}s` : "",
+        isNutrition && template.protein_grams ? `Protein: ${Number(template.protein_grams)}g` : "",
+        isNutrition && template.calories ? `Calories: ${Number(template.calories)} kcal` : "",
+        isNutrition && template.meal_timing ? `Meal: ${String(template.meal_timing)}` : "",
         template.youtube_url ? `Video: ${String(template.youtube_url)}` : "",
     ].filter(Boolean);
 
     return detailParts.join(" | ");
 };
 
-const syncPlanDayWorkoutsFromAssignments = async (studentId: string, dayNumber: number) => {
+const derivePlanTaskType = (category: string): "workout" | "nutrition" => {
+    return category.toLowerCase().includes("nutrition") ? "nutrition" : "workout";
+};
+
+const syncPlanDayTasksFromAssignments = async (studentId: string, dayNumber: number) => {
     const profile = await prisma.studentProfile.findUnique({ where: { userId: studentId } });
     if (!profile?.currentPlanId) {
         return false;
@@ -499,6 +633,10 @@ const syncPlanDayWorkoutsFromAssignments = async (studentId: string, dayNumber: 
                 t.reps,
                 t.rest_seconds,
                 t.youtube_url,
+                t.protein_grams,
+                t.calories,
+                t.meal_timing,
+                t.category,
                 a.sort_order
             FROM exercise_template_assignment a
             JOIN exercise_template t ON t.id = a.template_id
@@ -515,18 +653,24 @@ const syncPlanDayWorkoutsFromAssignments = async (studentId: string, dayNumber: 
         return false;
     }
 
-    await prisma.planTask.deleteMany({ where: { planDayId: day.id, type: "workout" } });
+    await prisma.planTask.deleteMany({
+        where: {
+            planDayId: day.id,
+            type: { in: ["workout", "nutrition"] },
+        },
+    });
 
     for (const template of assignedTemplates) {
+        const taskType = derivePlanTaskType(template.category);
         await prisma.planTask.create({
             data: {
                 planDayId: day.id,
-                type: "workout",
+                type: taskType,
                 title: `${template.sort_order}. ${template.name}`,
-                description: buildWorkoutDescriptionFromTemplate(template),
-                durationMin: Number(template.duration_minutes ?? 30),
-                intensity: String(template.difficulty ?? "moderate"),
-                points: 45,
+                description: buildTemplateTaskDescription(template),
+                durationMin: Number(template.duration_minutes ?? (taskType === "nutrition" ? 15 : 30)),
+                intensity: String(taskType === "nutrition" ? "low" : (template.difficulty ?? "moderate")),
+                points: taskType === "nutrition" ? 30 : 45,
             },
         });
     }
@@ -534,8 +678,13 @@ const syncPlanDayWorkoutsFromAssignments = async (studentId: string, dayNumber: 
     return true;
 };
 
-export async function getExerciseTemplates() {
+export async function getExerciseTemplates(filters?: { q?: string; category?: string; activeOnly?: boolean }) {
     await ensureExerciseTemplateTables();
+
+    const searchTerm = filters?.q?.trim() ? filters.q.trim() : null;
+    const category = filters?.category?.trim() ? filters.category.trim() : null;
+    const activeOnly = filters?.activeOnly === true;
+
     const rows = await prisma.$queryRawUnsafe<Array<Record<string, unknown>>>(`
         SELECT
             id,
@@ -549,12 +698,18 @@ export async function getExerciseTemplates() {
             difficulty,
             equipment,
             youtube_url AS "youtubeUrl",
+            protein_grams AS "proteinGrams",
+            calories,
+            meal_timing AS "mealTiming",
             is_active AS "isActive",
             created_at AS "createdAt",
             updated_at AS "updatedAt"
         FROM exercise_template
+        WHERE ($1::text IS NULL OR name ILIKE '%' || $1 || '%' OR description ILIKE '%' || $1 || '%')
+          AND ($2::text IS NULL OR category = $2)
+          AND ($3::boolean = FALSE OR is_active = TRUE)
         ORDER BY created_at DESC
-    `);
+    `, searchTerm, category, activeOnly);
     return rows;
 }
 
@@ -569,6 +724,9 @@ export async function createExerciseTemplate(input: {
     difficulty?: string;
     equipment?: string;
     youtubeUrl?: string | null;
+    proteinGrams?: number | null;
+    calories?: number | null;
+    mealTiming?: string | null;
     isActive?: boolean;
 }) {
     await ensureExerciseTemplateTables();
@@ -588,8 +746,11 @@ export async function createExerciseTemplate(input: {
                 difficulty,
                 equipment,
                 youtube_url,
+                protein_grams,
+                calories,
+                meal_timing,
                 is_active
-            ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
+            ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)
         `,
         id,
         input.name,
@@ -602,6 +763,9 @@ export async function createExerciseTemplate(input: {
         input.difficulty ?? "moderate",
         input.equipment ?? "basic",
         input.youtubeUrl ?? null,
+        input.proteinGrams ?? null,
+        input.calories ?? null,
+        input.mealTiming ?? null,
         input.isActive ?? true,
     );
 
@@ -619,6 +783,9 @@ export async function createExerciseTemplate(input: {
                 difficulty,
                 equipment,
                 youtube_url AS "youtubeUrl",
+                protein_grams AS "proteinGrams",
+                calories,
+                meal_timing AS "mealTiming",
                 is_active AS "isActive",
                 created_at AS "createdAt",
                 updated_at AS "updatedAt"
@@ -645,6 +812,9 @@ export async function updateExerciseTemplate(
         difficulty?: string;
         equipment?: string;
         youtubeUrl?: string | null;
+        proteinGrams?: number | null;
+        calories?: number | null;
+        mealTiming?: string | null;
         isActive?: boolean;
     }
 ) {
@@ -664,7 +834,10 @@ export async function updateExerciseTemplate(
                 difficulty = COALESCE($9, difficulty),
                 equipment = COALESCE($10, equipment),
                 youtube_url = COALESCE($11, youtube_url),
-                is_active = COALESCE($12, is_active),
+                protein_grams = COALESCE($12, protein_grams),
+                calories = COALESCE($13, calories),
+                meal_timing = COALESCE($14, meal_timing),
+                is_active = COALESCE($15, is_active),
                 updated_at = NOW()
             WHERE id = $1
         `,
@@ -679,6 +852,9 @@ export async function updateExerciseTemplate(
         input.difficulty ?? null,
         input.equipment ?? null,
         input.youtubeUrl ?? null,
+        input.proteinGrams ?? null,
+        input.calories ?? null,
+        input.mealTiming ?? null,
         input.isActive ?? null,
     );
 
@@ -696,6 +872,9 @@ export async function updateExerciseTemplate(
                 difficulty,
                 equipment,
                 youtube_url AS "youtubeUrl",
+                protein_grams AS "proteinGrams",
+                calories,
+                meal_timing AS "mealTiming",
                 is_active AS "isActive",
                 created_at AS "createdAt",
                 updated_at AS "updatedAt"
@@ -827,7 +1006,7 @@ export async function assignExerciseTemplate(payload: {
         );
 
         let appliedToPlan = false;
-        appliedToPlan = await syncPlanDayWorkoutsFromAssignments(studentId, payload.dayNumber);
+        appliedToPlan = await syncPlanDayTasksFromAssignments(studentId, payload.dayNumber);
 
         const createdNotification = await prisma.notification.create({
             data: {
@@ -934,7 +1113,7 @@ export async function assignExerciseTemplateBulk(payload: {
                 totalRows += 1;
             }
 
-            const applied = await syncPlanDayWorkoutsFromAssignments(student.id, dayPlan.dayNumber);
+            const applied = await syncPlanDayTasksFromAssignments(student.id, dayPlan.dayNumber);
             if (applied) {
                 appliedToPlanCount += 1;
             }

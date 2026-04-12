@@ -10,7 +10,7 @@ import { useAppStore } from "@/hooks/useStore";
 import { LUXURY_SPRING, LUXURY_TWEEN_MEDIUM } from "@/lib/motionTokens";
 import { subscribeRealtimeEvents } from "@/lib/api";
 
-const REALTIME_REFRESH_DEBOUNCE_MS = 1200;
+const REALTIME_REFRESH_DEBOUNCE_MS = 180;
 const PERIODIC_REFRESH_MS = 120000;
 
 const studentNav = [
@@ -86,17 +86,243 @@ export default function AppLayout() {
     void refreshData({ background: true, scope: liveScope });
 
     let refreshTimer: number | null = null;
-    const scheduleRefresh = () => {
+    let pendingScope: "common" | "student" | "student-dashboard" | "student-leaderboard" | "trainer" | "admin" = liveScope;
+    const scheduleRefresh = (scope: typeof pendingScope) => {
+      pendingScope = scope;
       if (refreshTimer !== null) return;
       refreshTimer = window.setTimeout(() => {
         refreshTimer = null;
-        void refreshData({ background: true, scope: liveScope });
+        void refreshData({ background: true, scope: pendingScope });
       }, REALTIME_REFRESH_DEBOUNCE_MS);
     };
 
     const unsubscribe = subscribeRealtimeEvents((event) => {
       if (event.type === "ready") return;
-      scheduleRefresh();
+      if (event.type === "submission.created" || event.type === "submission.updated") {
+        useAppStore.setState((state) => {
+          const payload = event.payload as Record<string, unknown>;
+          const submissionId = typeof payload.submissionId === "string" ? payload.submissionId : "";
+          if (!submissionId) return state;
+
+          const incomingStatusRaw = typeof payload.status === "string" ? payload.status.toLowerCase() : undefined;
+          const incomingStatus = incomingStatusRaw === "approved" || incomingStatusRaw === "rejected" || incomingStatusRaw === "pending"
+            ? incomingStatusRaw
+            : undefined;
+          const incomingTrainerNote = typeof payload.trainerNote === "string" ? payload.trainerNote : undefined;
+
+          const hasExisting = state.system.legacySubmissions.some((submission) => submission.id === submissionId);
+          const createdAt = typeof payload.createdAt === "string" ? payload.createdAt : new Date().toISOString();
+
+          const nextSubmissions = hasExisting
+            ? state.system.legacySubmissions.map((submission) =>
+                submission.id === submissionId
+                  ? {
+                      ...submission,
+                      status: incomingStatus ?? submission.status,
+                      trainerNote: incomingTrainerNote ?? submission.trainerNote,
+                    }
+                  : submission
+              )
+            : typeof payload.studentId === "string"
+              ? [
+                  {
+                    id: submissionId,
+                    studentId: payload.studentId,
+                    studentName: typeof payload.studentName === "string" ? payload.studentName : "Student",
+                    taskName: typeof payload.taskName === "string" ? payload.taskName : "Task",
+                    taskType:
+                      payload.taskType === "workout" || payload.taskType === "diet" || payload.taskType === "checkin"
+                        ? payload.taskType
+                        : "workout",
+                    taskId: typeof payload.planTaskId === "string" ? payload.planTaskId : undefined,
+                    dayNumber: typeof payload.dayNumber === "number" ? payload.dayNumber : undefined,
+                    timestamp: new Date(createdAt).toLocaleString(),
+                    status: incomingStatus ?? "pending",
+                    mediaUrl: typeof payload.mediaUrl === "string" ? payload.mediaUrl : "",
+                    trainerNote: incomingTrainerNote ?? "",
+                    points: 10,
+                    requiresApproval: true,
+                  },
+                  ...state.system.legacySubmissions,
+                ]
+              : state.system.legacySubmissions;
+
+          const planRecord = state.system.studentTodayPlan as Record<string, unknown> | null;
+          if (!planRecord || !Array.isArray(planRecord.days) || !incomingStatus) {
+            return {
+              ...state,
+              system: {
+                ...state.system,
+                legacySubmissions: nextSubmissions,
+              },
+            };
+          }
+
+          const patchedDays = planRecord.days.map((dayCandidate) => {
+            if (!dayCandidate || typeof dayCandidate !== "object") return dayCandidate;
+            const day = dayCandidate as Record<string, unknown>;
+            if (!Array.isArray(day.tasks)) return dayCandidate;
+
+            const patchedTasks = day.tasks.map((taskCandidate) => {
+              if (!taskCandidate || typeof taskCandidate !== "object") return taskCandidate;
+              const task = taskCandidate as Record<string, unknown>;
+              const latest = task.latestSubmission as Record<string, unknown> | undefined;
+              if (!latest || latest.id !== submissionId) return taskCandidate;
+
+              return {
+                ...task,
+                submissionStatus: incomingStatus.toUpperCase(),
+                latestSubmission: {
+                  ...latest,
+                  status: incomingStatus.toUpperCase(),
+                  trainerNote: incomingTrainerNote ?? latest.trainerNote,
+                },
+              };
+            });
+
+            return {
+              ...day,
+              tasks: patchedTasks,
+            };
+          });
+
+          return {
+            ...state,
+            system: {
+              ...state.system,
+              legacySubmissions: nextSubmissions,
+              studentTodayPlan: {
+                ...planRecord,
+                days: patchedDays,
+              },
+            },
+          };
+        });
+        return;
+      }
+      if (event.type === "chat.message") {
+        useAppStore.setState((state) => {
+          const payload = event.payload as Record<string, unknown>;
+          const threadId = typeof payload.threadId === "string" ? payload.threadId : "";
+          const messageId = typeof payload.messageId === "string" ? payload.messageId : "";
+          const senderId = typeof payload.senderId === "string" ? payload.senderId : "";
+          const createdAt = typeof payload.createdAt === "string" ? payload.createdAt : new Date().toISOString();
+          if (!threadId || !messageId || !senderId) return state;
+
+          const existingThread = state.system.chatThreads.find((thread) => thread.id === threadId);
+          if (!existingThread) {
+            scheduleRefresh(liveScope);
+            return state;
+          }
+
+          if (existingThread.messages.some((message) => message.id === messageId)) {
+            return state;
+          }
+
+          const currentUserId = state.session.currentUser?.id ?? "";
+          const nextThread = {
+            ...existingThread,
+            updatedAt: createdAt,
+            unreadBy: senderId === currentUserId
+              ? existingThread.unreadBy
+              : Array.from(new Set([...existingThread.unreadBy, currentUserId])).filter(Boolean),
+            messages: [
+              ...existingThread.messages,
+              {
+                id: messageId,
+                senderId,
+                text: typeof payload.text === "string" ? payload.text : "Message",
+                createdAt,
+                type: payload.type === "voice-note" || payload.type === "reel-share" ? payload.type : "text",
+                seenBy: senderId === currentUserId ? [currentUserId] : [senderId],
+                voiceSeconds: typeof payload.voiceSeconds === "number" ? payload.voiceSeconds : undefined,
+                voiceAudioUrl: typeof payload.voiceAudioUrl === "string" ? payload.voiceAudioUrl : undefined,
+                reelPostId: typeof payload.reelPostId === "string" ? payload.reelPostId : undefined,
+                reelPreviewUrl: typeof payload.reelPreviewUrl === "string" ? payload.reelPreviewUrl : undefined,
+                reelCaption: typeof payload.reelCaption === "string" ? payload.reelCaption : undefined,
+              },
+            ],
+          };
+
+          return {
+            ...state,
+            system: {
+              ...state.system,
+              chatThreads: [
+                nextThread,
+                ...state.system.chatThreads.filter((thread) => thread.id !== threadId),
+              ],
+            },
+          };
+        });
+        return;
+      }
+      if (event.type === "post.created" || event.type === "post.updated") {
+        useAppStore.setState((state) => {
+          const payload = event.payload as Record<string, unknown>;
+          const postId = typeof payload.postId === "string" ? payload.postId : "";
+          if (!postId) return state;
+
+          const existingPost = state.posts[postId];
+          if (event.type === "post.created" && !existingPost) {
+            const userRoleRaw = typeof payload.userRole === "string" ? payload.userRole.toUpperCase() : "STUDENT";
+            const mappedRole = userRoleRaw === "TRAINER" ? "trainer" : userRoleRaw === "ADMIN" ? "admin" : "student";
+            return {
+              ...state,
+              posts: {
+                ...state.posts,
+                [postId]: {
+                  id: postId,
+                  userId: typeof payload.userId === "string" ? payload.userId : "",
+                  userName: typeof payload.userName === "string" ? payload.userName : "User",
+                  userAvatar: typeof payload.userAvatar === "string" ? payload.userAvatar : "",
+                  userRole: mappedRole,
+                  source: payload.source === "task-proof" ? "task-proof" : "general",
+                  type: payload.type === "video" || payload.type === "reel" ? payload.type : "image",
+                  mediaUrl: typeof payload.mediaUrl === "string" ? payload.mediaUrl : "",
+                  caption: typeof payload.caption === "string" ? payload.caption : "",
+                  likes: typeof payload.likes === "number" ? payload.likes : 0,
+                  comments: typeof payload.comments === "number" ? payload.comments : 0,
+                  location: typeof payload.location === "string" ? payload.location : "",
+                  timestamp: typeof payload.createdAt === "string" ? payload.createdAt : new Date().toISOString(),
+                  liked: false,
+                  status: payload.status === "hidden" || payload.status === "under-review" ? payload.status : "visible",
+                },
+              },
+            };
+          }
+
+          if (!existingPost) {
+            scheduleRefresh(liveScope);
+            return state;
+          }
+
+          const likedByUserId = typeof payload.likedByUserId === "string" ? payload.likedByUserId : "";
+          const currentUserId = state.session.currentUser?.id ?? "";
+          const likedForCurrentUser = likedByUserId && likedByUserId === currentUserId && typeof payload.liked === "boolean"
+            ? payload.liked
+            : existingPost.liked;
+
+          return {
+            ...state,
+            posts: {
+              ...state.posts,
+              [postId]: {
+                ...existingPost,
+                likes: typeof payload.likes === "number" ? payload.likes : existingPost.likes,
+                comments: typeof payload.comments === "number" ? payload.comments : existingPost.comments,
+                liked: likedForCurrentUser,
+              },
+            },
+          };
+        });
+        return;
+      }
+      if (event.type === "notification.created" || event.type === "notification.updated") {
+        scheduleRefresh(liveScope);
+        return;
+      }
+      scheduleRefresh(liveScope);
     });
 
     const intervalId = window.setInterval(() => {

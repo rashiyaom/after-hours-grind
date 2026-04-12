@@ -26,6 +26,9 @@ type ExerciseTemplate = {
   difficulty: string;
   equipment: string;
   youtubeUrl: string | null;
+  proteinGrams: number | null;
+  calories: number | null;
+  mealTiming: string | null;
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
@@ -52,6 +55,7 @@ type DragPayload = {
 type TemplateDraft = {
   name: string;
   description: string;
+  planType: "exercise" | "nutrition";
   category: string;
   sets: string;
   reps: string;
@@ -59,6 +63,9 @@ type TemplateDraft = {
   durationMinutes: string;
   difficulty: string;
   equipment: string;
+  proteinGrams: string;
+  calories: string;
+  mealTiming: string;
   youtubeUrl: string;
   isActive: boolean;
 };
@@ -66,6 +73,7 @@ type TemplateDraft = {
 const emptyDraft: TemplateDraft = {
   name: "",
   description: "",
+  planType: "exercise",
   category: "strength",
   sets: "",
   reps: "",
@@ -73,20 +81,30 @@ const emptyDraft: TemplateDraft = {
   durationMinutes: "",
   difficulty: "moderate",
   equipment: "basic",
+  proteinGrams: "",
+  calories: "",
+  mealTiming: "",
   youtubeUrl: "",
   isActive: true,
 };
 
+const asPlanType = (category: string): "exercise" | "nutrition" =>
+  category.toLowerCase().includes("nutrition") ? "nutrition" : "exercise";
+
 const toPayload = (draft: TemplateDraft) => ({
   name: draft.name.trim(),
   description: draft.description.trim(),
-  category: draft.category.trim() || "general",
+  category:
+    draft.category.trim() || (draft.planType === "nutrition" ? "nutrition" : "strength"),
   sets: draft.sets.trim() ? Number(draft.sets) : null,
   reps: draft.reps.trim() ? Number(draft.reps) : null,
   restSeconds: draft.restSeconds.trim() ? Number(draft.restSeconds) : null,
   durationMinutes: draft.durationMinutes.trim() ? Number(draft.durationMinutes) : null,
   difficulty: draft.difficulty.trim() || "moderate",
   equipment: draft.equipment.trim() || "basic",
+  proteinGrams: draft.proteinGrams.trim() ? Number(draft.proteinGrams) : null,
+  calories: draft.calories.trim() ? Number(draft.calories) : null,
+  mealTiming: draft.mealTiming.trim() || null,
   youtubeUrl: draft.youtubeUrl.trim() || null,
   isActive: draft.isActive,
 });
@@ -102,6 +120,9 @@ export default function AdminTemplatesPage() {
   const [templates, setTemplates] = useState<ExerciseTemplate[]>([]);
   const [assignments, setAssignments] = useState<AssignmentRow[]>([]);
   const [draft, setDraft] = useState<TemplateDraft>(emptyDraft);
+  const [templateSearch, setTemplateSearch] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState("all");
+  const [showActiveOnly, setShowActiveOnly] = useState(true);
   const [selectedStudentIds, setSelectedStudentIds] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [savingPlan, setSavingPlan] = useState(false);
@@ -122,6 +143,11 @@ export default function AdminTemplatesPage() {
     }, {}),
     [templates]
   );
+
+  const categoryOptions = useMemo(() => {
+    const source = templates.map((template) => template.category).filter(Boolean);
+    return Array.from(new Set(source)).sort((a, b) => a.localeCompare(b));
+  }, [templates]);
 
   const buildPlannerFromAssignments = useCallback((rows: AssignmentRow[], studentId: string): PlannerState => {
     const next = cycleDays.reduce((acc, day) => {
@@ -146,7 +172,11 @@ export default function AdminTemplatesPage() {
     setLoading(true);
     try {
       const [templateRows, assignmentRows] = await Promise.all([
-        fetchExerciseTemplatesAPI(),
+        fetchExerciseTemplatesAPI({
+          q: templateSearch.trim() || undefined,
+          category: categoryFilter === "all" ? undefined : categoryFilter,
+          activeOnly: showActiveOnly,
+        }),
         fetchExerciseTemplateAssignmentsAPI(),
       ]);
 
@@ -165,7 +195,7 @@ export default function AdminTemplatesPage() {
       void loadData();
     }, 15000);
     return () => window.clearInterval(intervalId);
-  }, []);
+  }, [templateSearch, categoryFilter, showActiveOnly]);
 
   useEffect(() => {
     if (selectedStudentIds.length === 0) {
@@ -206,6 +236,7 @@ export default function AdminTemplatesPage() {
     setDraft({
       name: template.name,
       description: template.description || "",
+      planType: asPlanType(template.category),
       category: template.category || "general",
       sets: template.sets == null ? "" : String(template.sets),
       reps: template.reps == null ? "" : String(template.reps),
@@ -213,6 +244,9 @@ export default function AdminTemplatesPage() {
       durationMinutes: template.durationMinutes == null ? "" : String(template.durationMinutes),
       difficulty: template.difficulty || "moderate",
       equipment: template.equipment || "basic",
+      proteinGrams: template.proteinGrams == null ? "" : String(template.proteinGrams),
+      calories: template.calories == null ? "" : String(template.calories),
+      mealTiming: template.mealTiming || "",
       youtubeUrl: template.youtubeUrl || "",
       isActive: Boolean(template.isActive),
     });
@@ -375,13 +409,52 @@ export default function AdminTemplatesPage() {
               onChange={(e) => setDraft((prev) => ({ ...prev, description: e.target.value }))}
             />
             <div className="grid grid-cols-2 gap-3">
-              <Input placeholder="Category" value={draft.category} onChange={(e) => setDraft((prev) => ({ ...prev, category: e.target.value }))} />
+              <label className="text-xs text-muted-foreground">
+                Template type
+                <select
+                  className="mt-1 h-10 w-full rounded-md border bg-background px-3 text-sm"
+                  value={draft.planType}
+                  onChange={(e) =>
+                    setDraft((prev) => ({
+                      ...prev,
+                      planType: e.target.value as "exercise" | "nutrition",
+                      category:
+                        e.target.value === "nutrition"
+                          ? (prev.category === "strength" ? "nutrition" : prev.category)
+                          : (prev.category === "nutrition" ? "strength" : prev.category),
+                    }))
+                  }
+                >
+                  <option value="exercise">Exercise</option>
+                  <option value="nutrition">Nutrition / Diet</option>
+                </select>
+              </label>
+              <label className="text-xs text-muted-foreground">
+                Category
+                <Input
+                  placeholder="strength / nutrition / mobility"
+                  value={draft.category}
+                  onChange={(e) => setDraft((prev) => ({ ...prev, category: e.target.value }))}
+                />
+              </label>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
               <Input placeholder="Difficulty" value={draft.difficulty} onChange={(e) => setDraft((prev) => ({ ...prev, difficulty: e.target.value }))} />
-              <Input placeholder="Sets" value={draft.sets} onChange={(e) => setDraft((prev) => ({ ...prev, sets: e.target.value }))} />
-              <Input placeholder="Reps" value={draft.reps} onChange={(e) => setDraft((prev) => ({ ...prev, reps: e.target.value }))} />
-              <Input placeholder="Rest seconds" value={draft.restSeconds} onChange={(e) => setDraft((prev) => ({ ...prev, restSeconds: e.target.value }))} />
               <Input placeholder="Duration minutes" value={draft.durationMinutes} onChange={(e) => setDraft((prev) => ({ ...prev, durationMinutes: e.target.value }))} />
               <Input placeholder="Equipment" value={draft.equipment} onChange={(e) => setDraft((prev) => ({ ...prev, equipment: e.target.value }))} />
+              {draft.planType === "exercise" ? (
+                <>
+                  <Input placeholder="Sets" value={draft.sets} onChange={(e) => setDraft((prev) => ({ ...prev, sets: e.target.value }))} />
+                  <Input placeholder="Reps" value={draft.reps} onChange={(e) => setDraft((prev) => ({ ...prev, reps: e.target.value }))} />
+                  <Input placeholder="Rest seconds" value={draft.restSeconds} onChange={(e) => setDraft((prev) => ({ ...prev, restSeconds: e.target.value }))} />
+                </>
+              ) : (
+                <>
+                  <Input placeholder="Protein grams" value={draft.proteinGrams} onChange={(e) => setDraft((prev) => ({ ...prev, proteinGrams: e.target.value }))} />
+                  <Input placeholder="Calories" value={draft.calories} onChange={(e) => setDraft((prev) => ({ ...prev, calories: e.target.value }))} />
+                  <Input placeholder="Meal timing (e.g. Breakfast)" value={draft.mealTiming} onChange={(e) => setDraft((prev) => ({ ...prev, mealTiming: e.target.value }))} />
+                </>
+              )}
               <label className="flex items-center gap-2 rounded-md border px-3 text-sm">
                 <input
                   type="checkbox"
@@ -431,13 +504,42 @@ export default function AdminTemplatesPage() {
             <CardTitle>Template Library ({templates.length})</CardTitle>
           </CardHeader>
           <CardContent>
+            <div className="mb-3 grid gap-2 md:grid-cols-3">
+              <Input
+                placeholder="Search templates by name or description"
+                value={templateSearch}
+                onChange={(e) => setTemplateSearch(e.target.value)}
+              />
+              <select
+                className="h-10 rounded-md border bg-background px-3 text-sm"
+                value={categoryFilter}
+                onChange={(e) => setCategoryFilter(e.target.value)}
+              >
+                <option value="all">All categories</option>
+                {categoryOptions.map((category) => (
+                  <option key={category} value={category}>
+                    {category}
+                  </option>
+                ))}
+              </select>
+              <label className="flex items-center gap-2 rounded-md border px-3 text-sm">
+                <input
+                  type="checkbox"
+                  checked={showActiveOnly}
+                  onChange={(e) => setShowActiveOnly(e.target.checked)}
+                />
+                Active only
+              </label>
+            </div>
             <div className="space-y-3 max-h-[520px] overflow-auto pr-1">
               {templates.map((template) => (
                 <div key={template.id} className="rounded-lg border p-3 space-y-2">
                   <div className="flex items-start justify-between gap-3">
                     <div>
                       <p className="font-semibold text-sm">{template.name}</p>
-                      <p className="text-xs text-muted-foreground">{template.category} • {template.difficulty} • {template.equipment}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {template.category} • {template.difficulty} • {template.equipment}
+                      </p>
                     </div>
                     <div className="flex gap-2">
                       <Button size="sm" variant="outline" onClick={() => startEdit(template)}>Edit</Button>
@@ -447,9 +549,15 @@ export default function AdminTemplatesPage() {
                     </div>
                   </div>
                   <p className="text-xs text-muted-foreground">{template.description || "No description"}</p>
-                  <p className="text-xs text-muted-foreground">
-                    Sets: {template.sets ?? "-"} • Reps: {template.reps ?? "-"} • Rest: {template.restSeconds ?? "-"}s • Duration: {template.durationMinutes ?? "-"}m
-                  </p>
+                  {asPlanType(template.category) === "exercise" ? (
+                    <p className="text-xs text-muted-foreground">
+                      Sets: {template.sets ?? "-"} • Reps: {template.reps ?? "-"} • Rest: {template.restSeconds ?? "-"}s • Duration: {template.durationMinutes ?? "-"}m
+                    </p>
+                  ) : (
+                    <p className="text-xs text-muted-foreground">
+                      Protein: {template.proteinGrams ?? "-"}g • Calories: {template.calories ?? "-"} kcal • Meal: {template.mealTiming || "-"}
+                    </p>
+                  )}
                   {template.youtubeUrl && (
                     <a className="text-xs text-[#4DD2FF]" href={template.youtubeUrl} target="_blank" rel="noreferrer">
                       YouTube demo link
@@ -460,6 +568,23 @@ export default function AdminTemplatesPage() {
               {templates.length === 0 && (
                 <p className="text-sm text-muted-foreground">No templates created yet.</p>
               )}
+            </div>
+            <div className="mt-3">
+              <Button
+                variant="outline"
+                onClick={async () => {
+                  const smokeTemplates = templates.filter((template) => template.name.startsWith("Smoke Template "));
+                  if (smokeTemplates.length === 0) {
+                    toast.message("No smoke templates found.");
+                    return;
+                  }
+                  await Promise.all(smokeTemplates.map((template) => deleteExerciseTemplateAPI(template.id)));
+                  toast.success(`Removed ${smokeTemplates.length} smoke templates.`);
+                  await loadData();
+                }}
+              >
+                Remove Smoke Templates
+              </Button>
             </div>
           </CardContent>
         </Card>
@@ -504,6 +629,9 @@ export default function AdminTemplatesPage() {
             <CardTitle>Template Bank (Drag Into Day Cells)</CardTitle>
           </CardHeader>
           <CardContent>
+            <p className="mb-3 text-xs text-muted-foreground">
+              Drag both Exercise and Nutrition templates into each day to build a complete plan (workout + diet).
+            </p>
             <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3 max-h-64 overflow-auto pr-1">
               {templates
                 .filter((template) => template.isActive)
@@ -516,6 +644,11 @@ export default function AdminTemplatesPage() {
                   >
                     <p className="font-semibold text-sm">{template.name}</p>
                     <p className="text-muted-foreground">{template.category} • {template.difficulty}</p>
+                    {asPlanType(template.category) === "nutrition" && (
+                      <p className="text-muted-foreground">
+                        {template.proteinGrams ?? "-"}g protein • {template.calories ?? "-"} kcal
+                      </p>
+                    )}
                   </div>
                 ))}
             </div>
@@ -565,7 +698,12 @@ export default function AdminTemplatesPage() {
                           <GripVertical className="h-3.5 w-3.5 text-muted-foreground" />
                           <div className="min-w-0 flex-1">
                             <p className="truncate text-xs font-medium">{template?.name ?? "Template"}</p>
-                            <p className="text-[10px] text-muted-foreground">#{index + 1}</p>
+                            <p className="text-[10px] text-muted-foreground">
+                              #{index + 1} • {template ? (asPlanType(template.category) === "nutrition" ? "Diet" : "Exercise") : "Template"}
+                              {template && asPlanType(template.category) === "nutrition"
+                                ? ` • ${template.proteinGrams ?? "-"}g protein`
+                                : ""}
+                            </p>
                           </div>
                           <button
                             className="text-[10px] text-muted-foreground opacity-0 group-hover:opacity-100"

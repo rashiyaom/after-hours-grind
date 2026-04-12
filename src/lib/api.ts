@@ -59,6 +59,24 @@ type ApiComment = {
   createdAt: string;
   userId: string;
   postId: string;
+  user?: { id: string; name: string; avatar: string };
+};
+
+type ApiFollowerEdge = {
+  id: string;
+  createdAt: string;
+  follower?: {
+    id: string;
+    name: string;
+    avatar: string;
+    role: "STUDENT" | "TRAINER" | "ADMIN";
+  };
+  following?: {
+    id: string;
+    name: string;
+    avatar: string;
+    role: "STUDENT" | "TRAINER" | "ADMIN";
+  };
 };
 
 type ApiSubmission = {
@@ -153,7 +171,10 @@ const clearAccessToken = (): void => {
 
 async function apiRequest<T>(path: string, init: RequestInit = {}, token?: string): Promise<T> {
   const headers = new Headers(init.headers);
-  headers.set("Content-Type", "application/json");
+  const isFormDataBody = typeof FormData !== "undefined" && init.body instanceof FormData;
+  if (!isFormDataBody && !headers.has("Content-Type")) {
+    headers.set("Content-Type", "application/json");
+  }
   if (token) headers.set("Authorization", `Bearer ${token}`);
   if (!isSafeHttpMethod(init.method)) {
     const csrfToken = getCsrfToken();
@@ -257,7 +278,15 @@ export function clearBackendAccessToken(): void {
 }
 
 type RealtimeEventPayload = {
-  type: "chat.message" | "notification.created" | "notification.updated" | "ready";
+  type:
+    | "chat.message"
+    | "notification.created"
+    | "notification.updated"
+    | "submission.created"
+    | "submission.updated"
+    | "post.created"
+    | "post.updated"
+    | "ready";
   payload: Record<string, unknown>;
 };
 
@@ -280,6 +309,10 @@ export function subscribeRealtimeEvents(
   stream.addEventListener("chat.message", forward("chat.message"));
   stream.addEventListener("notification.created", forward("notification.created"));
   stream.addEventListener("notification.updated", forward("notification.updated"));
+  stream.addEventListener("submission.created", forward("submission.created"));
+  stream.addEventListener("submission.updated", forward("submission.updated"));
+  stream.addEventListener("post.created", forward("post.created"));
+  stream.addEventListener("post.updated", forward("post.updated"));
   stream.onerror = (error) => onError?.(error);
 
   return () => {
@@ -342,6 +375,16 @@ export async function submitTaskAPI(planTaskId: string, mediaUrl: string): Promi
   return authedRequest<ApiRecord>("/submissions", {
     method: "POST",
     body: JSON.stringify({ planTaskId, mediaUrl })
+  });
+}
+
+export async function uploadMediaFile(file: File): Promise<{ url: string; provider: string; bytes: number; contentType: string }> {
+  const formData = new FormData();
+  formData.append("file", file);
+
+  return authedRequest<{ url: string; provider: string; bytes: number; contentType: string }>("/uploads/media", {
+    method: "POST",
+    body: formData,
   });
 }
 
@@ -432,12 +475,56 @@ export async function fetchCommentsAPI(postId: string): Promise<ApiComment[]> {
   return authedRequest<ApiComment[]>(`/posts/${postId}/comments`, { method: "GET" });
 }
 
+export async function createPostAPI(payload: {
+  type: "image" | "video" | "reel";
+  mediaUrl: string;
+  caption: string;
+  source?: "general" | "task-proof";
+  location?: string;
+}): Promise<ApiRecord> {
+  return authedRequest<ApiRecord>("/posts", {
+    method: "POST",
+    body: JSON.stringify({
+      source: "general",
+      location: "Campus",
+      ...payload,
+    }),
+  });
+}
+
+export async function addCommentAPI(postId: string, text: string): Promise<ApiComment> {
+  return authedRequest<ApiComment>(`/posts/${postId}/comments`, {
+    method: "POST",
+    body: JSON.stringify({ text }),
+  });
+}
+
 export async function likePostAPI(postId: string): Promise<ApiRecord> {
   return authedRequest<ApiRecord>(`/posts/${postId}/likes`, { method: "POST" });
 }
 
 export async function unlikePostAPI(postId: string): Promise<ApiRecord> {
   return authedRequest<ApiRecord>(`/posts/${postId}/likes`, { method: "DELETE" });
+}
+
+export async function fetchUserProfileAPI(userId: string): Promise<ApiRecord> {
+  return authedRequest<ApiRecord>(`/users/${userId}`, { method: "GET" });
+}
+
+export async function followUserAPI(userId: string): Promise<ApiRecord> {
+  return authedRequest<ApiRecord>(`/users/${userId}/follow`, { method: "POST" });
+}
+
+export async function unfollowUserAPI(userId: string): Promise<ApiRecord> {
+  return authedRequest<ApiRecord>(`/users/${userId}/follow`, { method: "DELETE" });
+}
+
+export async function fetchFollowersAPI(userId: string): Promise<ApiFollowerEdge[]> {
+  return authedRequest<ApiFollowerEdge[]>(`/users/${userId}/followers`, { method: "GET" });
+}
+
+export async function fetchFollowingAPI(userId: string): Promise<ApiFollowerEdge[]> {
+  return authedRequest<ApiFollowerEdge[]>(`/users/${userId}/following`, { method: "GET" });
 }
 
 export async function fetchNotificationsAPI(cursor?: string, limit = 30): Promise<BackendNotificationsResponse> {
@@ -521,8 +608,17 @@ export async function resetAdminPermissionsAPI(): Promise<ApiRecord> {
   return authedRequest<ApiRecord>("/admin/permissions/reset", { method: "POST" });
 }
 
-export async function fetchExerciseTemplatesAPI(): Promise<ApiRecord[]> {
-  return authedRequest<ApiRecord[]>("/admin/exercise-templates", { method: "GET" });
+export async function fetchExerciseTemplatesAPI(options?: {
+  q?: string;
+  category?: string;
+  activeOnly?: boolean;
+}): Promise<ApiRecord[]> {
+  const params = new URLSearchParams();
+  if (options?.q) params.set("q", options.q);
+  if (options?.category) params.set("category", options.category);
+  if (typeof options?.activeOnly === "boolean") params.set("activeOnly", String(options.activeOnly));
+  const query = params.toString();
+  return authedRequest<ApiRecord[]>(`/admin/exercise-templates${query ? `?${query}` : ""}`, { method: "GET" });
 }
 
 export async function createExerciseTemplateAPI(payload: ApiRecord): Promise<ApiRecord> {

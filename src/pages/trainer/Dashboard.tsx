@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Users, CheckCircle2, AlertCircle, Clock, Search,
@@ -16,6 +16,12 @@ import { LUXURY_TWEEN_MEDIUM, LUXURY_TWEEN_SLOW } from "@/lib/motionTokens";
 
 type DashTab = "Submissions" | "Roster" | "Activity";
 
+const isVideoProof = (mediaUrl: string) => {
+  if (!mediaUrl) return false;
+  if (mediaUrl.startsWith("data:video/")) return true;
+  return /\.(mp4|webm|ogg|mov)(\?|#|$)/i.test(mediaUrl);
+};
+
 export default function TrainerDashboard() {
   const currentUser = useCurrentUser();
   const users = useAppStore((s) => s.users);
@@ -23,7 +29,6 @@ export default function TrainerDashboard() {
   const posts = useAppStore((s) => s.posts);
   const legacySubmissions = useAppStore((s) => s.system.legacySubmissions);
   const isLoading = useAppStore((s) => s.system.isLoading);
-  const setLoading = useAppStore((s) => s.setLoading);
   const approveTaskSubmission = useAppStore((s) => s.approveTaskSubmission);
   const rejectTaskSubmission = useAppStore((s) => s.rejectTaskSubmission);
 
@@ -96,36 +101,37 @@ export default function TrainerDashboard() {
     [posts, assignedStudents]
   );
 
-  useEffect(() => {
-    setLoading(true);
-    const timer = setTimeout(() => setLoading(false), 600);
-    return () => clearTimeout(timer);
-  }, [setLoading]);
-
-  const handleApprove = (id: string) => {
-    setReviewing(true);
-    setTimeout(() => {
-      approveTaskSubmission(id, feedbackNote || undefined);
+  const handleApprove = async (id: string) => {
+    try {
+      setReviewing(true);
+      await approveTaskSubmission(id, feedbackNote || undefined);
       setSelectedSubmissionId(null);
       setFeedbackNote("");
-      setReviewing(false);
       toast.success("Task approved! Student has been notified and awarded points.");
-    }, 800);
+    } catch {
+      toast.error("Could not approve submission. Please try again.");
+    } finally {
+      setReviewing(false);
+    }
   };
 
-  const handleReject = (id: string) => {
+  const handleReject = async (id: string) => {
     if (!feedbackNote.trim()) {
       toast.error("Please provide feedback when requesting changes.");
       return;
     }
-    setReviewing(true);
-    setTimeout(() => {
-      rejectTaskSubmission(id, feedbackNote);
+
+    try {
+      setReviewing(true);
+      await rejectTaskSubmission(id, feedbackNote);
       setSelectedSubmissionId(null);
       setFeedbackNote("");
-      setReviewing(false);
       toast.warning("Changes requested. Student has been notified.");
-    }, 800);
+    } catch {
+      toast.error("Could not reject submission. Please try again.");
+    } finally {
+      setReviewing(false);
+    }
   };
 
   const pendingCount = filteredSubmissions.filter((s) => s.status === "pending").length;
@@ -550,7 +556,16 @@ export default function TrainerDashboard() {
                 {/* Media/proof area */}
                 <div className="aspect-[4/5] bg-[#0D0D0D] rounded-2xl flex flex-col items-center justify-center relative overflow-hidden border border-white/5">
                   {selectedSubmission.mediaUrl ? (
-                    <img src={selectedSubmission.mediaUrl} alt="Submission" className="w-full h-full object-cover" />
+                    isVideoProof(selectedSubmission.mediaUrl) ? (
+                      <video
+                        src={selectedSubmission.mediaUrl}
+                        controls
+                        playsInline
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <img src={selectedSubmission.mediaUrl} alt="Submission" className="w-full h-full object-cover" />
+                    )
                   ) : (
                     <>
                       <Play className="h-14 w-14 text-white/10" />
