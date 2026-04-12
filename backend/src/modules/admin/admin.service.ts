@@ -1,5 +1,6 @@
 import { prisma } from "../../config/prisma.js";
 import { HttpError } from "../../lib/httpError.js";
+import { publishUserEvent } from "../../lib/realtime.js";
 
 const PERMISSION_KEYS = [
     "view_dashboard",
@@ -256,7 +257,7 @@ export async function updatePostModeration(postId: string, status: string) {
     const updated = await prisma.post.update({ where: { id: postId }, data: { status } });
 
     // Notify post owner
-    await prisma.notification.create({
+    const createdNotification = await prisma.notification.create({
         data: {
             userId: post.userId,
             type: "system",
@@ -267,6 +268,13 @@ export async function updatePostModeration(postId: string, status: string) {
         },
     });
 
+    publishUserEvent(post.userId, "notification.created", {
+        notificationId: createdNotification.id,
+        type: createdNotification.type,
+        title: createdNotification.title,
+        createdAt: createdNotification.createdAt.toISOString(),
+    });
+
     return updated;
 }
 
@@ -275,13 +283,20 @@ export async function deletePostAdmin(postId: string) {
     if (!post) throw HttpError.notFound("Post not found");
     await prisma.post.delete({ where: { id: postId } });
 
-    await prisma.notification.create({
+    const createdNotification = await prisma.notification.create({
         data: {
             userId: post.userId,
             type: "system",
             title: "Post Removed",
             message: "A post of yours was removed for violating community guidelines.",
         },
+    });
+
+    publishUserEvent(post.userId, "notification.created", {
+        notificationId: createdNotification.id,
+        type: createdNotification.type,
+        title: createdNotification.title,
+        createdAt: createdNotification.createdAt.toISOString(),
     });
 }
 

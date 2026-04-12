@@ -8,6 +8,7 @@ import { errorHandler } from "./middleware/errorHandler.js";
 import { notFound } from "./middleware/notFound.js";
 import { requestContext } from "./middleware/requestContext.js";
 import { createRateLimit } from "./middleware/rateLimit.js";
+import { csrfProtection } from "./middleware/csrfProtection.js";
 
 const apiGlobalLimiter = createRateLimit({
   key: "api-global",
@@ -43,6 +44,7 @@ app.use(
 app.use(cookieParser());
 app.use(express.json({ limit: "2mb" }));
 app.use(requestContext);
+app.use(csrfProtection);
 
 // Base Route Check
 app.get("/", (req, res) => {

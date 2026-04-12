@@ -4,6 +4,7 @@ import { signupSchema, loginSchema } from "./auth.schema.js";
 import * as authService from "./auth.service.js";
 import { env } from "../../config/env.js";
 import { parseDurationToMs } from "../../lib/duration.js";
+import { createCsrfToken, CSRF_COOKIE_NAME } from "../../lib/csrf.js";
 
 const DEFAULT_REFRESH_COOKIE_MS = 7 * 24 * 60 * 60 * 1000;
 const DEFAULT_ACCESS_COOKIE_MS = 15 * 60 * 1000;
@@ -30,19 +31,30 @@ const ACCESS_COOKIE_OPTIONS: CookieOptions = {
   maxAge: ACCESS_COOKIE_MAX_AGE_MS,
 };
 
+const CSRF_COOKIE_OPTIONS: CookieOptions = {
+  ...baseCookieOptions,
+  httpOnly: false,
+  path: "/api",
+  maxAge: REFRESH_COOKIE_MAX_AGE_MS,
+};
+
 export async function signupHandler(req: Request, res: Response) {
   const data = signupSchema.parse(req.body);
   const result = await authService.signup(data);
+  const csrfToken = createCsrfToken();
   res.cookie("refreshToken", result.refreshToken, COOKIE_OPTIONS);
   res.cookie("accessToken", result.accessToken, ACCESS_COOKIE_OPTIONS);
+  res.cookie(CSRF_COOKIE_NAME, csrfToken, CSRF_COOKIE_OPTIONS);
   res.status(201).json({ accessToken: result.accessToken, userId: result.userId, role: result.role });
 }
 
 export async function loginHandler(req: Request, res: Response) {
   const data = loginSchema.parse(req.body);
   const result = await authService.login(data);
+  const csrfToken = createCsrfToken();
   res.cookie("refreshToken", result.refreshToken, COOKIE_OPTIONS);
   res.cookie("accessToken", result.accessToken, ACCESS_COOKIE_OPTIONS);
+  res.cookie(CSRF_COOKIE_NAME, csrfToken, CSRF_COOKIE_OPTIONS);
   res.json({ accessToken: result.accessToken, userId: result.userId, role: result.role });
 }
 
@@ -50,8 +62,10 @@ export async function refreshHandler(req: Request, res: Response) {
   const token = req.cookies?.refreshToken;
   if (!token) { res.status(401).json({ error: "No refresh token" }); return; }
   const result = await authService.refresh(token);
+  const csrfToken = createCsrfToken();
   res.cookie("refreshToken", result.refreshToken, COOKIE_OPTIONS);
   res.cookie("accessToken", result.accessToken, ACCESS_COOKIE_OPTIONS);
+  res.cookie(CSRF_COOKIE_NAME, csrfToken, CSRF_COOKIE_OPTIONS);
   res.json({ accessToken: result.accessToken, userId: result.userId, role: result.role });
 }
 
@@ -64,6 +78,11 @@ export async function logoutHandler(req: Request, res: Response) {
   });
   res.clearCookie("accessToken", {
     ...baseCookieOptions,
+    path: "/api",
+  });
+  res.clearCookie(CSRF_COOKIE_NAME, {
+    ...baseCookieOptions,
+    httpOnly: false,
     path: "/api",
   });
   res.json({ message: "Logged out" });

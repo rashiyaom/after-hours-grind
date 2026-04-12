@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import { useAppStore } from "@/hooks/useStore";
 import { LUXURY_SPRING, LUXURY_TWEEN_MEDIUM } from "@/lib/motionTokens";
+import { subscribeRealtimeEvents } from "@/lib/api";
 
 const studentNav = [
   { label: "Dashboard", path: "/student/dashboard", icon: LayoutDashboard },
@@ -71,12 +72,19 @@ export default function AppLayout() {
     if (!isAuthenticated) return;
 
     void refreshData();
+
+    const unsubscribe = subscribeRealtimeEvents((event) => {
+      if (event.type === "ready") return;
+      void refreshData();
+    });
+
     const intervalId = window.setInterval(() => {
       void refreshData();
-    }, 15000);
+    }, 60000);
 
     return () => {
       window.clearInterval(intervalId);
+      unsubscribe();
     };
   }, [isAuthenticated, refreshData]);
 

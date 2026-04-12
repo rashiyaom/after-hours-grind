@@ -1,5 +1,6 @@
 import { prisma } from "../../config/prisma.js";
 import { HttpError } from "../../lib/httpError.js";
+import { publishUserEvent } from "../../lib/realtime.js";
 
 type SendMessageInput = {
   text?: string;
@@ -166,6 +167,20 @@ export async function sendMessage(userId: string, threadId: string, input: SendM
     },
     include: { sender: { select: { id: true, name: true, avatar: true } } },
   });
+
+  const participants = await prisma.threadParticipant.findMany({
+    where: { threadId },
+    select: { userId: true },
+  });
+
+  for (const participant of participants) {
+    publishUserEvent(participant.userId, "chat.message", {
+      threadId,
+      messageId: msg.id,
+      senderId: msg.senderId,
+      createdAt: msg.createdAt.toISOString(),
+    });
+  }
 
   await prisma.chatThread.update({ where: { id: threadId }, data: { updatedAt: new Date() } });
   return msg;

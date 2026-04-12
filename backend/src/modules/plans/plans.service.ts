@@ -1,5 +1,6 @@
 import { prisma } from "../../config/prisma.js";
 import { HttpError } from "../../lib/httpError.js";
+import { publishUserEvent } from "../../lib/realtime.js";
 
 export async function getTodayPlan(userId: string) {
   const profile = await prisma.studentProfile.findUnique({ where: { userId } });
@@ -99,13 +100,20 @@ export async function approveSubmission(reviewerId: string, reviewerRole: string
     }
 
     // Create notification for student
-    await tx.notification.create({
+    const createdNotification = await tx.notification.create({
       data: {
         userId: sub.studentId,
         type: "trainer",
         title: "Submission Approved",
         message: note ? `Your submission was approved: "${note}"` : "Your submission was approved!",
       },
+    });
+
+    publishUserEvent(sub.studentId, "notification.created", {
+      notificationId: createdNotification.id,
+      type: createdNotification.type,
+      title: createdNotification.title,
+      createdAt: createdNotification.createdAt.toISOString(),
     });
 
     return updated;
@@ -130,13 +138,20 @@ export async function rejectSubmission(reviewerId: string, reviewerRole: string,
   });
 
   // Notify student
-  await prisma.notification.create({
+  const createdNotification = await prisma.notification.create({
     data: {
       userId: sub.studentId,
       type: "trainer",
       title: "Submission Rejected",
       message: `Your submission was rejected: "${note}"`,
     },
+  });
+
+  publishUserEvent(sub.studentId, "notification.created", {
+    notificationId: createdNotification.id,
+    type: createdNotification.type,
+    title: createdNotification.title,
+    createdAt: createdNotification.createdAt.toISOString(),
   });
 
   return updated;
@@ -178,13 +193,20 @@ export async function createPlan(trainerId: string, input: {
 
       // Notify assigned students
       for (const studentId of input.studentIds) {
-        await tx.notification.create({
+        const createdNotification = await tx.notification.create({
           data: {
             userId: studentId,
             type: "plan",
             title: "New Plan Assigned",
             message: `You've been assigned a new plan: "${input.name}"`,
           },
+        });
+
+        publishUserEvent(studentId, "notification.created", {
+          notificationId: createdNotification.id,
+          type: createdNotification.type,
+          title: createdNotification.title,
+          createdAt: createdNotification.createdAt.toISOString(),
         });
       }
     }
@@ -206,13 +228,20 @@ export async function submitPlanForApproval(studentId: string, planId: string) {
 
   // Notify trainer if assigned
   if (plan.trainerId) {
-    await prisma.notification.create({
+    const createdNotification = await prisma.notification.create({
       data: {
         userId: plan.trainerId,
         type: "plan",
         title: "Plan Review Requested",
         message: `A student submitted plan "${plan.name}" for your review`,
       },
+    });
+
+    publishUserEvent(plan.trainerId, "notification.created", {
+      notificationId: createdNotification.id,
+      type: createdNotification.type,
+      title: createdNotification.title,
+      createdAt: createdNotification.createdAt.toISOString(),
     });
   }
 
@@ -241,13 +270,20 @@ export async function reviewPlan(reviewerId: string, planId: string, action: "ap
 
   // Notify student
   if (plan.studentId) {
-    await prisma.notification.create({
+    const createdNotification = await prisma.notification.create({
       data: {
         userId: plan.studentId,
         type: "plan",
         title: action === "approve" ? "Plan Approved!" : "Plan Needs Changes",
         message: note || (action === "approve" ? "Your plan has been approved and is now active." : "Your plan was not approved. Please review the feedback."),
       },
+    });
+
+    publishUserEvent(plan.studentId, "notification.created", {
+      notificationId: createdNotification.id,
+      type: createdNotification.type,
+      title: createdNotification.title,
+      createdAt: createdNotification.createdAt.toISOString(),
     });
   }
 
@@ -291,13 +327,20 @@ export async function assignStudentToTrainer(trainerId: string, studentId: strin
     data: { trainerId },
   });
 
-  await prisma.notification.create({
+  const createdNotification = await prisma.notification.create({
     data: {
       userId: studentId,
       type: "trainer",
       title: "Trainer Assigned",
       message: "You've been assigned a new trainer!",
     },
+  });
+
+  publishUserEvent(studentId, "notification.created", {
+    notificationId: createdNotification.id,
+    type: createdNotification.type,
+    title: createdNotification.title,
+    createdAt: createdNotification.createdAt.toISOString(),
   });
 }
 

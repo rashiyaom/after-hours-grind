@@ -12,6 +12,7 @@ import achievementRoutes from "../modules/achievements/achievements.routes.js";
 import leaderboardRoutes from "../modules/leaderboard/leaderboard.routes.js";
 import progressRoutes from "../modules/progress/progress.routes.js";
 import settingsRoutes from "../modules/settings/settings.routes.js";
+import realtimeRoutes from "../modules/realtime/realtime.routes.js";
 
 const router = Router();
 
@@ -28,5 +29,6 @@ router.use(achievementRoutes);
 router.use(leaderboardRoutes);
 router.use(progressRoutes);
 router.use(settingsRoutes);
+router.use(realtimeRoutes);
 
 export default router;

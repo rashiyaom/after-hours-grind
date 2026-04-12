@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { prisma } from "../config/prisma.js";
 import { pingRedis } from "../config/redis.js";
+import { env } from "../config/env.js";
 
 const router = Router();
 
@@ -12,7 +13,8 @@ router.get("/health", async (_req, res) => {
 
   const database = dbCheck.status === "fulfilled" ? "up" : "down";
   const redis = redisCheck.status === "fulfilled" && redisCheck.value ? "up" : "down";
-  const status = database === "up" ? "ok" : "degraded";
+  const redisRequired = env.NODE_ENV === "production";
+  const status = database === "up" && (!redisRequired || redis === "up") ? "ok" : "degraded";
 
   res.status(status === "ok" ? 200 : 503).json({
     status,

@@ -130,6 +130,21 @@ const getAccessToken = (): string | null => {
   return inMemoryAccessToken;
 };
 
+const getCsrfToken = (): string | null => {
+  if (typeof document === "undefined") return null;
+  const tokenEntry = document.cookie
+    .split(";")
+    .map((entry) => entry.trim())
+    .find((entry) => entry.startsWith("csrfToken="));
+  if (!tokenEntry) return null;
+  return decodeURIComponent(tokenEntry.slice("csrfToken=".length));
+};
+
+const isSafeHttpMethod = (method: string | undefined): boolean => {
+  const normalized = (method ?? "GET").toUpperCase();
+  return normalized === "GET" || normalized === "HEAD" || normalized === "OPTIONS";
+};
+
 const setAccessToken = (token: string): void => {
   inMemoryAccessToken = token;
 };
@@ -142,6 +157,12 @@ async function apiRequest<T>(path: string, init: RequestInit = {}, token?: strin
   const headers = new Headers(init.headers);
   headers.set("Content-Type", "application/json");
   if (token) headers.set("Authorization", `Bearer ${token}`);
+  if (!isSafeHttpMethod(init.method)) {
+    const csrfToken = getCsrfToken();
+    if (csrfToken) {
+      headers.set("x-csrf-token", csrfToken);
+    }
+  }
 
   const response = await fetch(`${API_BASE_URL}${path}`, {
     ...init,
@@ -221,6 +242,39 @@ export async function fetchFeedPageFromBackend(cursor?: string, limit = 20): Pro
 
 export function clearBackendAccessToken(): void {
   clearAccessToken();
+}
+
+export type RealtimeEventPayload = {
+  type: "chat.message" | "notification.created" | "notification.updated" | "ready";
+  payload: Record<string, unknown>;
+};
+
+export function subscribeRealtimeEvents(
+  onEvent: (event: RealtimeEventPayload) => void,
+  onError?: (error: Event) => void
+): () => void {
+  const stream = new EventSource(`${API_BASE_URL}/stream/events`, { withCredentials: true });
+
+  const forward = (type: RealtimeEventPayload["type"]) => (event: MessageEvent<string>) => {
+    try {
+      const payload = JSON.parse(event.data) as Record<string, unknown>;
+      onEvent({ type, payload });
+    } catch {
+      onEvent({ type, payload: {} });
+    }
+  };
+
+  stream.addEventListener("ready", forward("ready"));
+  stream.addEventListener("chat.message", forward("chat.message"));
+  stream.addEventListener("notification.created", forward("notification.created"));
+  stream.addEventListener("notification.updated", forward("notification.updated"));
+  stream.onerror = (error) => {
+    onError?.(error);
+  };
+
+  return () => {
+    stream.close();
+  };
 }
 
 // === AUTH ENTITIES ===
