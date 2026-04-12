@@ -1,13 +1,13 @@
 import { test, expect } from "@playwright/test";
 
-const APP_URL = process.env.SMOKE_BASE_URL ?? "http://localhost:8082";
+const APP_URL = process.env.SMOKE_BASE_URL;
 const ADMIN_EMAIL = process.env.SMOKE_ADMIN_EMAIL ?? "rashiyaom@gmail.com";
 const ADMIN_PASSWORD = process.env.SMOKE_ADMIN_PASSWORD ?? "Romashiya@123";
 const STUDENT_EMAIL = process.env.SMOKE_STUDENT_EMAIL ?? "student1@ahg.com";
 const STUDENT_PASSWORD = process.env.SMOKE_STUDENT_PASSWORD ?? "password123";
 
 async function login(page: Parameters<typeof test>[0]["page"], email: string, password: string) {
-  await page.goto(`${APP_URL}/login`);
+  await page.goto(APP_URL ? `${APP_URL}/login` : "/login");
   await page.getByPlaceholder("you@example.com").fill(email);
   await page.getByPlaceholder("••••••••").fill(password);
   const loginResponsePromise = page.waitForResponse(
@@ -20,24 +20,54 @@ async function login(page: Parameters<typeof test>[0]["page"], email: string, pa
   await page.waitForTimeout(1500);
 }
 
+async function createTemplateForSmoke(page: Parameters<typeof test>[0]["page"]) {
+  const templateName = `Smoke Template ${Date.now()}`;
+  const createTemplateResponsePromise = page.waitForResponse(
+    (response) =>
+      response.url().includes("/api/admin/exercise-templates") && response.request().method() === "POST",
+  );
+  await page.getByPlaceholder("Exercise name").fill(templateName);
+  await page.getByRole("button", { name: "Create Template" }).click();
+  const createTemplateResponse = await createTemplateResponsePromise;
+  expect(createTemplateResponse.ok()).toBeTruthy();
+  await expect(page.getByText(templateName).first()).toBeVisible();
+  return templateName;
+}
+
 test.describe.serial("critical smoke flows", () => {
   test("admin templates drag-drop reorder and save + users metrics", async ({ page }) => {
     await login(page, ADMIN_EMAIL, ADMIN_PASSWORD);
 
-    await page.goto(`${APP_URL}/admin/templates`);
+    await page.goto(APP_URL ? `${APP_URL}/admin/templates` : "/admin/templates");
     await expect(page.getByRole("heading", { name: "Exercise Template Studio" })).toBeVisible();
 
     const firstStudentCheckbox = page.locator('label:has-text("@ahg.com") input[type="checkbox"]').first();
     await firstStudentCheckbox.check();
 
-    const sourceTemplate = page.locator('div[draggable="true"]').filter({ hasText: /.+/ }).first();
-    const dayOneCell = page.locator('div:has(> p:text-is("Day 1"))').first();
-    await sourceTemplate.dragTo(dayOneCell);
+    let sourceTemplate = page.locator('div[draggable="true"]').first();
+    if ((await sourceTemplate.count()) === 0) {
+      await createTemplateForSmoke(page);
+      sourceTemplate = page.locator('div[draggable="true"]').first();
+    }
+    await expect(sourceTemplate).toBeVisible();
 
+    const dayOneCard = page
+      .locator("div.rounded-lg.border.bg-background.p-3.min-h-44")
+      .filter({ has: page.locator("p", { hasText: /^Day 1$/ }) })
+      .first();
+    await sourceTemplate.dragTo(dayOneCard);
+    await expect(dayOneCard.locator('div[draggable="true"]').first()).toBeVisible();
+
+    const saveCycleResponsePromise = page.waitForResponse(
+      (response) =>
+        response.url().includes("/api/admin/exercise-templates/assign-bulk") &&
+        response.request().method() === "POST",
+    );
     await page.getByRole("button", { name: /Save Day 1-25 Cycle|Saving Cycle/ }).click();
-    await expect(page.getByText("Cycle plan saved for selected students. Realtime updates sent.")).toBeVisible();
+    const saveCycleResponse = await saveCycleResponsePromise;
+    expect(saveCycleResponse.ok()).toBeTruthy();
 
-    await page.goto(`${APP_URL}/admin/users`);
+    await page.goto(APP_URL ? `${APP_URL}/admin/users` : "/admin/users");
     await expect(page.getByText("Height:").first()).toBeVisible();
     await expect(page.getByText("Weight:").first()).toBeVisible();
     await expect(page.getByText("Goal:").first()).toBeVisible();
@@ -47,7 +77,7 @@ test.describe.serial("critical smoke flows", () => {
   test("student day 5 checkin task proof upload", async ({ page }) => {
     await login(page, STUDENT_EMAIL, STUDENT_PASSWORD);
 
-    await page.goto(`${APP_URL}/student/daily-plan`);
+    await page.goto(APP_URL ? `${APP_URL}/student/daily-plan` : "/student/daily-plan");
 
     const day5Button = page.locator("button", { hasText: /^5$/ }).first();
     await day5Button.click();
