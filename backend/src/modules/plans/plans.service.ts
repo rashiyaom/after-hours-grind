@@ -1,6 +1,33 @@
 import { prisma } from "../../config/prisma.js";
 import { HttpError } from "../../lib/httpError.js";
 import { publishUserEvent } from "../../lib/realtime.js";
+import { createPersonalized25DayPlan } from "./personalizedPlan.js";
+
+const COMPLETE_STATUSES = new Set(["PENDING", "APPROVED"] as const);
+
+const computeCalendarDay = (createdAt: Date, totalDays: number): number => {
+  const msPerDay = 24 * 60 * 60 * 1000;
+  const elapsedDays = Math.floor((Date.now() - createdAt.getTime()) / msPerDay);
+  return Math.max(1, Math.min(totalDays, elapsedDays + 1));
+};
+
+const resolveUnlockedDay = (
+  planDays: Array<{ day: number; tasks: Array<{ id: string }> }>,
+  latestByTask: Map<string, { status: string }>,
+  calendarDay: number,
+): number => {
+  const sortedDays = [...planDays].sort((a, b) => a.day - b.day);
+  const firstIncompleteDay =
+    sortedDays.find((day) => {
+      if (day.tasks.length === 0) return false;
+      return day.tasks.some((task) => {
+        const latestSubmission = latestByTask.get(task.id);
+        return !latestSubmission || !COMPLETE_STATUSES.has(latestSubmission.status as "PENDING" | "APPROVED");
+      });
+    })?.day ?? sortedDays[sortedDays.length - 1]?.day ?? 1;
+
+  return Math.max(1, Math.min(calendarDay, firstIncompleteDay));
+};
 
 export async function getTodayPlan(userId: string) {
   const profile = await prisma.studentProfile.findUnique({ where: { userId } });
@@ -13,9 +40,7 @@ export async function getTodayPlan(userId: string) {
   if (!plan) return null;
 
   const totalDays = Math.max(plan.days.length, 1);
-  const msPerDay = 24 * 60 * 60 * 1000;
-  const elapsedDays = Math.floor((Date.now() - plan.createdAt.getTime()) / msPerDay);
-  const currentDay = Math.max(1, Math.min(totalDays, elapsedDays + 1));
+  const calendarDay = computeCalendarDay(plan.createdAt, totalDays);
 
   const allTaskIds = plan.days.flatMap((day) => day.tasks.map((task) => task.id));
   const taskSubmissions =
@@ -40,6 +65,8 @@ export async function getTodayPlan(userId: string) {
     if (!sub.planTaskId || latestByTask.has(sub.planTaskId)) continue;
     latestByTask.set(sub.planTaskId, sub);
   }
+
+  const currentDay = resolveUnlockedDay(plan.days, latestByTask, calendarDay);
 
   const today = plan.days.find((day) => day.day === currentDay) ?? null;
 
@@ -66,9 +93,84 @@ export async function getTodayPlan(userId: string) {
 }
 
 export async function createSubmission(studentId: string, input: { planTaskId?: string; mediaUrl: string }) {
-  return prisma.submission.create({
-    data: { studentId, planTaskId: input.planTaskId, mediaUrl: input.mediaUrl },
+  if (!input.planTaskId) {
+    throw HttpError.badRequest("planTaskId is required");
+  }
+
+  const profile = await prisma.studentProfile.findUnique({ where: { userId: studentId } });
+  if (!profile?.currentPlanId) {
+    throw HttpError.badRequest("No active plan found for student");
+  }
+
+  const task = await prisma.planTask.findUnique({
+    where: { id: input.planTaskId },
+    include: {
+      planDay: {
+        include: {
+          plan: {
+            include: {
+              days: {
+                include: { tasks: true },
+                orderBy: { day: "asc" },
+              },
+            },
+          },
+        },
+      },
+    },
   });
+
+  if (!task) {
+    throw HttpError.notFound("Plan task not found");
+  }
+
+  if (task.planDay.planId !== profile.currentPlanId) {
+    throw HttpError.forbidden("Task does not belong to your active plan");
+  }
+
+  const plan = task.planDay.plan;
+  const allTaskIds = plan.days.flatMap((day) => day.tasks.map((candidate) => candidate.id));
+  const latestSubmissions =
+    allTaskIds.length === 0
+      ? []
+      : await prisma.submission.findMany({
+          where: { studentId, planTaskId: { in: allTaskIds } },
+          orderBy: { createdAt: "desc" },
+          select: { planTaskId: true, status: true },
+        });
+
+  const latestByTask = new Map<string, { status: string }>();
+  for (const sub of latestSubmissions) {
+    if (!sub.planTaskId || latestByTask.has(sub.planTaskId)) continue;
+    latestByTask.set(sub.planTaskId, { status: sub.status });
+  }
+
+  const totalDays = Math.max(plan.days.length, 1);
+  const calendarDay = computeCalendarDay(plan.createdAt, totalDays);
+  const unlockedDay = resolveUnlockedDay(plan.days, latestByTask, calendarDay);
+
+  if (task.planDay.day !== unlockedDay) {
+    if (task.planDay.day > unlockedDay) {
+      throw HttpError.forbidden("Complete the current day first. Next day unlocks only on the following day.");
+    }
+    throw HttpError.forbidden("You can only submit tasks for your currently unlocked day.");
+  }
+
+  const latestForTarget = latestByTask.get(task.id);
+  if (latestForTarget && latestForTarget.status === "PENDING") {
+    throw HttpError.badRequest("Task proof is already pending review");
+  }
+  if (latestForTarget && latestForTarget.status === "APPROVED") {
+    throw HttpError.badRequest("Task already approved");
+  }
+
+  return prisma.submission.create({
+    data: { studentId, planTaskId: task.id, mediaUrl: input.mediaUrl },
+  });
+}
+
+export async function generatePersonalizedPlan(studentId: string) {
+  return createPersonalized25DayPlan(prisma, studentId);
 }
 
 export async function approveSubmission(reviewerId: string, reviewerRole: string, submissionId: string, note?: string) {

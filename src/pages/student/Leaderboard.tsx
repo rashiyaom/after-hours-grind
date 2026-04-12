@@ -77,11 +77,7 @@ export default function LeaderboardPage() {
   const [activeFilter, setActiveFilter] = useState<Filter>("Weekly");
 
   useEffect(() => {
-    void refreshData();
-    const interval = window.setInterval(() => {
-      void refreshData();
-    }, 20000);
-    return () => window.clearInterval(interval);
+    void refreshData({ background: true, scope: "student" });
   }, [refreshData]);
 
   const sorted = getSortedData(leaderboard, activeFilter);

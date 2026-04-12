@@ -12,8 +12,13 @@ router.get("/health", async (_req, res) => {
   ]);
 
   const database = dbCheck.status === "fulfilled" ? "up" : "down";
-  const redis = redisCheck.status === "fulfilled" && redisCheck.value ? "up" : "down";
-  const redisRequired = env.NODE_ENV === "production";
+  const redisConfigured = Boolean(env.REDIS_URL);
+  const redis = redisConfigured
+    ? redisCheck.status === "fulfilled" && redisCheck.value
+      ? "up"
+      : "down"
+    : "disabled";
+  const redisRequired = redisConfigured;
   const status = database === "up" && (!redisRequired || redis === "up") ? "ok" : "degraded";
 
   res.status(status === "ok" ? 200 : 503).json({

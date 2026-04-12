@@ -25,7 +25,7 @@ export function calculateBMI(heightCm: number, weightKg: number): number {
   return Number((weightKg / (heightM * heightM)).toFixed(1));
 }
 
-export function deriveWeightDifference(questionnaire: FitnessQuestionnaire): number {
+function deriveWeightDifference(questionnaire: FitnessQuestionnaire): number {
   if (questionnaire.goals.targetMode !== "weight" || !questionnaire.goals.targetWeightKg) return 0;
   return Number((questionnaire.goals.targetWeightKg - questionnaire.basic.weightKg).toFixed(1));
 }

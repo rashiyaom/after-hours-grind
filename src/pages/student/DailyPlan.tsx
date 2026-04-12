@@ -39,6 +39,35 @@ const macroBarVariants = {
   }),
 };
 
+const extractYouTubeUrl = (input: string) => {
+  const match = input.match(/(?:video:\s*)?(https?:\/\/[^\s|]+(?:youtube\.com|youtu\.be)[^\s|]*)/i);
+  return match ? match[1] : null;
+};
+
+const toYouTubeEmbedUrl = (url: string | null) => {
+  if (!url) return null;
+  try {
+    const parsed = new URL(url);
+    if (parsed.hostname.includes("youtu.be")) {
+      const videoId = parsed.pathname.replace("/", "").trim();
+      return videoId ? `https://www.youtube.com/embed/${videoId}` : null;
+    }
+    if (parsed.hostname.includes("youtube.com")) {
+      const videoId = parsed.searchParams.get("v");
+      return videoId ? `https://www.youtube.com/embed/${videoId}` : null;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+};
+
+const removeVideoMeta = (input: string) =>
+  input
+    .replace(/\|?\s*video:\s*https?:\/\/[^\s|]+/gi, "")
+    .replace(/\s{2,}/g, " ")
+    .trim();
+
 export default function DailyPlanPage() {
   const { student: s, getDayTask, submitTaskProof, canStartCurrentPlan, currentStudentPlan, backendTodayPlan } = useStore();
   const currentUser = useCurrentUser();
@@ -70,28 +99,43 @@ export default function DailyPlanPage() {
             return type === "workout" || type === "habit";
           })
           .map((task) => ({
+            videoUrl: extractYouTubeUrl(String(task.description ?? "")),
             id: String(task.id ?? ""),
             name: String(task.title ?? "Task"),
             sets: String(task.intensity ?? "moderate") === "high" ? 4 : 3,
             reps: String(task.intensity ?? "moderate") === "high" ? 8 : 12,
             rest: String(task.intensity ?? "moderate") === "high" ? "75s" : "45s",
             completed: String(task.submissionStatus ?? "") === "APPROVED",
-            focus: String(task.description ?? "Execute with clean form and controlled tempo."),
+            focus: removeVideoMeta(String(task.description ?? "Execute with clean form and controlled tempo.")),
             equipmentMode: "basic" as const,
             alternatives: ["Regression variant", "Tempo variant"],
+            videoEmbedUrl: toYouTubeEmbedUrl(extractYouTubeUrl(String(task.description ?? ""))),
           })),
         diet: dayTasks
           .filter((task) => String(task.type ?? "").toLowerCase() === "nutrition")
-          .map((task, index) => ({
-            id: String(task.id ?? `nutrition-${index}`),
-            meal: String(task.title ?? "Nutrition Task"),
-            description: String(task.description ?? "Complete your nutrition target for the day."),
-            time: "Anytime",
+          .map((task, index) => {
+            const title = String(task.title ?? "Nutrition Task");
+            const normalizedTitle = title.toLowerCase();
+            const resolvedTime =
+              normalizedTitle.includes("breakfast")
+                ? "08:00 AM"
+                : normalizedTitle.includes("lunch")
+                  ? "01:00 PM"
+                  : normalizedTitle.includes("dinner")
+                    ? "08:00 PM"
+                    : "Anytime";
+
+            return {
+              id: String(task.id ?? `nutrition-${index}`),
+              meal: title,
+              description: String(task.description ?? "Complete your nutrition target for the day."),
+              time: resolvedTime,
             calories: 0,
             completed: String(task.submissionStatus ?? "") === "APPROVED",
             foods: [],
             macros: { protein: 0, carbs: 0, fats: 0 },
-          })),
+            };
+          }),
       }
     : fallbackTask;
   const [selectedExercise, setSelectedExercise] = useState<typeof todayTask.workout[0] | null>(null);
@@ -278,18 +322,35 @@ export default function DailyPlanPage() {
               transition={{ duration: 0.32, ease: [0.16, 1, 0.3, 1] }}
               className="w-full max-w-lg relative z-10 rounded-[32px] overflow-hidden max-h-[90vh] flex flex-col border border-white/10 bg-[#111111] shadow-[0_40px_120px_rgba(0,0,0,0.7)]"
             >
-              {/* video placeholder */}
+              {/* video */}
               <div className="aspect-video relative flex items-center justify-center bg-[#080808] flex-shrink-0 overflow-hidden">
-                <div className="absolute inset-0 bg-gradient-to-br from-[#C9F85A]/5 via-transparent to-[#4DD2FF]/5" />
-                <div className="absolute inset-0 opacity-10"
-                  style={{ backgroundImage: "linear-gradient(rgba(255,255,255,0.04) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.04) 1px, transparent 1px)", backgroundSize: "32px 32px" }}
-                />
-                <motion.div
-                  whileHover={{ scale: 1.08 }}
-                  className="w-16 h-16 rounded-full bg-[#C9F85A]/15 flex items-center justify-center border border-[#C9F85A]/30 cursor-pointer z-10"
-                >
-                  <Play className="h-6 w-6 text-[#C9F85A] fill-[#C9F85A]/20 ml-0.5" />
-                </motion.div>
+                {selectedExercise.videoEmbedUrl ? (
+                  <iframe
+                    src={selectedExercise.videoEmbedUrl}
+                    title={`${selectedExercise.name} demo`}
+                    className="h-full w-full"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                    allowFullScreen
+                  />
+                ) : (
+                  <>
+                    <div className="absolute inset-0 bg-gradient-to-br from-[#C9F85A]/5 via-transparent to-[#4DD2FF]/5" />
+                    <div
+                      className="absolute inset-0 opacity-10"
+                      style={{
+                        backgroundImage:
+                          "linear-gradient(rgba(255,255,255,0.04) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.04) 1px, transparent 1px)",
+                        backgroundSize: "32px 32px",
+                      }}
+                    />
+                    <motion.div
+                      whileHover={{ scale: 1.08 }}
+                      className="w-16 h-16 rounded-full bg-[#C9F85A]/15 flex items-center justify-center border border-[#C9F85A]/30 cursor-pointer z-10"
+                    >
+                      <Play className="h-6 w-6 text-[#C9F85A] fill-[#C9F85A]/20 ml-0.5" />
+                    </motion.div>
+                  </>
+                )}
                 <button
                   onClick={() => setSelectedExercise(null)}
                   className="absolute top-4 right-4 p-2 rounded-full bg-white/10 text-white/70 hover:bg-white/20 hover:text-white transition-all z-20"
@@ -333,9 +394,20 @@ export default function DailyPlanPage() {
                     <Info className="h-3.5 w-3.5" /> Coach Notes
                   </p>
                   <p className="text-sm text-white/70 leading-relaxed pl-2">
-                    "Focus on the eccentric phase. Control the weight for 3 seconds on the way down. Keep your intensity high."
+                    {selectedExercise.focus || "Execute with controlled tempo and safe form."}
                   </p>
                 </div>
+
+                {selectedExercise.videoUrl && (
+                  <a
+                    href={selectedExercise.videoUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="block rounded-xl border border-[#4DD2FF]/30 bg-[#4DD2FF]/10 px-3 py-2 text-xs font-semibold text-[#4DD2FF]"
+                  >
+                    Open demo video in new tab
+                  </a>
+                )}
 
                 <motion.button
                   whileTap={{ scale: 0.97 }}

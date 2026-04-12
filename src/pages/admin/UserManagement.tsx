@@ -97,6 +97,28 @@ const UserManagement = () => {
                     {user.name} <Badge variant="secondary" className="ml-2">{user.role}</Badge>
                   </p>
                   <p className="text-sm text-muted-foreground">{user.email}</p>
+                  {user.role === "student" && (
+                    <div className="mt-2 flex flex-wrap gap-2 text-xs">
+                      <span className="rounded-full border px-2 py-1 text-muted-foreground">
+                        Height: {(user as Student).height || 0} cm
+                      </span>
+                      <span className="rounded-full border px-2 py-1 text-muted-foreground">
+                        Weight: {(user as Student).weight || 0} kg
+                      </span>
+                      <span className="rounded-full border px-2 py-1 text-muted-foreground">
+                        Goal: {(user as Student).fitnessGoal || "not set"}
+                      </span>
+                      <span className="rounded-full border px-2 py-1 text-muted-foreground">
+                        BMI: {(() => {
+                          const student = user as Student;
+                          if (!student.height || !student.weight) return "-";
+                          const meters = student.height / 100;
+                          const bmi = student.weight / (meters * meters);
+                          return bmi.toFixed(1);
+                        })()}
+                      </span>
+                    </div>
+                  )}
                 </div>
                 <div className="flex flex-wrap items-center gap-4">
                   {user.role === "student" && (
@@ -108,8 +130,17 @@ const UserManagement = () => {
                           value={(user as Student).trainerId || ""}
                           onChange={async (e) => {
                             const val = e.target.value;
-                            await assignTrainer(user.id, val === "" ? null : val);
-                            toast.success(`Trainer assigned to ${user.name}`);
+                            try {
+                              await assignTrainer(user.id, val === "" ? null : val);
+                              toast.success(
+                                val === "" ? `Trainer removed for ${user.name}` : `Trainer assigned to ${user.name}`
+                              );
+                            } catch (error) {
+                              const message = error instanceof Error && error.message
+                                ? error.message
+                                : `Could not update trainer for ${user.name}`;
+                              toast.error(message);
+                            }
                           }}
                         >
                           <option value="">None</option>

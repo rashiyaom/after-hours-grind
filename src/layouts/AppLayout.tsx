@@ -10,6 +10,9 @@ import { useAppStore } from "@/hooks/useStore";
 import { LUXURY_SPRING, LUXURY_TWEEN_MEDIUM } from "@/lib/motionTokens";
 import { subscribeRealtimeEvents } from "@/lib/api";
 
+const REALTIME_REFRESH_DEBOUNCE_MS = 1200;
+const PERIODIC_REFRESH_MS = 120000;
+
 const studentNav = [
   { label: "Dashboard", path: "/student/dashboard", icon: LayoutDashboard },
   { label: "Daily Plan", path: "/student/daily-plan", icon: Calendar },
@@ -49,6 +52,7 @@ const trainerNav = [
 const adminNav = [
   { label: "Dashboard", path: "/admin/dashboard", icon: LayoutDashboard },
   { label: "Users", path: "/admin/users", icon: Users },
+  { label: "Templates", path: "/admin/templates", icon: ClipboardList },
   { label: "Events", path: "/admin/events", icon: Calendar },
   { label: "Content", path: "/admin/content", icon: Rss },
   { label: "Permissions", path: "/admin/permissions", icon: Shield },
@@ -71,22 +75,42 @@ export default function AppLayout() {
   useEffect(() => {
     if (!isAuthenticated) return;
 
-    void refreshData();
+    const liveScope = currentUser?.role === "student"
+      ? "student"
+      : currentUser?.role === "trainer"
+        ? "trainer"
+        : currentUser?.role === "admin"
+          ? "admin"
+          : "common";
+
+    void refreshData({ background: true, scope: liveScope });
+
+    let refreshTimer: number | null = null;
+    const scheduleRefresh = () => {
+      if (refreshTimer !== null) return;
+      refreshTimer = window.setTimeout(() => {
+        refreshTimer = null;
+        void refreshData({ background: true, scope: liveScope });
+      }, REALTIME_REFRESH_DEBOUNCE_MS);
+    };
 
     const unsubscribe = subscribeRealtimeEvents((event) => {
       if (event.type === "ready") return;
-      void refreshData();
+      scheduleRefresh();
     });
 
     const intervalId = window.setInterval(() => {
-      void refreshData();
-    }, 60000);
+      void refreshData({ background: true, scope: liveScope });
+    }, PERIODIC_REFRESH_MS);
 
     return () => {
       window.clearInterval(intervalId);
+      if (refreshTimer !== null) {
+        window.clearTimeout(refreshTimer);
+      }
       unsubscribe();
     };
-  }, [isAuthenticated, refreshData]);
+  }, [isAuthenticated, refreshData, currentUser?.role]);
 
 
   const rolePermissions = currentUser ? permissions[currentUser.role] : undefined;
@@ -97,7 +121,7 @@ export default function AppLayout() {
 
   const nav = isAdmin
     ? adminNav.filter((item) => {
-        if (item.path.endsWith("/users") || item.path.endsWith("/permissions")) return canManageUsers;
+        if (item.path.endsWith("/users") || item.path.endsWith("/permissions") || item.path.endsWith("/templates")) return canManageUsers;
         if (item.path.endsWith("/content")) return canModerateContent;
         return true;
       })

@@ -8,6 +8,7 @@ const router = Router();
 
 // Student
 router.get("/student/plan/today", requireAuth, requireRole("STUDENT"), asyncHandler(ctrl.getTodayPlanHandler));
+router.post("/student/plan/generate", requireAuth, requireRole("STUDENT"), asyncHandler(ctrl.generatePersonalizedPlanHandler));
 router.post("/submissions", requireAuth, requireRole("STUDENT"), asyncHandler(ctrl.createSubmissionHandler));
 router.post("/plans/:id/submit", requireAuth, requireRole("STUDENT"), asyncHandler(ctrl.submitForApprovalHandler));
 

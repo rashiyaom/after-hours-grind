@@ -174,13 +174,13 @@ export interface PlanTemplateMeta {
   focus: string;
 }
 
-export interface WorkoutItem {
+interface WorkoutItem {
   id: string;
   description: string;
   completed: boolean;
 }
 
-export interface DietItem {
+interface DietItem {
   id: string;
   description: string;
   completed: boolean;
@@ -309,7 +309,7 @@ export interface NotificationItem {
   postImage?: string;
 }
 
-export interface Submission {
+interface Submission {
   id: string;
   studentId?: string;
   trainerId?: string;
@@ -378,7 +378,7 @@ export interface AHGEvent {
   createdAt: string;
   createdBy: string;      // admin userId
 }
-export interface Athlete {
+interface Athlete {
   id: string;
   name: string;
   sport: "Football" | "Basketball" | "Karate" | "Judo" | "Tennis" | "Badminton" | "Kabaddi" | "Chess" | "Martial Arts" | "Cricket";
@@ -390,7 +390,7 @@ export interface Athlete {
   role: string;
 }
 
-export interface SportsTeam {
+interface SportsTeam {
   name: string;
   sport: string;
   members: Athlete[];

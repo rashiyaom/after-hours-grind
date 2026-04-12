@@ -1,0 +1,16 @@
+{
+  "$schema": "https://unpkg.com/knip@latest/schema.json",
+  "entry": [
+    "src/main.tsx"
+  ],
+  "project": [
+    "src/**/*.{ts,tsx}",
+    "vite.config.ts",
+    "tailwind.config.ts"
+  ],
+  "ignore": [
+    "backend/**",
+    "playwright-fixture.ts"
+  ],
+  "ignoreExportsUsedInFile": true
+}

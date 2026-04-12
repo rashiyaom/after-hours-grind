@@ -34,8 +34,20 @@ const ACCESS_COOKIE_OPTIONS: CookieOptions = {
 const CSRF_COOKIE_OPTIONS: CookieOptions = {
   ...baseCookieOptions,
   httpOnly: false,
-  path: "/api",
+  path: "/",
   maxAge: REFRESH_COOKIE_MAX_AGE_MS,
+};
+
+const LEGACY_CSRF_COOKIE_OPTIONS: CookieOptions = {
+  ...baseCookieOptions,
+  httpOnly: false,
+  path: "/api",
+};
+
+const setCsrfCookie = (res: Response, token: string): void => {
+  // Remove legacy path-scoped cookie so only one csrfToken exists in the browser.
+  res.clearCookie(CSRF_COOKIE_NAME, LEGACY_CSRF_COOKIE_OPTIONS);
+  res.cookie(CSRF_COOKIE_NAME, token, CSRF_COOKIE_OPTIONS);
 };
 
 export async function signupHandler(req: Request, res: Response) {
@@ -44,7 +56,7 @@ export async function signupHandler(req: Request, res: Response) {
   const csrfToken = createCsrfToken();
   res.cookie("refreshToken", result.refreshToken, COOKIE_OPTIONS);
   res.cookie("accessToken", result.accessToken, ACCESS_COOKIE_OPTIONS);
-  res.cookie(CSRF_COOKIE_NAME, csrfToken, CSRF_COOKIE_OPTIONS);
+  setCsrfCookie(res, csrfToken);
   res.status(201).json({ accessToken: result.accessToken, userId: result.userId, role: result.role });
 }
 
@@ -54,7 +66,7 @@ export async function loginHandler(req: Request, res: Response) {
   const csrfToken = createCsrfToken();
   res.cookie("refreshToken", result.refreshToken, COOKIE_OPTIONS);
   res.cookie("accessToken", result.accessToken, ACCESS_COOKIE_OPTIONS);
-  res.cookie(CSRF_COOKIE_NAME, csrfToken, CSRF_COOKIE_OPTIONS);
+  setCsrfCookie(res, csrfToken);
   res.json({ accessToken: result.accessToken, userId: result.userId, role: result.role });
 }
 
@@ -65,7 +77,7 @@ export async function refreshHandler(req: Request, res: Response) {
   const csrfToken = createCsrfToken();
   res.cookie("refreshToken", result.refreshToken, COOKIE_OPTIONS);
   res.cookie("accessToken", result.accessToken, ACCESS_COOKIE_OPTIONS);
-  res.cookie(CSRF_COOKIE_NAME, csrfToken, CSRF_COOKIE_OPTIONS);
+  setCsrfCookie(res, csrfToken);
   res.json({ accessToken: result.accessToken, userId: result.userId, role: result.role });
 }
 
@@ -83,7 +95,8 @@ export async function logoutHandler(req: Request, res: Response) {
   res.clearCookie(CSRF_COOKIE_NAME, {
     ...baseCookieOptions,
     httpOnly: false,
-    path: "/api",
+    path: "/",
   });
+  res.clearCookie(CSRF_COOKIE_NAME, LEGACY_CSRF_COOKIE_OPTIONS);
   res.json({ message: "Logged out" });
 }

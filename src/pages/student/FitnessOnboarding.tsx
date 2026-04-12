@@ -236,11 +236,15 @@ export default function FitnessOnboardingPage() {
 
     await new Promise((resolve) => setTimeout(resolve, 1500));
 
-    await completeOnboardingAndGeneratePlan(currentUser.id, questionnaire);
-    setSubmitting(false);
-
-    toast.success("Your personalized plan is ready and active.");
-    navigate("/student/dashboard");
+    try {
+      await completeOnboardingAndGeneratePlan(currentUser.id, questionnaire);
+      toast.success("Your personalized plan is ready and active.");
+      navigate("/student/daily-plan");
+    } catch {
+      toast.error("Could not finish onboarding. Please try again.");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const stepTitle = [

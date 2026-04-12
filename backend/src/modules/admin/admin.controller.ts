@@ -84,3 +84,83 @@ export async function resetPermissionsHandler(_req: Request, res: Response) {
     const matrix = await svc.resetRolePermissions();
     res.json(matrix);
 }
+
+export async function getExerciseTemplatesHandler(_req: Request, res: Response) {
+    const templates = await svc.getExerciseTemplates();
+    res.json(templates);
+}
+
+export async function createExerciseTemplateHandler(req: Request, res: Response) {
+    const payload = z.object({
+        name: z.string().min(2),
+        description: z.string().optional(),
+        category: z.string().optional(),
+        sets: z.coerce.number().int().min(1).max(20).nullable().optional(),
+        reps: z.coerce.number().int().min(1).max(200).nullable().optional(),
+        restSeconds: z.coerce.number().int().min(0).max(1200).nullable().optional(),
+        durationMinutes: z.coerce.number().int().min(1).max(240).nullable().optional(),
+        difficulty: z.string().optional(),
+        equipment: z.string().optional(),
+        youtubeUrl: z.string().url().nullable().optional(),
+        isActive: z.boolean().optional(),
+    }).parse(req.body);
+
+    const created = await svc.createExerciseTemplate(payload);
+    res.status(201).json(created);
+}
+
+export async function updateExerciseTemplateHandler(req: Request, res: Response) {
+    const payload = z.object({
+        name: z.string().min(2).optional(),
+        description: z.string().optional(),
+        category: z.string().optional(),
+        sets: z.coerce.number().int().min(1).max(20).nullable().optional(),
+        reps: z.coerce.number().int().min(1).max(200).nullable().optional(),
+        restSeconds: z.coerce.number().int().min(0).max(1200).nullable().optional(),
+        durationMinutes: z.coerce.number().int().min(1).max(240).nullable().optional(),
+        difficulty: z.string().optional(),
+        equipment: z.string().optional(),
+        youtubeUrl: z.string().url().nullable().optional(),
+        isActive: z.boolean().optional(),
+    }).parse(req.body);
+
+    const updated = await svc.updateExerciseTemplate(req.params.templateId, payload);
+    res.json(updated);
+}
+
+export async function deleteExerciseTemplateHandler(req: Request, res: Response) {
+    const result = await svc.deleteExerciseTemplate(req.params.templateId);
+    res.json(result);
+}
+
+export async function getExerciseTemplateAssignmentsHandler(_req: Request, res: Response) {
+    const assignments = await svc.getExerciseTemplateAssignments();
+    res.json(assignments);
+}
+
+export async function assignExerciseTemplateHandler(req: Request, res: Response) {
+    const payload = z.object({
+        templateId: z.string().min(1),
+        studentIds: z.array(z.string().min(1)).min(1),
+        dayNumber: z.coerce.number().int().min(1).max(60),
+        sortOrder: z.coerce.number().int().min(1).max(100).optional(),
+    }).parse(req.body);
+
+    const result = await svc.assignExerciseTemplate(payload);
+    res.json(result);
+}
+
+export async function assignExerciseTemplateBulkHandler(req: Request, res: Response) {
+    const payload = z.object({
+        studentIds: z.array(z.string().min(1)).min(1),
+        dayPlans: z.array(
+            z.object({
+                dayNumber: z.coerce.number().int().min(1).max(60),
+                templateIds: z.array(z.string().min(1)),
+            })
+        ).min(1),
+    }).parse(req.body);
+
+    const result = await svc.assignExerciseTemplateBulk(payload);
+    res.json(result);
+}

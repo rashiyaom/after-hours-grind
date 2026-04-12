@@ -1,55 +1,57 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Route, Routes, Navigate } from "react-router-dom";
-import { useEffect, useState } from "react";
+import { Suspense, lazy, useEffect, useState } from "react";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { useAppStore } from "@/hooks/useStore";
 
-import PublicLayout from "@/layouts/PublicLayout";
-import AppLayout from "@/layouts/AppLayout";
 import ProtectedRoute from "@/components/ProtectedRoute";
 
-import LandingPage from "@/pages/LandingPage";
-import LoginPage from "@/pages/LoginPage";
-import SignupPage from "@/pages/SignupPage";
-import NotFound from "@/pages/NotFound";
-import UnauthorizedPage from "@/pages/UnauthorizedPage";
+const PublicLayout = lazy(() => import("@/layouts/PublicLayout"));
+const AppLayout = lazy(() => import("@/layouts/AppLayout"));
 
-// Student Pages
-import StudentDashboard from "@/pages/student/Dashboard";
-import DailyPlan from "@/pages/student/DailyPlan";
-import Progress from "@/pages/student/Progress";
-import Feed from "@/pages/student/Feed";
-import UploadPage from "@/pages/student/UploadPage";
-import Leaderboard from "@/pages/student/Leaderboard";
-import Profile from "@/pages/student/Profile";
-import Community from "@/pages/student/Community";
-import Notifications from "@/pages/student/Notifications";
-import Settings from "@/pages/student/Settings";
-import Achievements from "@/pages/student/Achievements";
-import FitnessOnboardingPage from "@/pages/student/FitnessOnboarding";
-import PlanApprovalStatusPage from "@/pages/student/PlanApprovalStatus";
+const LandingPage = lazy(() => import("@/pages/LandingPage"));
+const LoginPage = lazy(() => import("@/pages/LoginPage"));
+const SignupPage = lazy(() => import("@/pages/SignupPage"));
+const NotFound = lazy(() => import("@/pages/NotFound"));
+const UnauthorizedPage = lazy(() => import("@/pages/UnauthorizedPage"));
 
-// Trainer Pages
-import TrainerDashboard from "@/pages/trainer/Dashboard";
-import PlanBuilder from "@/pages/trainer/PlanBuilder";
-import AutoPlansQueuePage from "@/pages/trainer/AutoPlansQueue";
-import StudentRoster from "@/pages/trainer/StudentRoster";
-import StudentDetail from "@/pages/trainer/StudentDetail";
+const StudentDashboard = lazy(() => import("@/pages/student/Dashboard"));
+const DailyPlan = lazy(() => import("@/pages/student/DailyPlan"));
+const Progress = lazy(() => import("@/pages/student/Progress"));
+const Feed = lazy(() => import("@/pages/student/Feed"));
+const UploadPage = lazy(() => import("@/pages/student/UploadPage"));
+const Leaderboard = lazy(() => import("@/pages/student/Leaderboard"));
+const Profile = lazy(() => import("@/pages/student/Profile"));
+const Community = lazy(() => import("@/pages/student/Community"));
+const Notifications = lazy(() => import("@/pages/student/Notifications"));
+const Settings = lazy(() => import("@/pages/student/Settings"));
+const Achievements = lazy(() => import("@/pages/student/Achievements"));
+const FitnessOnboardingPage = lazy(() => import("@/pages/student/FitnessOnboarding"));
+const PlanApprovalStatusPage = lazy(() => import("@/pages/student/PlanApprovalStatus"));
 
-// Admin Pages
-import AdminDashboard from "@/pages/admin/Dashboard";
-import UserManagement from "@/pages/admin/UserManagement";
-import ContentModeration from "@/pages/admin/ContentModeration";
-import Permissions from "./pages/admin/Permissions";
-import AdminEventsManager from "@/pages/admin/EventsManager";
+const TrainerDashboard = lazy(() => import("@/pages/trainer/Dashboard"));
+const PlanBuilder = lazy(() => import("@/pages/trainer/PlanBuilder"));
+const AutoPlansQueuePage = lazy(() => import("@/pages/trainer/AutoPlansQueue"));
+const StudentRoster = lazy(() => import("@/pages/trainer/StudentRoster"));
+const StudentDetail = lazy(() => import("@/pages/trainer/StudentDetail"));
 
-// Public pages
-import EventsPage from "@/pages/EventsPage";
-import AthletesPage from "@/pages/AthletesPage";
+const AdminDashboard = lazy(() => import("@/pages/admin/Dashboard"));
+const UserManagement = lazy(() => import("@/pages/admin/UserManagement"));
+const ContentModeration = lazy(() => import("@/pages/admin/ContentModeration"));
+const Permissions = lazy(() => import("@/pages/admin/Permissions"));
+const AdminEventsManager = lazy(() => import("@/pages/admin/EventsManager"));
+const AdminTemplates = lazy(() => import("@/pages/admin/Templates"));
+
+const EventsPage = lazy(() => import("@/pages/EventsPage"));
+const AthletesPage = lazy(() => import("@/pages/AthletesPage"));
 
 const queryClient = new QueryClient();
+
+const AppRouteFallback = () => (
+  <div className="min-h-screen bg-background" aria-busy="true" />
+);
 
 const App = () => {
   const initializeSession = useAppStore((state) => state.initializeSession);
@@ -71,7 +73,8 @@ const App = () => {
         <Toaster />
         <Sonner />
         <BrowserRouter>
-          <Routes>
+          <Suspense fallback={<AppRouteFallback />}>
+            <Routes>
           {/* Public Routes */}
           <Route element={<PublicLayout />}>
             <Route path="/" element={<LandingPage />} />
@@ -128,6 +131,7 @@ const App = () => {
               <Route element={<ProtectedRoute allowedRoles={["admin"]} requiredPermission="manage_users" />}>
                 <Route path="users" element={<UserManagement />} />
                 <Route path="permissions" element={<Permissions />} />
+                <Route path="templates" element={<AdminTemplates />} />
               </Route>
               <Route element={<ProtectedRoute allowedRoles={["admin"]} requiredPermission="moderate_content" />}>
                 <Route path="content" element={<ContentModeration />} />
@@ -138,7 +142,8 @@ const App = () => {
 
           {/* Not Found */}
           <Route path="*" element={<NotFound />} />
-          </Routes>
+            </Routes>
+          </Suspense>
         </BrowserRouter>
       </TooltipProvider>
     </QueryClientProvider>

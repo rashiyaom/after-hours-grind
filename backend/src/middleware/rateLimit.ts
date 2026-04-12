@@ -8,6 +8,7 @@ interface Bucket {
 }
 
 const buckets = new Map<string, Bucket>();
+let lastRedisWarningAt = 0;
 
 const now = (): number => Date.now();
 
@@ -22,6 +23,14 @@ const hitRedisBucket = async (
   if (!redis) return null;
 
   try {
+    if (redis.status === "wait") {
+      await redis.connect();
+    }
+
+    if (redis.status !== "ready") {
+      return null;
+    }
+
     const count = await redis.incr(bucketKey);
     if (count === 1) {
       await redis.pexpire(bucketKey, windowMs);
@@ -30,9 +39,13 @@ const hitRedisBucket = async (
     const effectiveTtlMs = ttlMs > 0 ? ttlMs : windowMs;
     return { count, resetAt: now() + effectiveTtlMs };
   } catch (error) {
-    logger.warn("rate_limit.redis_unavailable", {
-      message: error instanceof Error ? error.message : "unknown",
-    });
+    const nowTs = now();
+    if (nowTs - lastRedisWarningAt > 30000) {
+      lastRedisWarningAt = nowTs;
+      logger.warn("rate_limit.redis_unavailable", {
+        message: error instanceof Error ? error.message : "unknown",
+      });
+    }
     return null;
   }
 };

@@ -18,14 +18,6 @@ const envSchema = z.object({
   AUTH_COOKIE_DOMAIN: z.string().optional(),
   LOG_LEVEL: z.enum(["debug", "info", "warn", "error"]).default("info"),
   ERROR_WEBHOOK_URL: z.string().url().optional(),
-}).superRefine((value, ctx) => {
-  if (value.NODE_ENV === "production" && !value.REDIS_URL) {
-    ctx.addIssue({
-      code: z.ZodIssueCode.custom,
-      path: ["REDIS_URL"],
-      message: "REDIS_URL is required in production",
-    });
-  }
 });
 
 const parsed = envSchema.safeParse(process.env);

@@ -50,6 +50,7 @@ import {
   verifyTrainerAPI,
   assignStudentTrainerAdminAPI,
   createPlanAPI,
+  generatePersonalizedPlanAPI,
   createEventAPI,
   updateEventAPI,
   deleteEventAPI,
@@ -532,7 +533,17 @@ interface AppActions {
 
   // Data Loading
   setLoading: (isLoading: boolean) => void;
-  refreshData: () => Promise<void>;
+  refreshData: (options?: {
+    background?: boolean;
+    scope?:
+      | "common"
+      | "student"
+      | "student-dashboard"
+      | "student-leaderboard"
+      | "trainer"
+      | "admin"
+      | "all";
+  }) => Promise<void>;
 
   // Post Actions
   toggleLike: (postId: string) => Promise<void>;
@@ -619,6 +630,13 @@ const defaultPermissions: PermissionMatrix = {
     post_feed: true,
     view_analytics: true,
   },
+};
+
+const getRefreshScopeForRole = (role?: UserRole): "student" | "trainer" | "admin" | "common" => {
+  if (role === 'student') return 'student';
+  if (role === 'trainer') return 'trainer';
+  if (role === 'admin') return 'admin';
+  return 'common';
 };
 
 const fullAdminPermissions: Record<PermissionKey, boolean> = {
@@ -772,6 +790,8 @@ const normalizeBackendUser = (input: unknown, existingUser?: User): User | null 
   if (role === 'student') {
     const existingStudent = existingUser?.role === 'student' ? (existingUser as Student) : undefined;
     const profile = asRecord(raw.studentProfile) ?? raw;
+    const trainerIdValue = profile.trainerId;
+    const currentPlanIdValue = profile.currentPlanId;
     const onboardingStep = asNumber(profile.onboardingStep, existingStudent?.onboardingStep ?? 0);
     const onboardingCompleted = asBoolean(
       profile.onboardingCompleted,
@@ -789,8 +809,14 @@ const normalizeBackendUser = (input: unknown, existingUser?: User): User | null 
       totalPlansCompleted: asNumber(profile.totalPlansCompleted, existingStudent?.totalPlansCompleted ?? 0),
       followers: asNumber(asRecord(raw._count)?.followers, existingStudent?.followers ?? 0),
       following: asNumber(asRecord(raw._count)?.following, existingStudent?.following ?? 0),
-      trainerId: asString(profile.trainerId, existingStudent?.trainerId ?? '') || null,
-      currentPlanId: asString(profile.currentPlanId, existingStudent?.currentPlanId ?? '') || null,
+      trainerId:
+        trainerIdValue === null
+          ? null
+          : asString(trainerIdValue, existingStudent?.trainerId ?? '') || null,
+      currentPlanId:
+        currentPlanIdValue === null
+          ? null
+          : asString(currentPlanIdValue, existingStudent?.currentPlanId ?? '') || null,
       currentDay: asNumber((raw as Record<string, unknown>).currentDay, existingStudent?.currentDay ?? 1),
       totalDays: asNumber((raw as Record<string, unknown>).totalDays, existingStudent?.totalDays ?? 28),
       completionPercentage: asNumber(
@@ -1224,10 +1250,14 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
 
       set((state) => ({
         ...state,
+        system: {
+          ...state.system,
+          isLoading: false,
+        },
         session: { currentUser: normalizedUser, isAuthenticated: true },
         users: { ...state.users, [normalizedUser.id]: normalizedUser },
       }));
-      await get().refreshData();
+      void get().refreshData({ background: true });
     } catch {
       clearBackendAccessToken();
       set((state) => ({
@@ -1389,11 +1419,12 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
     try {
       set((state) => ({ system: { ...state.system, isLoading: true } }));
       await createPlanAPI({ name: title, duration, goalType, difficulty, studentIds });
-      await get().refreshData();
+      await get().refreshData({ background: true });
       set((state) => ({ system: { ...state.system, isLoading: false } }));
     } catch (error) {
       console.error("Plan creation failed:", error);
       set((state) => ({ system: { ...state.system, isLoading: false } }));
+      throw error;
     }
   },
 
@@ -1431,26 +1462,37 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
       await updateProfileAPI({ 
         onboardingCompleted: true, 
         onboardingDraft: payload, 
-        onboardingStatus: 'completed' 
+        onboardingStep: 6,
       });
 
-      // 2. Fetch the newly created auto-plan (or create one manually via API if needed)
-      // For now, we'll assume the backend creates a starter plan upon onboarding completion 
-      // OR we trigger a standard createPlan call with 'auto' flag.
-      // Here we simulate the logic of assigning a baseline plan.
-      await createPlanAPI({
-        name: `${payload.goals.primaryGoal.toUpperCase()} STARTER`,
-        duration: payload.commitment.daysPerWeek * 4,
-        goalType: payload.goals.primaryGoal,
-        difficulty: payload.fitnessStatus.experience,
-        studentIds: [studentId]
+      // Keep local session consistent immediately so route guards do not bounce back.
+      set((state) => {
+        const user = state.users[studentId];
+        if (!user || user.role !== 'student') return state;
+        const student = user as Student;
+        const updatedStudent: Student = {
+          ...student,
+          onboardingDraft: payload,
+          onboardingStep: 6,
+          onboardingStatus: 'completed',
+        };
+        return {
+          ...state,
+          users: { ...state.users, [studentId]: updatedStudent },
+          session: state.session.currentUser?.id === studentId
+            ? { ...state.session, currentUser: updatedStudent }
+            : state.session,
+        };
       });
+
+      await generatePersonalizedPlanAPI();
 
       await get().refreshData();
       set((state) => ({ system: { ...state.system, isLoading: false } }));
     } catch (error) {
       console.error("Onboarding completion failed:", error);
       set((state) => ({ system: { ...state.system, isLoading: false } }));
+      throw error;
     }
   },
 
@@ -1585,11 +1627,55 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
     }),
 
   assignTrainer: async (studentId, trainerId) => {
+    const previousUser = get().users[studentId];
     try {
+      // Optimistic update so the admin table feels instant.
+      set((state) => {
+        const user = state.users[studentId];
+        if (!user || user.role !== 'student') return state;
+        return {
+          ...state,
+          users: {
+            ...state.users,
+            [studentId]: {
+              ...user,
+              trainerId,
+            } as Student,
+          },
+        };
+      });
+
       await assignStudentTrainerAdminAPI(studentId, trainerId);
-      await get().refreshData();
+
+      // Refresh only admin users instead of the full app payload.
+      const adminUsers = await fetchAdminUsersAPI();
+      set((state) => {
+        const nextUsers = { ...state.users };
+        adminUsers.forEach((candidate) => {
+          const record = asRecord(candidate);
+          if (!record) return;
+          const id = asString(record.id);
+          const normalized = normalizeBackendUser(record, id ? nextUsers[id] : undefined);
+          if (!normalized) return;
+          nextUsers[normalized.id] = normalized;
+        });
+        return {
+          ...state,
+          users: nextUsers,
+        };
+      });
     } catch (error) {
       console.error("Assign trainer failed:", error);
+      if (previousUser) {
+        set((state) => ({
+          ...state,
+          users: {
+            ...state.users,
+            [studentId]: previousUser,
+          },
+        }));
+      }
+      throw error;
     }
   },
 
@@ -1932,31 +2018,52 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
   },
 
 
-  refreshData: async () => {
-    try {
-      set((state) => ({
-        system: {
-          ...state.system,
-          isLoading: true,
-          progressLoading: true,
-          planLoading: true,
-        },
-      }));
+  refreshData: async (options) => {
+    const background = Boolean(options?.background);
+    const role = get().session.currentUser?.role;
+    const requestedScope = options?.scope;
+    const effectiveScope = requestedScope && requestedScope !== 'all'
+      ? requestedScope
+      : getRefreshScopeForRole(role);
 
-      // Pull live data from backend APIs and keep existing state only if a call fails.
+    const fetchFeed = effectiveScope === 'student' || effectiveScope === 'trainer';
+    const fetchChats = effectiveScope === 'trainer';
+    const fetchEvents = effectiveScope === 'admin';
+    const fetchStudentBundle =
+      effectiveScope === 'student' ||
+      effectiveScope === 'student-dashboard' ||
+      effectiveScope === 'student-leaderboard';
+    const fetchStudentTodayAndProgress = effectiveScope === 'student' || effectiveScope === 'student-dashboard';
+    const fetchStudentLeaderboardOnly = effectiveScope === 'student-leaderboard';
+    const fetchTrainerBundle = effectiveScope === 'trainer';
+    const fetchAdminBundle = effectiveScope === 'admin';
+
+    try {
+      if (!background) {
+        set((state) => ({
+          system: {
+            ...state.system,
+            isLoading: true,
+            progressLoading: true,
+            planLoading: true,
+          },
+        }));
+      }
+
+      // Pull only route-relevant bundles to avoid blocking UI on non-essential APIs.
       const results = await Promise.allSettled([
-        fetchFeedFromBackend(),
-        fetchChatThreads(),
-        fetchEventsAPI(),
+        fetchFeed ? fetchFeedFromBackend() : Promise.resolve([]),
+        fetchChats ? fetchChatThreads() : Promise.resolve([]),
+        fetchEvents ? fetchEventsAPI() : Promise.resolve(null),
         fetchNotificationsAPI(undefined, 40),
       ]);
 
-      const feedPosts = results[0].status === "fulfilled" ? results[0].value : [];
+      const feedPosts = fetchFeed && results[0].status === "fulfilled" ? results[0].value : [];
       const chatThreads =
-        results[1].status === 'fulfilled'
+        fetchChats && results[1].status === 'fulfilled'
           ? normalizeChatThreads(results[1].value)
           : null;
-      const events = results[2].status === "fulfilled" ? results[2].value : null;
+      const events = fetchEvents && results[2].status === "fulfilled" ? results[2].value : null;
       const backendNotifications =
         results[3].status === 'fulfilled'
           ? results[3].value.data
@@ -1968,7 +2075,6 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
         .map(mapBackendNotificationToSystem)
         .filter((item): item is SystemNotification => Boolean(item));
 
-      const role = get().session.currentUser?.role;
       let trainersStudents: Record<string, unknown>[] = [];
       let adminUsers: unknown[] = [];
       let studentTodayPlan: Record<string, unknown> | null = null;
@@ -1979,16 +2085,16 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
       let leaderboardEntries: LeaderboardEntry[] = [];
       let adminPermissions: PermissionMatrix | null = null;
 
-      if (role === 'student') {
+      if (fetchStudentBundle) {
         const [todayPlanRes, progressOverviewRes, progressWeeklyRes, progressHeatmapRes, leaderboardRes] = await Promise.allSettled([
-          fetchTodayPlanAPI(),
-          fetchProgressOverviewAPI(),
-          fetchProgressWeeklyAPI(),
-          fetchProgressHeatmapAPI(),
-          fetchLeaderboardAPI(),
+          fetchStudentTodayAndProgress ? fetchTodayPlanAPI() : Promise.resolve(null),
+          fetchStudentTodayAndProgress ? fetchProgressOverviewAPI() : Promise.resolve(null),
+          fetchStudentTodayAndProgress ? fetchProgressWeeklyAPI() : Promise.resolve(null),
+          fetchStudentTodayAndProgress ? fetchProgressHeatmapAPI() : Promise.resolve(null),
+          fetchStudentTodayAndProgress || fetchStudentLeaderboardOnly ? fetchLeaderboardAPI() : Promise.resolve([]),
         ]);
 
-        if (todayPlanRes.status === 'fulfilled') {
+        if (fetchStudentTodayAndProgress && todayPlanRes.status === 'fulfilled') {
           const planRecord = asRecord(todayPlanRes.value);
           studentTodayPlan = planRecord;
           const planId = asString(planRecord?.id);
@@ -2009,7 +2115,7 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
           }
         }
 
-        if (progressOverviewRes.status === 'fulfilled') {
+        if (fetchStudentTodayAndProgress && progressOverviewRes.status === 'fulfilled') {
           const record = asRecord(progressOverviewRes.value);
           progressOverview = {
             streak: asNumber(record?.streak),
@@ -2021,7 +2127,7 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
           };
         }
 
-        if (progressWeeklyRes.status === 'fulfilled') {
+        if (fetchStudentTodayAndProgress && progressWeeklyRes.status === 'fulfilled') {
           const data = (asRecord(progressWeeklyRes.value)?.data ?? []) as unknown[];
           progressWeekly = data
             .map((item) => asRecord(item))
@@ -2036,7 +2142,7 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
             }));
         }
 
-        if (progressHeatmapRes.status === 'fulfilled') {
+        if (fetchStudentTodayAndProgress && progressHeatmapRes.status === 'fulfilled') {
           const data = (asRecord(progressHeatmapRes.value)?.data ?? []) as unknown[];
           progressHeatmap = data
             .map((item) => asRecord(item))
@@ -2048,16 +2154,16 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
             }));
         }
 
-        if (leaderboardRes.status === 'fulfilled') {
+        if ((fetchStudentTodayAndProgress || fetchStudentLeaderboardOnly) && leaderboardRes.status === 'fulfilled') {
           leaderboardEntries = mapBackendLeaderboardEntries(leaderboardRes.value);
         }
       }
 
-      if (role === "trainer") {
+      if (fetchTrainerBundle) {
         const [tsRes] = await Promise.allSettled([fetchTrainerStudentsAPI()]);
         trainersStudents = tsRes.status === "fulfilled" ? tsRes.value : [];
         await get().fetchSubmissions().catch(() => {});
-      } else if (role === "admin") {
+      } else if (fetchAdminBundle) {
         const [auRes, permsRes] = await Promise.allSettled([fetchAdminUsersAPI(), fetchAdminPermissionsAPI()]);
         adminUsers = auRes.status === "fulfilled" ? auRes.value : [];
         if (permsRes.status === 'fulfilled') {
@@ -2189,11 +2295,9 @@ if (typeof window !== 'undefined') {
 // ========= SELECTORS (for convenience) =========
 export const useCurrentUser = () => useAppStore((state) => state.session.currentUser);
 export const useIsAuthenticated = () => useAppStore((state) => state.session.isAuthenticated);
-export const useIsLoading = () => useAppStore((state) => state.system.isLoading);
 
 export const useUsers = () => useAppStore((state) => state.users);
 export const usePosts = () => useAppStore((state) => state.posts);
-export const usePlans = () => useAppStore((state) => state.plans);
 
 export const useSystem = () => useAppStore((state) => state.system);
 export const usePermissions = () => useAppStore((state) => state.system.permissions);
@@ -2639,4 +2743,3 @@ export const useStore = () => {
   };
 };
 
-export default useStore;

@@ -5,7 +5,7 @@ import {
   TrendingUp, CheckCircle2, ArrowUpRight,
 } from "lucide-react";
 import ProgressRing from "@/components/ProgressRing";
-import { useStore } from "@/hooks/useStore";
+import { useAppStore, useStore } from "@/hooks/useStore";
 import { useState, useMemo, useEffect } from "react";
 import { Link, useParams } from "react-router-dom";
 import { toast } from "sonner";
@@ -39,6 +39,7 @@ type Tab = typeof tabs[number];
 export default function ProfilePage() {
   const { userId } = useParams();
   const { student: me, posts, students, loading, setLoading } = useStore();
+  const users = useAppStore((state) => state.users);
   const [activeTab, setActiveTab] = useState<Tab>("Posts");
   const [isFollowing, setIsFollowing] = useState(false);
 
@@ -52,11 +53,30 @@ export default function ProfilePage() {
 
   const s = useMemo(() => {
     if (isMe) return me;
+
+    if (userId) {
+      const selected = users[userId];
+      if (selected) {
+        return {
+          ...me,
+          id: selected.id,
+          name: selected.name,
+          avatar: selected.avatar,
+          streak: selected.role === "student" ? selected.streak : 0,
+          rank: selected.role === "student" ? selected.rank : 0,
+          completionPercentage: selected.role === "student" ? selected.completionPercentage : 0,
+          followers: selected.role === "student" ? selected.followers : 0,
+          following: selected.role === "student" ? selected.following : 0,
+          collegeId: selected.collegeId,
+        };
+      }
+    }
+
     const found = students.find((l) => l.userId === userId);
     return found
       ? { ...me, id: found.userId, name: found.name, streak: found.streak, rank: found.rank, completionPercentage: found.completionPercentage, followers: 124, following: 89 }
       : me;
-  }, [userId, isMe, me, students]);
+  }, [userId, isMe, me, students, users]);
 
   const gradIdx = s.id.charCodeAt(0) % AVATAR_GRADIENTS.length;
 

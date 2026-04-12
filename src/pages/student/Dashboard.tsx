@@ -23,6 +23,24 @@ type DashboardPill = "All" | "Workout" | "Nutrition" | "Recovery";
 const DASHBOARD_TABS: DashboardTab[] = ["Overview", "Training", "Nutrition", "Progress", "Reports"];
 const DASHBOARD_PILLS: DashboardPill[] = ["All", "Workout", "Nutrition", "Recovery"];
 
+const formatRelativeTime = (timestamp: string, nowMs: number): string => {
+  const parsed = new Date(timestamp).getTime();
+  if (!Number.isFinite(parsed)) return "recently";
+
+  const diffSec = Math.max(0, Math.floor((nowMs - parsed) / 1000));
+  if (diffSec < 10) return "just now";
+  if (diffSec < 60) return `${diffSec}s ago`;
+
+  const diffMin = Math.floor(diffSec / 60);
+  if (diffMin < 60) return `${diffMin}m ago`;
+
+  const diffHour = Math.floor(diffMin / 60);
+  if (diffHour < 24) return `${diffHour}h ago`;
+
+  const diffDay = Math.floor(diffHour / 24);
+  return `${diffDay}d ago`;
+};
+
 export default function StudentDashboard() {
   const {
     student: s,
@@ -38,10 +56,21 @@ export default function StudentDashboard() {
     planLoading,
   } = useStore();
   const refreshData = useAppStore((state) => state.refreshData);
+  const users = useAppStore((state) => state.users);
   const currentUser = useCurrentUser();
   const permissions = usePermissions();
   const canPostFeed = Boolean(currentUser && permissions[currentUser.role].post_feed);
   const firstName = s.name.split(" ")[0] || s.name;
+  const coach = useMemo(() => {
+    if (!s.trainerId) return null;
+    const trainer = users[s.trainerId];
+    if (!trainer || trainer.role !== "trainer") return null;
+    return trainer;
+  }, [s.trainerId, users]);
+  const coachName = useMemo(() => {
+    if (!s.trainerId) return "Not assigned yet";
+    return coach?.name ?? "Assigned coach";
+  }, [coach, s.trainerId]);
 
   const [activeTab, setActiveTab] = useState<DashboardTab>("Overview");
   const [activePill, setActivePill] = useState<DashboardPill>("All");
@@ -50,6 +79,7 @@ export default function StudentDashboard() {
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [streakWindow, setStreakWindow] = useState<"5w" | "10w">("5w");
+  const [nowMs, setNowMs] = useState(() => Date.now());
   const searchInputRef = useRef<HTMLInputElement>(null);
 
   const notificationCount = notifications.filter((n) => !n.read).length;
@@ -114,6 +144,17 @@ export default function StudentDashboard() {
 
   const completedQuickTasks = quickTasks.filter((task) => task.completed).length;
 
+  const filteredQuickTasks = useMemo(() => {
+    const q = searchQuery.toLowerCase().trim();
+    if (!q) return quickTasks;
+
+    return quickTasks.filter((task) => {
+      return task.title.toLowerCase().includes(q) || task.subtitle.toLowerCase().includes(q);
+    });
+  }, [quickTasks, searchQuery]);
+
+  const completedFilteredQuickTasks = filteredQuickTasks.filter((task) => task.completed).length;
+
   const streakCellCount = streakWindow === "5w" ? 35 : 70;
   const streakCells = useMemo(() => {
     const boundedCurrentDay = Math.max(1, Math.min(s.totalDays, s.currentDay));
@@ -167,7 +208,13 @@ export default function StudentDashboard() {
     return ranked.filter((entry) => entry.name.toLowerCase().includes(q));
   }, [leaderboard, searchQuery]);
 
-  const liveClock = new Date().toLocaleTimeString([], {
+  const recentNotifications = useMemo(() => {
+    return [...notifications]
+      .sort((a, b) => +new Date(b.timestamp) - +new Date(a.timestamp))
+      .slice(0, 6);
+  }, [notifications]);
+
+  const liveClock = new Date(nowMs).toLocaleTimeString([], {
     hour: "2-digit",
     minute: "2-digit",
     second: "2-digit",
@@ -230,12 +277,16 @@ export default function StudentDashboard() {
   ];
 
   useEffect(() => {
-    void refreshData();
-    const interval = window.setInterval(() => {
-      void refreshData();
-    }, 20000);
-    return () => window.clearInterval(interval);
+    void refreshData({ background: true, scope: "student" });
   }, [refreshData]);
+
+  useEffect(() => {
+    const intervalId = window.setInterval(() => {
+      setNowMs(Date.now());
+    }, 1000);
+
+    return () => window.clearInterval(intervalId);
+  }, []);
 
   useEffect(() => {
     if (!searchOpen) return;
@@ -348,9 +399,18 @@ export default function StudentDashboard() {
               <div className="absolute right-0 top-12 z-20 w-72 rounded-2xl border border-white/10 bg-[#1A1A1A] p-3 shadow-2xl">
                 <p className="text-xs font-semibold uppercase tracking-wide text-white/60">Live Alerts</p>
                 <div className="mt-2 space-y-2 text-xs text-white/80">
-                  <p className="rounded-lg bg-[#232323] px-3 py-2">Workout reminder synced at {liveClock}</p>
-                  <p className="rounded-lg bg-[#232323] px-3 py-2">Coach left 1 new instruction</p>
-                  <p className="rounded-lg bg-[#232323] px-3 py-2">Recovery score updated</p>
+                  {recentNotifications.length === 0 ? (
+                    <p className="rounded-lg bg-[#232323] px-3 py-2 text-white/55">No new alerts yet.</p>
+                  ) : (
+                    recentNotifications.map((notification) => (
+                      <div key={notification.id} className="rounded-lg bg-[#232323] px-3 py-2">
+                        <p className="line-clamp-2 text-white/90">{notification.message}</p>
+                        <p className="mt-1 text-[10px] uppercase tracking-wide text-white/45">
+                          {notification.type} · {formatRelativeTime(notification.timestamp, nowMs)}
+                        </p>
+                      </div>
+                    ))
+                  )}
                 </div>
               </div>
             )}
@@ -382,6 +442,26 @@ export default function StudentDashboard() {
             <div className="mt-4 inline-flex rounded-full bg-[#6F5CFF] px-3 py-1 text-xs font-semibold text-white">
               Student Pro
             </div>
+            <div className="mt-3 inline-flex rounded-full border border-white/15 bg-[#202020] px-3 py-1 text-xs font-medium text-white/85">
+              Coach: {coachName}
+            </div>
+            {coach && (
+              <Link
+                to={`/student/profile/${coach.id}`}
+                className="mt-3 inline-flex w-fit items-center gap-2 rounded-full border border-white/15 bg-[#202020] px-3 py-1 text-xs font-medium text-white/90 transition-colors hover:bg-[#2A2A2A]"
+              >
+                <div className="h-6 w-6 overflow-hidden rounded-full border border-white/20 bg-[#2D2D2D]">
+                  {coach.avatar ? (
+                    <img src={coach.avatar} alt={coach.name} className="h-full w-full object-cover" />
+                  ) : (
+                    <div className="grid h-full w-full place-items-center text-[10px] font-semibold text-white/70">
+                      {(coach.name || "C").slice(0, 1).toUpperCase()}
+                    </div>
+                  )}
+                </div>
+                View coach profile
+              </Link>
+            )}
             <p className="mt-5 text-sm text-white/70">
               Day {s.currentDay} of {s.totalDays} with coach-approved structure.
               <span className="mt-1 block text-xs text-white/50">Live sync: {liveClock}</span>
@@ -461,12 +541,12 @@ export default function StudentDashboard() {
               <h2 className="text-base font-semibold text-white">Daily Plan Quick Tasks</h2>
             </div>
             <div className="rounded-full bg-[#202020] px-3 py-1 text-xs text-white/70">
-              {completedQuickTasks}/{quickTasks.length} done
+              {completedFilteredQuickTasks}/{filteredQuickTasks.length} done
             </div>
           </div>
 
           <div className="space-y-2.5">
-            {quickTasks.slice(0, 6).map((task) => (
+            {filteredQuickTasks.slice(0, 6).map((task) => (
               <button
                 key={task.id}
                 type="button"
@@ -499,7 +579,7 @@ export default function StudentDashboard() {
                 </span>
               </button>
             ))}
-            {quickTasks.length === 0 && (
+            {filteredQuickTasks.length === 0 && (
               <div className="rounded-2xl bg-[#1B1B1B] p-6 text-center text-xs text-white/55">
                 No tasks available for this filter.
               </div>

@@ -10,6 +10,7 @@ export const updateProfileSchema = z.object({
   fitnessGoal: z.string().optional(),
   onboardingDraft: z.record(z.string(), z.unknown()).optional(),
   onboardingStep: z.coerce.number().int().optional(),
+  onboardingCompleted: z.coerce.boolean().optional(),
   // Trainer-specific
   specialization: z.string().optional(),
   experience: z.coerce.number().int().min(0).optional(),

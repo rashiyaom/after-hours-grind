@@ -5,7 +5,7 @@ import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
 import SectionHeader from "@/components/SectionHeader";
 import { useAppStore, useCurrentUser } from "@/hooks/useStore";
-import { Student, Trainer, Plan, PlanWeek, PlanDay, PlanTaskItem } from "@/types";
+import { Student, Trainer } from "@/types";
 import { LUXURY_TWEEN_MEDIUM } from "@/lib/motionTokens";
 
 interface DayFormData {
@@ -71,69 +71,7 @@ export default function PlanBuilder() {
     });
   };
 
-  const buildStructuredPlan = (): Pick<Plan, "weeks"> => {
-    const weeks: PlanWeek[] = [];
-    const totalDays = Math.max(1, cycleDuration);
-    const templateDays = days;
-
-    for (let weekNum = 1; weekNum <= Math.ceil(totalDays / 7); weekNum++) {
-      const weekDays: PlanDay[] = [];
-      for (let dayOfWeek = 1; dayOfWeek <= 7; dayOfWeek++) {
-        const absoluteDay = (weekNum - 1) * 7 + dayOfWeek;
-        if (absoluteDay > totalDays) break;
-
-        const templateIdx = (absoluteDay - 1) % templateDays.length;
-        const templateDay = templateDays[templateIdx];
-        const form = dayForms[templateDay] ?? { workout: "", diet: "", activity: "" };
-
-        const tasks: PlanTaskItem[] = [];
-
-        if (form.workout.trim()) {
-          form.workout.split("\n").filter(Boolean).forEach((line) => {
-            tasks.push({
-              type: "workout",
-              title: line.trim(),
-              description: "Complete with proper form and controlled tempo.",
-              durationMinutes: 30,
-              intensity: difficulty === "advanced" ? "high" : difficulty === "intermediate" ? "moderate" : "low",
-              points: 50,
-            });
-          });
-        } else {
-          tasks.push({
-            type: "workout",
-            title: `${primaryGoal} - Session ${dayOfWeek}`,
-            description: "Complete the assigned workout with proper form.",
-            durationMinutes: 45,
-            intensity: "moderate",
-            points: 50,
-          });
-        }
-
-        tasks.push({
-          type: "nutrition",
-          title: form.diet.trim() || "Follow assigned nutrition plan",
-          description: form.diet.trim() || "Hit your macro targets for the day.",
-          points: 30,
-          meta: { proteinGoalGrams: difficulty === "advanced" ? 140 : 110 },
-        });
-
-        tasks.push({
-          type: "habit",
-          title: form.activity.trim() || "10k steps + hydration",
-          points: 20,
-          meta: { stepsGoal: 10000, waterLiters: 3.5 },
-        });
-
-        weekDays.push({ day: dayOfWeek, tasks });
-      }
-      weeks.push({ week: weekNum, days: weekDays });
-    }
-
-    return { weeks };
-  };
-
-  const handlePublish = () => {
+  const handlePublish = async () => {
     if (!planTitle.trim()) {
       toast.error("Plan name is required.");
       return;
@@ -144,67 +82,22 @@ export default function PlanBuilder() {
     }
     setPublishing(true);
 
-    const { weeks } = buildStructuredPlan();
-
-    setTimeout(() => {
-      const planId = `plan-${Date.now()}`;
-      useAppStore.setState((prev) => {
-        const plan: Plan = {
-          id: planId,
-          title: planTitle.trim(),
-          name: planTitle.trim(),
-          trainerId: trainer?.id,
-          duration: Math.max(1, cycleDuration),
-          goalType: primaryGoal,
-          difficulty,
-          dailyTasks: [],
-          type: "manual",
-          status: "active",
-          weeks,
-          reviewedAt: new Date().toISOString(),
-          reviewFeedback: "Manually created by trainer.",
-        };
-
-        let nextUsers = { ...prev.users };
-        for (const studentId of Array.from(selectedStudentIds)) {
-          const user = nextUsers[studentId];
-          if (!user || user.role !== "student") continue;
-          const student = user as Student;
-          const updatedStudent: Student = {
-            ...student,
-            currentPlanId: planId,
-            currentDay: 1,
-            totalDays: Math.max(1, cycleDuration),
-            completionPercentage: 0,
-            taskCompletions: {},
-            trainerId: trainer?.id ?? student.trainerId,
-          };
-          nextUsers[studentId] = updatedStudent;
-        }
-
-        let nextSession = prev.session;
-        if (trainer) {
-          const updatedTrainer: Trainer = {
-            ...trainer,
-            activePlans: trainer.activePlans + 1,
-            totalStudents: Math.max(trainer.totalStudents, selectedStudentIds.size),
-          };
-          nextUsers = { ...nextUsers, [trainer.id]: updatedTrainer };
-          nextSession = { ...prev.session, currentUser: updatedTrainer };
-        }
-
-        return {
-          ...prev,
-          users: nextUsers,
-          plans: { ...prev.plans, [planId]: plan },
-          session: nextSession,
-        };
+    try {
+      await createPlan({
+        title: planTitle.trim(),
+        duration: Math.max(1, cycleDuration),
+        goalType: primaryGoal,
+        difficulty,
+        studentIds: Array.from(selectedStudentIds),
       });
-
-      setPublishing(false);
       toast.success(`Plan assigned to ${selectedStudentIds.size} student${selectedStudentIds.size > 1 ? "s" : ""}!`);
       navigate("/trainer/dashboard");
-    }, 1500);
+    } catch (error) {
+      const message = error instanceof Error && error.message ? error.message : "Could not assign plan right now.";
+      toast.error(message);
+    } finally {
+      setPublishing(false);
+    }
   };
 
   return (

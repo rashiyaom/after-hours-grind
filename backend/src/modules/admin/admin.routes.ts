@@ -21,5 +21,12 @@ router.get("/moderation", asyncHandler(ctrl.getFlaggedContentHandler));
 router.patch("/posts/:postId/moderation", asyncHandler(ctrl.updatePostModerationHandler));
 router.delete("/posts/:postId", asyncHandler(ctrl.deletePostHandler));
 router.get("/activity-logs", asyncHandler(ctrl.getActivityLogsHandler));
+router.get("/exercise-templates", asyncHandler(ctrl.getExerciseTemplatesHandler));
+router.post("/exercise-templates", asyncHandler(ctrl.createExerciseTemplateHandler));
+router.patch("/exercise-templates/:templateId", asyncHandler(ctrl.updateExerciseTemplateHandler));
+router.delete("/exercise-templates/:templateId", asyncHandler(ctrl.deleteExerciseTemplateHandler));
+router.get("/exercise-templates/assignments", asyncHandler(ctrl.getExerciseTemplateAssignmentsHandler));
+router.post("/exercise-templates/assign", asyncHandler(ctrl.assignExerciseTemplateHandler));
+router.post("/exercise-templates/assign-bulk", asyncHandler(ctrl.assignExerciseTemplateBulkHandler));
 
 export default router;

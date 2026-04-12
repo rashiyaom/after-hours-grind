@@ -27,6 +27,11 @@ export async function createSubmissionHandler(req: Request, res: Response) {
   res.status(201).json(sub);
 }
 
+export async function generatePersonalizedPlanHandler(req: Request, res: Response) {
+  const plan = await svc.generatePersonalizedPlan(req.user!.userId);
+  res.status(201).json(plan);
+}
+
 export async function approveHandler(req: Request, res: Response) {
   const { note } = reviewSchema.parse(req.body);
   const sub = await svc.approveSubmission(req.user!.userId, req.user!.role, req.params.id, note);

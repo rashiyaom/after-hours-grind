@@ -126,9 +126,7 @@ class ApiError extends Error {
   }
 }
 
-const getAccessToken = (): string | null => {
-  return inMemoryAccessToken;
-};
+const getAccessToken = (): string | null => inMemoryAccessToken;
 
 const getCsrfToken = (): string | null => {
   if (typeof document === "undefined") return null;
@@ -171,8 +169,21 @@ async function apiRequest<T>(path: string, init: RequestInit = {}, token?: strin
   });
 
   if (!response.ok) {
-    const body = await response.text();
-    throw new ApiError(body || `Request failed: ${response.status}`, response.status);
+    let message = `Request failed: ${response.status}`;
+    try {
+      const raw = await response.text();
+      if (raw) {
+        try {
+          const parsed = JSON.parse(raw) as { error?: string; message?: string };
+          message = parsed.error || parsed.message || raw;
+        } catch {
+          message = raw;
+        }
+      }
+    } catch {
+      // Keep default message when response body cannot be read.
+    }
+    throw new ApiError(message, response.status);
   }
 
   return (await response.json()) as T;
@@ -181,11 +192,22 @@ async function apiRequest<T>(path: string, init: RequestInit = {}, token?: strin
 const isUnauthorizedError = (error: unknown): boolean =>
   error instanceof ApiError && error.status === 401;
 
+const isCsrfError = (error: unknown): boolean =>
+  error instanceof ApiError && error.status === 403 && error.message.includes("CSRF token invalid or missing");
+
+async function refreshBackendAccessToken(): Promise<string> {
+  const response = await apiRequest<BackendAuthResponse>("/auth/refresh", {
+    method: "POST",
+  });
+  setAccessToken(response.accessToken);
+  return response.accessToken;
+}
+
 async function authedRequest<T>(path: string, init: RequestInit = {}): Promise<T> {
   try {
     return await apiRequest<T>(path, init, getAccessToken() ?? undefined);
   } catch (error) {
-    if (!isUnauthorizedError(error)) {
+    if (!isUnauthorizedError(error) && !isCsrfError(error)) {
       throw error;
     }
   }
@@ -203,14 +225,6 @@ export async function loginBackend(email: string, password: string): Promise<Bac
   return response;
 }
 
-export async function refreshBackendAccessToken(): Promise<string> {
-  const response = await apiRequest<BackendAuthResponse>("/auth/refresh", {
-    method: "POST",
-  });
-  setAccessToken(response.accessToken);
-  return response.accessToken;
-}
-
 export async function logoutBackend(): Promise<void> {
   try {
     await authedRequest<ApiRecord>("/auth/logout", { method: "POST" });
@@ -226,9 +240,7 @@ export async function fetchFeedFromBackend(): Promise<Post[]> {
 
 export async function fetchFeedPageFromBackend(cursor?: string, limit = 20): Promise<FeedPageResponse> {
   const params = new URLSearchParams();
-  if (cursor) {
-    params.set("cursor", cursor);
-  }
+  if (cursor) params.set("cursor", cursor);
   params.set("limit", String(limit));
 
   const query = params.toString();
@@ -244,7 +256,7 @@ export function clearBackendAccessToken(): void {
   clearAccessToken();
 }
 
-export type RealtimeEventPayload = {
+type RealtimeEventPayload = {
   type: "chat.message" | "notification.created" | "notification.updated" | "ready";
   payload: Record<string, unknown>;
 };
@@ -268,16 +280,12 @@ export function subscribeRealtimeEvents(
   stream.addEventListener("chat.message", forward("chat.message"));
   stream.addEventListener("notification.created", forward("notification.created"));
   stream.addEventListener("notification.updated", forward("notification.updated"));
-  stream.onerror = (error) => {
-    onError?.(error);
-  };
+  stream.onerror = (error) => onError?.(error);
 
   return () => {
     stream.close();
   };
 }
-
-// === AUTH ENTITIES ===
 
 export async function signupBackend(data: {
   name: string;
@@ -300,24 +308,12 @@ export async function signupBackend(data: {
   return response;
 }
 
-// === USER ENTITIES ===
-
 export async function fetchCurrentUser(): Promise<ApiCurrentUser> {
   return authedRequest<ApiCurrentUser>("/me", { method: "GET" });
 }
 
-export async function fetchUserById(userId: string): Promise<ApiRecord> {
-  return authedRequest<ApiRecord>(`/users/${userId}`, { method: "GET" });
-}
-
-// === CHAT ENTITIES ===
-
 export async function fetchChatThreads(): Promise<ApiRecord[]> {
   return authedRequest<ApiRecord[]>("/threads", { method: "GET" });
-}
-
-export async function fetchChatMessages(threadId: string): Promise<ApiRecord[]> {
-  return authedRequest<ApiRecord[]>(`/threads/${threadId}/messages`, { method: "GET" });
 }
 
 export async function createChatThreadAPI(participantId: string): Promise<ApiRecord> {
@@ -334,10 +330,12 @@ export async function sendChatMessageAPI(threadId: string, payload: ApiChatMessa
   });
 }
 
-// === PLAN ENTITIES ===
-
 export async function fetchTodayPlanAPI(): Promise<ApiRecord> {
   return authedRequest<ApiRecord>("/student/plan/today", { method: "GET" });
+}
+
+export async function generatePersonalizedPlanAPI(): Promise<ApiRecord> {
+  return authedRequest<ApiRecord>("/student/plan/generate", { method: "POST" });
 }
 
 export async function submitTaskAPI(planTaskId: string, mediaUrl: string): Promise<ApiRecord> {
@@ -364,6 +362,7 @@ export async function rejectSubmissionAPI(submissionId: string, trainerNote: str
     body: JSON.stringify({ note: trainerNote })
   });
 }
+
 export async function fetchEventsAPI(): Promise<AHGEvent[]> {
   return apiRequest<AHGEvent[]>("/events", { method: "GET" });
 }
@@ -425,15 +424,8 @@ export async function assignStudentTrainerAdminAPI(studentId: string, trainerId:
   });
 }
 
-export async function updatePostModerationAPI(postId: string, status: string): Promise<ApiRecord> {
-  return authedRequest<ApiRecord>(`/admin/posts/${postId}/moderation`, {
-    method: "PATCH",
-    body: JSON.stringify({ status })
-  });
-}
-
 export async function fetchFeaturedAthletesAPI(): Promise<ApiRecord[]> {
-    return apiRequest<ApiRecord[]>("/athletes", { method: "GET" });
+  return apiRequest<ApiRecord[]>("/athletes", { method: "GET" });
 }
 
 export async function fetchCommentsAPI(postId: string): Promise<ApiComment[]> {
@@ -471,37 +463,8 @@ export async function updateProfileAPI(payload: ApiRecord): Promise<ApiCurrentUs
   });
 }
 
-// === ACHIEVEMENTS ===
-
-export async function fetchAchievementsAPI(): Promise<ApiRecord[]> {
-  return authedRequest<ApiRecord[]>("/achievements", { method: "GET" });
-}
-
-export async function checkAchievementsAPI(): Promise<{ awarded: string[] }> {
-  return authedRequest<{ awarded: string[] }>("/achievements/check", { method: "POST" });
-}
-
-// === LEADERBOARD ===
-
 export async function fetchLeaderboardAPI(limit = 50): Promise<ApiRecord[]> {
   return authedRequest<ApiRecord[]>(`/leaderboard?limit=${limit}`, { method: "GET" });
-}
-
-// === PROGRESS ===
-
-export async function logProgressAPI(data: ApiRecord): Promise<ApiRecord> {
-  return authedRequest<ApiRecord>("/progress", {
-    method: "POST",
-    body: JSON.stringify(data),
-  });
-}
-
-export async function fetchProgressHistoryAPI(days = 30): Promise<ApiRecord[]> {
-  return authedRequest<ApiRecord[]>(`/progress/history?days=${days}`, { method: "GET" });
-}
-
-export async function fetchProgressSummaryAPI(): Promise<ApiRecord> {
-  return authedRequest<ApiRecord>("/progress/summary", { method: "GET" });
 }
 
 export async function fetchProgressOverviewAPI(): Promise<ApiRecord> {
@@ -520,8 +483,6 @@ export async function fetchProgressHeatmapAPI(): Promise<ApiRecord> {
   return authedRequest<ApiRecord>("/progress/heatmap", { method: "GET" });
 }
 
-// === SETTINGS ===
-
 export async function fetchSettingsAPI(): Promise<ApiRecord> {
   return authedRequest<ApiRecord>("/settings", { method: "GET" });
 }
@@ -532,42 +493,6 @@ export async function updateSettingsAPI(data: ApiRecord): Promise<ApiRecord> {
     body: JSON.stringify(data),
   });
 }
-
-// === PLAN WORKFLOW ===
-
-export async function submitPlanForApprovalAPI(planId: string): Promise<ApiRecord> {
-  return authedRequest<ApiRecord>(`/plans/${planId}/submit`, { method: "POST" });
-}
-
-export async function reviewPlanAPI(planId: string, action: "approve" | "reject", note?: string): Promise<ApiRecord> {
-  return authedRequest<ApiRecord>(`/plans/${planId}/review`, {
-    method: "POST",
-    body: JSON.stringify({ action, note }),
-  });
-}
-
-export async function fetchPendingPlansAPI(): Promise<ApiRecord[]> {
-  return authedRequest<ApiRecord[]>("/plans/pending", { method: "GET" });
-}
-
-// === TRAINER STUDENT MANAGEMENT ===
-
-export async function assignStudentAPI(studentId: string): Promise<ApiRecord> {
-  return authedRequest<ApiRecord>("/trainer/students", {
-    method: "POST",
-    body: JSON.stringify({ studentId }),
-  });
-}
-
-export async function unassignStudentAPI(studentId: string): Promise<ApiRecord> {
-  return authedRequest<ApiRecord>(`/trainer/students/${studentId}`, { method: "DELETE" });
-}
-
-export async function fetchStudentDetailAPI(studentId: string): Promise<ApiRecord> {
-  return authedRequest<ApiRecord>(`/trainer/students/${studentId}`, { method: "GET" });
-}
-
-// === ADMIN ENHANCED ===
 
 export async function fetchAdminStatsAPI(): Promise<ApiRecord> {
   return authedRequest<ApiRecord>("/admin/stats", { method: "GET" });
@@ -596,13 +521,55 @@ export async function resetAdminPermissionsAPI(): Promise<ApiRecord> {
   return authedRequest<ApiRecord>("/admin/permissions/reset", { method: "POST" });
 }
 
-export async function changeUserRoleAPI(userId: string, role: string): Promise<ApiRecord> {
-  return authedRequest<ApiRecord>(`/admin/users/${userId}/role`, {
-    method: "PATCH",
-    body: JSON.stringify({ role }),
+export async function fetchExerciseTemplatesAPI(): Promise<ApiRecord[]> {
+  return authedRequest<ApiRecord[]>("/admin/exercise-templates", { method: "GET" });
+}
+
+export async function createExerciseTemplateAPI(payload: ApiRecord): Promise<ApiRecord> {
+  return authedRequest<ApiRecord>("/admin/exercise-templates", {
+    method: "POST",
+    body: JSON.stringify(payload),
   });
 }
 
-export async function deletePostAdminAPI(postId: string): Promise<ApiRecord> {
-  return authedRequest<ApiRecord>(`/admin/posts/${postId}`, { method: "DELETE" });
+export async function updateExerciseTemplateAPI(templateId: string, payload: ApiRecord): Promise<ApiRecord> {
+  return authedRequest<ApiRecord>(`/admin/exercise-templates/${templateId}`, {
+    method: "PATCH",
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function deleteExerciseTemplateAPI(templateId: string): Promise<ApiRecord> {
+  return authedRequest<ApiRecord>(`/admin/exercise-templates/${templateId}`, {
+    method: "DELETE",
+  });
+}
+
+export async function fetchExerciseTemplateAssignmentsAPI(): Promise<ApiRecord[]> {
+  return authedRequest<ApiRecord[]>("/admin/exercise-templates/assignments", { method: "GET" });
+}
+
+export async function assignExerciseTemplateAPI(payload: {
+  templateId: string;
+  studentIds: string[];
+  dayNumber: number;
+  sortOrder?: number;
+}): Promise<ApiRecord> {
+  return authedRequest<ApiRecord>("/admin/exercise-templates/assign", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function assignExerciseTemplateBulkAPI(payload: {
+  studentIds: string[];
+  dayPlans: Array<{
+    dayNumber: number;
+    templateIds: string[];
+  }>;
+}): Promise<ApiRecord> {
+  return authedRequest<ApiRecord>("/admin/exercise-templates/assign-bulk", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
 }
