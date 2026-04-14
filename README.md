@@ -156,10 +156,3 @@ npm run build
 2. Backend build and integration test suite run successfully.
 3. Prisma schema and migration files are present for PostgreSQL lifecycle management.
 
-## Recommended Next Step
-
-Add integration tests for:
-
-1. Role-based login and route protection.
-2. Student check-in upload flow.
-3. Trainer review and rejection feedback flow.
