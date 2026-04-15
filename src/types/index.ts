@@ -49,6 +49,7 @@ export interface Student extends User {
 export interface Trainer extends User {
   role: "trainer";
   specialization: string;
+  whatsappNumber?: string;
   experience: number;
   certifications: string[];
   totalStudents: number;

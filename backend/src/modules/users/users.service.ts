@@ -34,6 +34,7 @@ export async function getUser(id: string, currentUserId?: string) {
       trainerProfile: {
         select: {
           specialization: true,
+          whatsappNumber: true,
           experience: true,
           certifications: true,
           isVerified: true,
@@ -58,7 +59,7 @@ export async function getUser(id: string, currentUserId?: string) {
 }
 
 export async function updateMe(userId: string, role: string, input: UpdateProfileInput) {
-  const { name, avatar, collegeId, heightCm, weightKg, fitnessGoal, specialization, experience } = input;
+  const { name, avatar, collegeId, heightCm, weightKg, fitnessGoal, specialization, whatsappNumber, experience } = input;
 
   await prisma.user.update({
     where: { id: userId },
@@ -90,11 +91,12 @@ export async function updateMe(userId: string, role: string, input: UpdateProfil
     });
   }
 
-  if (role === "TRAINER" && (specialization || experience !== undefined)) {
+  if (role === "TRAINER" && (specialization !== undefined || whatsappNumber !== undefined || experience !== undefined)) {
     await prisma.trainerProfile.update({
       where: { userId },
       data: {
         ...(specialization !== undefined ? { specialization } : {}),
+        ...(whatsappNumber !== undefined ? { whatsappNumber } : {}),
         ...(experience !== undefined ? { experience } : {}),
       },
     });

@@ -111,6 +111,7 @@ model TrainerProfile {
   userId         String   @unique
   user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   specialization String   @default("")
+  whatsappNumber String?
   experience     Int      @default(0)
   certifications String[] @default([])
   isVerified     Boolean  @default(false)

@@ -1,8 +1,8 @@
-import { useMemo, useState, type ChangeEvent } from "react";
+import { useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Check, Flame, Dumbbell, Utensils, Footprints, Droplets,
-  Upload, ChevronRight, ChevronLeft, ChevronRight as ChevRight,
+  ChevronRight, ChevronLeft, ChevronRight as ChevRight,
   Play, Info, Clock, X, Activity, Zap, ArrowUpRight, Target,
   ChevronDown
 } from "lucide-react";
@@ -10,7 +10,6 @@ import { useCurrentUser, usePermissions, useStore } from "@/hooks/useStore";
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
 import { LUXURY_TWEEN_MEDIUM, LUXURY_TWEEN_SLOW } from "@/lib/motionTokens";
-import { uploadMediaFile } from "@/lib/api";
 
 const dayTypes = [
   "Push Day — Chest & Triceps",
@@ -147,10 +146,7 @@ export default function DailyPlanPage() {
     taskType: "workout" | "diet";
     taskName: string;
   } | null>(null);
-  const [proofFile, setProofFile] = useState<File | null>(null);
-  const [proofPreview, setProofPreview] = useState<string | null>(null);
-  const [proofMediaKind, setProofMediaKind] = useState<"image" | "video" | null>(null);
-  const [proofCaption, setProofCaption] = useState("");
+  const [proofNote, setProofNote] = useState("");
   const [submittingProof, setSubmittingProof] = useState(false);
 
   const workouts = todayTask.workout;
@@ -167,76 +163,42 @@ export default function DailyPlanPage() {
       return;
     }
     setProofModal({ taskId, taskType, taskName });
-    setProofFile(null);
-    setProofPreview(null);
-    setProofMediaKind(null);
-    setProofCaption("");
+    setProofNote("");
   };
 
   const closeProofModal = () => {
     setProofModal(null);
-    setProofFile(null);
-    if (proofPreview) {
-      URL.revokeObjectURL(proofPreview);
-    }
-    setProofPreview(null);
-    setProofMediaKind(null);
-    setProofCaption("");
+    setProofNote("");
     setSubmittingProof(false);
-  };
-
-  const handleProofFileChange = (event: ChangeEvent<HTMLInputElement>) => {
-    const selected = event.target.files?.[0];
-    if (!selected) return;
-
-    const mediaKind: "image" | "video" | null = selected.type.startsWith("image/")
-      ? "image"
-      : selected.type.startsWith("video/")
-        ? "video"
-        : null;
-
-    if (!mediaKind) {
-      toast.error("Please upload an image or video as proof.");
-      return;
-    }
-
-    if (proofPreview) {
-      URL.revokeObjectURL(proofPreview);
-    }
-
-    setProofFile(selected);
-    setProofPreview(URL.createObjectURL(selected));
-    setProofMediaKind(mediaKind);
   };
 
   const submitProof = async () => {
     if (!proofModal) return;
-    if (!proofFile || !proofPreview) {
-      toast.error("Proof photo or video is required to complete this task.");
-      return;
-    }
 
     setSubmittingProof(true);
 
     try {
-      const uploaded = await uploadMediaFile(proofFile);
-      await submitTaskProof({
+      const submission = await submitTaskProof({
         taskId: proofModal.taskId,
         taskType: proofModal.taskType,
         dayNumber: selectedDay,
         taskName: proofModal.taskName,
-        mediaUrl: uploaded.url,
-        caption:
-          proofCaption.trim() ||
-          `${proofModal.taskType === "workout" ? "Workout" : "Meal"} proof · Day ${selectedDay} · ${proofModal.taskName}`,
-        location: "Campus",
+        studentNote: proofNote.trim() || undefined,
       });
 
+      if (submission.whatsappUrl) {
+        window.open(submission.whatsappUrl, "_blank", "noopener,noreferrer");
+      }
+
       closeProofModal();
-      toast.success("Proof uploaded. Waiting for trainer/admin approval before completion.");
+      toast.success(
+        submission.whatsappUrl
+          ? "WhatsApp opened. Send your proof there and trainer will approve in dashboard."
+          : "Submission marked pending. Please send proof to trainer on WhatsApp."
+      );
     } catch {
       setSubmittingProof(false);
-      toast.error("Proof upload failed. Please try again.");
+      toast.error("Could not prepare WhatsApp proof message. Please try again.");
     }
   };
 
@@ -440,10 +402,10 @@ export default function DailyPlanPage() {
             >
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[#4DD2FF]">Proof Required</p>
-                  <h3 className="mt-1 text-xl font-semibold text-white tracking-tight">Submit task proof photo or video</h3>
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[#4DD2FF]">WhatsApp Proof</p>
+                  <h3 className="mt-1 text-xl font-semibold text-white tracking-tight">Send proof on WhatsApp</h3>
                   <p className="mt-1 text-xs text-white/45">
-                    {proofModal.taskType === "workout" ? "Workout" : "Meal"} will be marked complete only after trainer/admin approval.
+                    {proofModal.taskType === "workout" ? "Workout" : "Meal"} completes only after trainer/admin approval in dashboard.
                   </p>
                 </div>
                 <button onClick={closeProofModal} className="rounded-xl bg-white/5 p-2 text-white/60 hover:bg-white/10 hover:text-white transition-all">
@@ -452,28 +414,15 @@ export default function DailyPlanPage() {
               </div>
 
               <div className="mt-5 space-y-4">
-                <label className="block rounded-2xl border border-dashed border-[#4DD2FF]/35 bg-[#4DD2FF]/5 p-5 text-center cursor-pointer hover:bg-[#4DD2FF]/10 transition-all">
-                  <Upload className="mx-auto h-5 w-5 text-[#4DD2FF]" />
-                  <p className="mt-2 text-xs font-semibold text-[#4DD2FF]">Upload Photo or Video Proof</p>
-                  <p className="text-[11px] text-white/35 mt-1">Attach image or video for trainer review.</p>
-                  <input type="file" accept="image/*,video/*" className="hidden" onChange={handleProofFileChange} />
-                </label>
-
-                {proofPreview && (
-                  <div className="rounded-2xl overflow-hidden border border-white/10 bg-[#0D0D0D]">
-                    {proofMediaKind === "video" ? (
-                      <video src={proofPreview} controls playsInline className="w-full h-52 object-cover" />
-                    ) : (
-                      <img src={proofPreview} alt="Task proof preview" className="w-full h-52 object-cover" />
-                    )}
-                  </div>
-                )}
+                <div className="rounded-2xl border border-[#4DD2FF]/35 bg-[#4DD2FF]/8 p-4 text-xs text-white/75 leading-relaxed">
+                  Tap submit to open WhatsApp with a prefilled message. Send your photo/video directly there, then your trainer will approve or reject in app.
+                </div>
 
                 <textarea
-                  value={proofCaption}
-                  onChange={(e) => setProofCaption(e.target.value)}
+                  value={proofNote}
+                  onChange={(e) => setProofNote(e.target.value)}
                   rows={3}
-                  placeholder="Optional caption for this proof..."
+                  placeholder="Optional note for trainer (shown in dashboard)..."
                   className="w-full rounded-xl border border-white/10 bg-[#1A1A1A] px-4 py-3 text-sm text-white placeholder:text-white/30 focus:outline-none focus:border-[#4DD2FF]/40"
                 />
               </div>
@@ -487,10 +436,10 @@ export default function DailyPlanPage() {
                 </button>
                 <button
                   onClick={submitProof}
-                  disabled={!proofFile || submittingProof}
+                  disabled={submittingProof}
                   className="rounded-xl bg-[#4DD2FF] py-3 text-xs font-bold text-black hover:bg-[#61d9ff] transition-all disabled:opacity-50"
                 >
-                  {submittingProof ? "Submitting..." : "Submit For Approval"}
+                  {submittingProof ? "Opening WhatsApp..." : "Open WhatsApp & Submit"}
                 </button>
               </div>
             </motion.div>

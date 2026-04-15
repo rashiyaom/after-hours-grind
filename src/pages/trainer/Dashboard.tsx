@@ -4,7 +4,7 @@ import {
   Users, CheckCircle2, AlertCircle, Clock, Search,
   ChevronRight, MessageSquare, Plus, X,
   Calendar, Activity, Zap, TrendingUp, Bell,
-  Play, ArrowUpRight, Flame, Target
+  ArrowUpRight, Flame, Target
 } from "lucide-react";
 import { useAppStore } from "@/hooks/useStore";
 import { useCurrentUser } from "@/hooks/useStore";
@@ -15,12 +15,6 @@ import { Link } from "react-router-dom";
 import { LUXURY_TWEEN_MEDIUM, LUXURY_TWEEN_SLOW } from "@/lib/motionTokens";
 
 type DashTab = "Submissions" | "Roster" | "Activity";
-
-const isVideoProof = (mediaUrl: string) => {
-  if (!mediaUrl) return false;
-  if (mediaUrl.startsWith("data:video/")) return true;
-  return /\.(mp4|webm|ogg|mov)(\?|#|$)/i.test(mediaUrl);
-};
 
 export default function TrainerDashboard() {
   const currentUser = useCurrentUser();
@@ -553,24 +547,16 @@ export default function TrainerDashboard() {
               </div>
 
               <div className="p-6 grid md:grid-cols-2 gap-6">
-                {/* Media/proof area */}
+                {/* Proof handoff area */}
                 <div className="aspect-[4/5] bg-[#0D0D0D] rounded-2xl flex flex-col items-center justify-center relative overflow-hidden border border-white/5">
-                  {selectedSubmission.mediaUrl ? (
-                    isVideoProof(selectedSubmission.mediaUrl) ? (
-                      <video
-                        src={selectedSubmission.mediaUrl}
-                        controls
-                        playsInline
-                        className="w-full h-full object-cover"
-                      />
-                    ) : (
-                      <img src={selectedSubmission.mediaUrl} alt="Submission" className="w-full h-full object-cover" />
-                    )
-                  ) : (
-                    <>
-                      <Play className="h-14 w-14 text-white/10" />
-                      <p className="text-xs text-white/30 mt-3">No media attached</p>
-                    </>
+                  <div className="max-w-[84%] rounded-2xl border border-[#4DD2FF]/25 bg-[#4DD2FF]/10 p-4 text-xs text-white/75 leading-relaxed">
+                    Student proof is shared via WhatsApp. Review the received media there, then approve/reject here to update progress and points.
+                  </div>
+                  {selectedSubmission.proofRefId && (
+                    <div className="mt-4 rounded-xl border border-white/10 bg-[#151515] px-3 py-2">
+                      <p className="text-[10px] uppercase tracking-wider text-white/35">Proof Reference</p>
+                      <p className="text-xs font-semibold text-[#C9F85A] mt-1">{selectedSubmission.proofRefId}</p>
+                    </div>
                   )}
                   <div className="absolute bottom-4 left-4">
                     <span className={`text-[10px] font-bold px-2.5 py-1 rounded-full ${

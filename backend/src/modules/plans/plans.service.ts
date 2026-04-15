@@ -2,8 +2,52 @@ import { prisma } from "../../config/prisma.js";
 import { HttpError } from "../../lib/httpError.js";
 import { publishUserEvent } from "../../lib/realtime.js";
 import { createPersonalized25DayPlan } from "./personalizedPlan.js";
+import { env } from "../../config/env.js";
 
 const COMPLETE_STATUSES = new Set(["PENDING", "APPROVED"] as const);
+
+const STUDENT_NOTE_PREFIX = "Student note:";
+
+const normalizeWhatsAppNumber = (value: string): string => {
+  const digitsOnly = value.replace(/\D/g, "");
+  if (digitsOnly.length < 8 || digitsOnly.length > 15) {
+    throw HttpError.badRequest("Trainer WhatsApp number is invalid. Please update trainer profile.");
+  }
+  return digitsOnly;
+};
+
+const buildProofReference = (): string => {
+  const now = new Date();
+  const yyyy = now.getFullYear();
+  const mm = String(now.getMonth() + 1).padStart(2, "0");
+  const dd = String(now.getDate()).padStart(2, "0");
+  const hh = String(now.getHours()).padStart(2, "0");
+  const min = String(now.getMinutes()).padStart(2, "0");
+  const suffix = Math.random().toString(36).slice(2, 7).toUpperCase();
+  return `AHG-${yyyy}${mm}${dd}-${hh}${min}-${suffix}`;
+};
+
+const extractStudentNote = (trainerNote: string | null): string => {
+  if (!trainerNote) return "";
+  if (!trainerNote.startsWith(STUDENT_NOTE_PREFIX)) return "";
+  return trainerNote.replace(STUDENT_NOTE_PREFIX, "").trim();
+};
+
+const composeReviewNote = (existingTrainerNote: string | null, reviewNote?: string): string | null => {
+  const studentNote = extractStudentNote(existingTrainerNote);
+  const trimmedReviewNote = reviewNote?.trim() ?? "";
+
+  if (studentNote && trimmedReviewNote) {
+    return `${STUDENT_NOTE_PREFIX} ${studentNote}\n\nTrainer note: ${trimmedReviewNote}`;
+  }
+  if (studentNote) {
+    return `${STUDENT_NOTE_PREFIX} ${studentNote}`;
+  }
+  if (trimmedReviewNote) {
+    return trimmedReviewNote;
+  }
+  return null;
+};
 
 const computeCalendarDay = (createdAt: Date, totalDays: number): number => {
   const msPerDay = 24 * 60 * 60 * 1000;
@@ -92,11 +136,7 @@ export async function getTodayPlan(userId: string) {
   };
 }
 
-export async function createSubmission(studentId: string, input: { planTaskId?: string; mediaUrl: string }) {
-  if (!input.planTaskId) {
-    throw HttpError.badRequest("planTaskId is required");
-  }
-
+export async function createSubmission(studentId: string, input: { planTaskId: string; studentNote?: string }) {
   const profile = await prisma.studentProfile.findUnique({ where: { userId: studentId } });
   if (!profile?.currentPlanId) {
     throw HttpError.badRequest("No active plan found for student");
@@ -123,6 +163,22 @@ export async function createSubmission(studentId: string, input: { planTaskId?: 
   if (!task) {
     throw HttpError.notFound("Plan task not found");
   }
+
+  if (!profile.trainerId) {
+    throw HttpError.badRequest("No trainer assigned. Please contact admin.");
+  }
+
+  const trainerProfile = await prisma.trainerProfile.findUnique({
+    where: { userId: profile.trainerId },
+  });
+
+  const fallbackNumber = env.DEFAULT_TRAINER_WHATSAPP_NUMBER?.trim() ?? "";
+  const trainerWhatsAppRaw = trainerProfile?.whatsappNumber?.trim() || fallbackNumber;
+  if (!trainerWhatsAppRaw) {
+    throw HttpError.badRequest("Trainer WhatsApp number is not configured. Please ask trainer/admin to update profile.");
+  }
+
+  const trainerWhatsAppNumber = normalizeWhatsAppNumber(trainerWhatsAppRaw);
 
   if (task.planDay.planId !== profile.currentPlanId) {
     throw HttpError.forbidden("Task does not belong to your active plan");
@@ -164,8 +220,36 @@ export async function createSubmission(studentId: string, input: { planTaskId?: 
     throw HttpError.badRequest("Task already approved");
   }
 
+  const studentUser = await prisma.user.findUnique({
+    where: { id: studentId },
+    select: { name: true },
+  });
+
+  const proofRefId = buildProofReference();
+  const safeStudentNote = (input.studentNote ?? "").trim();
+
+  const whatsappMessage = [
+    "Hello Coach, I have completed my AHG task and I am sharing proof here.",
+    `Reference: ${proofRefId}`,
+    `Student: ${studentUser?.name ?? "Student"}`,
+    `Task: ${task.title}`,
+    `Day: ${task.planDay.day}`,
+    `Plan: ${plan.name}`,
+    safeStudentNote ? `Note: ${safeStudentNote}` : "",
+    "Please verify in AHG dashboard after reviewing this proof.",
+  ]
+    .filter(Boolean)
+    .join("\n");
+
+  const whatsappUrl = `https://wa.me/${trainerWhatsAppNumber}?text=${encodeURIComponent(whatsappMessage)}`;
+
   const createdSubmission = await prisma.submission.create({
-    data: { studentId, planTaskId: task.id, mediaUrl: input.mediaUrl },
+    data: {
+      studentId,
+      planTaskId: task.id,
+      mediaUrl: `whatsapp://proof/${proofRefId}`,
+      trainerNote: safeStudentNote ? `${STUDENT_NOTE_PREFIX} ${safeStudentNote}` : null,
+    },
     include: {
       student: { select: { id: true, name: true } },
       planTask: { include: { planDay: true } },
@@ -181,6 +265,8 @@ export async function createSubmission(studentId: string, input: { planTaskId?: 
     taskType: createdSubmission.planTask?.type ?? "workout",
     dayNumber: createdSubmission.planTask?.planDay?.day ?? null,
     mediaUrl: createdSubmission.mediaUrl,
+    proofRefId,
+    whatsappUrl,
     status: createdSubmission.status,
     trainerNote: createdSubmission.trainerNote ?? "",
     createdAt: createdSubmission.createdAt.toISOString(),
@@ -196,7 +282,12 @@ export async function createSubmission(studentId: string, input: { planTaskId?: 
     ...submissionCreatedPayload,
   });
 
-  return createdSubmission;
+  return {
+    ...createdSubmission,
+    proofRefId,
+    whatsappUrl,
+    trainerWhatsappNumber: trainerWhatsAppNumber,
+  };
 }
 
 export async function generatePersonalizedPlan(studentId: string) {
@@ -217,7 +308,12 @@ export async function approveSubmission(reviewerId: string, reviewerRole: string
 
     const updated = await tx.submission.update({
       where: { id: submissionId },
-      data: { status: "APPROVED", reviewedById: reviewerId, reviewedAt: new Date(), trainerNote: note },
+      data: {
+        status: "APPROVED",
+        reviewedById: reviewerId,
+        reviewedAt: new Date(),
+        trainerNote: composeReviewNote(sub.trainerNote, note),
+      },
     });
 
     // Award points
@@ -280,7 +376,12 @@ export async function rejectSubmission(reviewerId: string, reviewerRole: string,
 
   const updated = await prisma.submission.update({
     where: { id: submissionId },
-    data: { status: "REJECTED", reviewedById: reviewerId, reviewedAt: new Date(), trainerNote: note },
+    data: {
+      status: "REJECTED",
+      reviewedById: reviewerId,
+      reviewedAt: new Date(),
+      trainerNote: composeReviewNote(sub.trainerNote, note),
+    },
   });
 
   // Notify student

@@ -106,6 +106,7 @@ type LegacySubmission = {
   dayNumber?: number;
   postId?: string;
   requiresApproval?: boolean;
+  proofRefId?: string;
   timestamp: string;
   status: 'pending' | 'approved' | 'rejected';
   mediaUrl: string;
@@ -531,6 +532,7 @@ interface AppActions {
     weight?: number;
     fitnessGoal?: string;
     specialization?: string;
+    whatsappNumber?: string;
     experience?: number;
     certifications?: string;
   }) => Promise<void>;
@@ -579,10 +581,8 @@ interface AppActions {
     taskType: 'workout' | 'diet';
     dayNumber: number;
     taskName: string;
-    mediaUrl: string;
-    caption?: string;
-    location?: string;
-  }) => Promise<void>;
+    studentNote?: string;
+  }) => Promise<{ whatsappUrl?: string; proofRefId?: string }>;
   notifyStudentPlanUpdated: (studentId: string, planId: string, message: string) => void;
   markPlanNotificationRead: (notificationId: string) => void;
   createOrGetChatThread: (targetUserId: string) => string | null;
@@ -855,6 +855,7 @@ const normalizeBackendUser = (input: unknown, existingUser?: User): User | null 
       ...baseUser,
       role: 'trainer',
       specialization: asString(profile.specialization, existingTrainer?.specialization ?? ''),
+      whatsappNumber: asString(profile.whatsappNumber, existingTrainer?.whatsappNumber ?? ''),
       experience: asNumber(profile.experience, existingTrainer?.experience ?? 0),
       certifications: asStringArray(profile.certifications, existingTrainer?.certifications ?? []),
       totalStudents: asNumber(raw.totalStudents, existingTrainer?.totalStudents ?? 0),
@@ -911,6 +912,12 @@ const formatRelativeTime = (value: string): string => {
   const diffHours = Math.floor(diffMinutes / 60);
   if (diffHours < 24) return `${diffHours}h ago`;
   return `${Math.floor(diffHours / 24)}d ago`;
+};
+
+const extractWhatsAppProofRef = (mediaUrl: string): string | undefined => {
+  if (!mediaUrl.startsWith('whatsapp://proof/')) return undefined;
+  const value = mediaUrl.replace('whatsapp://proof/', '').trim();
+  return value || undefined;
 };
 
 const mapBackendNotificationType = (value: unknown): NotificationItem['type'] => {
@@ -1305,6 +1312,7 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
         weight: userData.weight,
         fitnessGoal: userData.fitnessGoal,
         specialization: userData.specialization,
+        whatsappNumber: userData.whatsappNumber,
         experience: userData.experience,
         certifications: userData.certifications,
       });
@@ -1773,7 +1781,7 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
   },
 
 
-  submitTaskProof: async ({ taskId, taskType, dayNumber, taskName, mediaUrl }) => {
+  submitTaskProof: async ({ taskId, taskType, dayNumber, taskName, studentNote }) => {
     const actor = get().session.currentUser;
     const optimisticId = createId('sub-local');
     const previousSubmissions = get().system.legacySubmissions;
@@ -1792,9 +1800,10 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
               taskType,
               taskId,
               dayNumber,
+              proofRefId: `PENDING-${optimisticId}`,
               timestamp: new Date().toLocaleString(),
               status: 'pending',
-              mediaUrl,
+              mediaUrl: 'whatsapp://proof/pending',
               trainerNote: '',
               points: 10,
               requiresApproval: true,
@@ -1806,10 +1815,15 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
     }
 
     try {
-      // We need a way to find the planTaskId from the legacy taskId/dayNumber
-      // For now, if we don't have it, we might need to adjust the UI to provide it
-      await submitTaskAPI(taskId, mediaUrl);
+      const created = await submitTaskAPI({
+        planTaskId: taskId,
+        studentNote: studentNote?.trim() || undefined,
+      });
       await get().refreshData({ background: true, scope: getRefreshScopeForRole(get().session.currentUser?.role) });
+      return {
+        whatsappUrl: typeof created.whatsappUrl === 'string' ? created.whatsappUrl : undefined,
+        proofRefId: typeof created.proofRefId === 'string' ? created.proofRefId : undefined,
+      };
     } catch (error) {
       console.error("Submission failed:", error);
       set((state) => ({
@@ -1844,6 +1858,7 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
           taskType: normalizedTaskType,
           status: normalizedStatus,
           mediaUrl: s.mediaUrl,
+          proofRefId: extractWhatsAppProofRef(s.mediaUrl),
           timestamp: new Date(s.createdAt).toLocaleString(),
           points: s.planTask?.points || 10,
           trainerNote: s.trainerNote ?? '',

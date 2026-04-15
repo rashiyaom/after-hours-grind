@@ -13,6 +13,7 @@ export const updateProfileSchema = z.object({
   onboardingCompleted: z.coerce.boolean().optional(),
   // Trainer-specific
   specialization: z.string().optional(),
+  whatsappNumber: z.string().trim().min(8).max(32).optional(),
   experience: z.coerce.number().int().min(0).optional(),
 });
 

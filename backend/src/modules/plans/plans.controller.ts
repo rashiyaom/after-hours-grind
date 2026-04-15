@@ -3,8 +3,8 @@ import { z } from "zod";
 import * as svc from "./plans.service.js";
 
 const submitSchema = z.object({
-  planTaskId: z.string().optional(),
-  mediaUrl: z.string().default(""),
+  planTaskId: z.string().min(1),
+  studentNote: z.string().trim().max(500).optional(),
 });
 
 const reviewSchema = z

@@ -50,7 +50,15 @@ async function main() {
     create: {
       email: "trainer@ahg.com", name: "Coach Arjun", passwordHash: defaultHash, role: Role.TRAINER,
       avatar: "",
-      trainerProfile: { create: { specialization: "Strength & Conditioning", experience: 5, certifications: ["NSCA-CSCS", "ACE-CPT"], isVerified: true } },
+      trainerProfile: {
+        create: {
+          specialization: "Strength & Conditioning",
+          whatsappNumber: "+919999999999",
+          experience: 5,
+          certifications: ["NSCA-CSCS", "ACE-CPT"],
+          isVerified: true,
+        },
+      },
     },
   });
 

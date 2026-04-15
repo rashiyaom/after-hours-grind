@@ -90,6 +90,11 @@ type ApiSubmission = {
   planTask?: { title?: string; name?: string; type?: string; points?: number };
 };
 
+type ApiSubmitTaskResponse = ApiRecord & {
+  whatsappUrl?: string;
+  proofRefId?: string;
+};
+
 type ApiChatMessagePayload = {
   text?: string;
   type?: "text" | "reel-share" | "voice-note";
@@ -330,6 +335,7 @@ export async function signupBackend(data: {
   weight?: number;
   fitnessGoal?: string;
   specialization?: string;
+  whatsappNumber?: string;
   experience?: number;
   certifications?: string | string[];
 }): Promise<BackendAuthResponse> {
@@ -371,10 +377,10 @@ export async function generatePersonalizedPlanAPI(): Promise<ApiRecord> {
   return authedRequest<ApiRecord>("/student/plan/generate", { method: "POST" });
 }
 
-export async function submitTaskAPI(planTaskId: string, mediaUrl: string): Promise<ApiRecord> {
-  return authedRequest<ApiRecord>("/submissions", {
+export async function submitTaskAPI(payload: { planTaskId: string; studentNote?: string }): Promise<ApiSubmitTaskResponse> {
+  return authedRequest<ApiSubmitTaskResponse>("/submissions", {
     method: "POST",
-    body: JSON.stringify({ planTaskId, mediaUrl })
+    body: JSON.stringify(payload)
   });
 }
 

@@ -22,6 +22,7 @@ export default function SignupPage() {
     weight: "",
     fitnessGoal: "",
     specialization: "",
+    whatsappNumber: "",
     experience: "",
     certifications: "",
   });
@@ -46,6 +47,7 @@ export default function SignupPage() {
     }
     if (role === "trainer") {
       if (!form.specialization.trim()) errs.specialization = "Specialization is required";
+      if (!form.whatsappNumber.trim()) errs.whatsappNumber = "WhatsApp number is required";
     }
     
     setErrors(errs);
@@ -67,6 +69,7 @@ export default function SignupPage() {
         weight: form.weight ? parseFloat(form.weight) : undefined,
         fitnessGoal: form.fitnessGoal || undefined,
         specialization: form.specialization || undefined,
+        whatsappNumber: form.whatsappNumber || undefined,
         experience: form.experience ? parseInt(form.experience) : undefined,
         certifications: form.certifications || undefined,
       });
@@ -185,6 +188,11 @@ export default function SignupPage() {
                         <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Specialization</label>
                         <input value={form.specialization} onChange={e => updateField("specialization", e.target.value)} placeholder="e.g. Strength & Conditioning" className={fieldClass("specialization")} />
                         {errors.specialization && <p className="text-xs text-red-400 mt-1">{errors.specialization}</p>}
+                      </div>
+                      <div>
+                        <label className="text-xs font-medium text-muted-foreground mb-1.5 block">WhatsApp Number</label>
+                        <input value={form.whatsappNumber} onChange={e => updateField("whatsappNumber", e.target.value)} placeholder="e.g. +919876543210" className={fieldClass("whatsappNumber")} />
+                        {errors.whatsappNumber && <p className="text-xs text-red-400 mt-1">{errors.whatsappNumber}</p>}
                       </div>
                       <div>
                         <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Experience (Yrs)</label>
