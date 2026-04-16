@@ -3,6 +3,7 @@ import { HttpError } from "../../lib/httpError.js";
 import { publishUserEvent } from "../../lib/realtime.js";
 import { createPersonalized25DayPlan } from "./personalizedPlan.js";
 import { env } from "../../config/env.js";
+import { logger } from "../../lib/logger.js";
 
 const COMPLETE_STATUSES = new Set(["PENDING", "APPROVED"] as const);
 
@@ -49,6 +50,67 @@ const composeReviewNote = (existingTrainerNote: string | null, reviewNote?: stri
   return null;
 };
 
+const elapsedMs = (startedAt: number): number => Number((performance.now() - startedAt).toFixed(2));
+
+const wait = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
+
+const isRetryablePrismaError = (error: unknown): boolean => {
+  if (!error || typeof error !== "object") return false;
+  const maybeCode = (error as { code?: string }).code;
+  const maybeMessage = String((error as { message?: string }).message ?? "").toLowerCase();
+  return (
+    maybeCode === "P2024" ||
+    maybeCode === "P2028" ||
+    maybeMessage.includes("transaction already closed") ||
+    maybeMessage.includes("transaction not found") ||
+    maybeMessage.includes("timed out fetching a new connection from the connection pool")
+  );
+};
+
+const isRetryableReadPrismaError = (error: unknown): boolean => {
+  if (!error || typeof error !== "object") return false;
+  const maybeCode = (error as { code?: string }).code;
+  const maybeMessage = String((error as { message?: string }).message ?? "").toLowerCase();
+  return maybeCode === "P2024" || maybeMessage.includes("timed out fetching a new connection from the connection pool");
+};
+
+const withReadRetry = async <T>(operation: string, userId: string, work: () => Promise<T>): Promise<T> => {
+  const maxAttempts = 3;
+  const startedAt = performance.now();
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    try {
+      return await work();
+    } catch (error) {
+      if (isRetryableReadPrismaError(error) && attempt < maxAttempts) {
+        logger.warn("read.retry", {
+          scope: operation,
+          userId,
+          attempt,
+          message: error instanceof Error ? error.message : String(error),
+        });
+        await wait(80 * attempt);
+        continue;
+      }
+
+      if (isRetryableReadPrismaError(error)) {
+        logger.warn("read.db_busy", {
+          scope: operation,
+          userId,
+          attempts: attempt,
+          totalMs: elapsedMs(startedAt),
+          message: error instanceof Error ? error.message : String(error),
+        });
+        throw new HttpError(503, "Data is temporarily unavailable. Please retry.");
+      }
+
+      throw error;
+    }
+  }
+
+  throw new HttpError(503, "Data is temporarily unavailable. Please retry.");
+};
+
 const computeCalendarDay = (createdAt: Date, totalDays: number): number => {
   const msPerDay = 24 * 60 * 60 * 1000;
   const elapsedDays = Math.floor((Date.now() - createdAt.getTime()) / msPerDay);
@@ -74,74 +136,108 @@ const resolveUnlockedDay = (
 };
 
 export async function getTodayPlan(userId: string) {
-  const profile = await prisma.studentProfile.findUnique({ where: { userId } });
-  if (!profile?.currentPlanId) return null;
+  return withReadRetry("student.today_plan", userId, async () => {
+    const profile = await prisma.studentProfile.findUnique({
+      where: { userId },
+      select: { currentPlanId: true },
+    });
+    if (!profile?.currentPlanId) return null;
 
-  const plan = await prisma.plan.findUnique({
-    where: { id: profile.currentPlanId },
-    include: { days: { include: { tasks: true }, orderBy: { day: "asc" } } },
-  });
-  if (!plan) return null;
-
-  const totalDays = Math.max(plan.days.length, 1);
-  const calendarDay = computeCalendarDay(plan.createdAt, totalDays);
-
-  const allTaskIds = plan.days.flatMap((day) => day.tasks.map((task) => task.id));
-  const taskSubmissions =
-    allTaskIds.length === 0
-      ? []
-      : await prisma.submission.findMany({
-          where: { studentId: userId, planTaskId: { in: allTaskIds } },
-          orderBy: { createdAt: "desc" },
+    const plan = await prisma.plan.findUnique({
+      where: { id: profile.currentPlanId },
+      select: {
+        id: true,
+        name: true,
+        createdAt: true,
+        days: {
+          orderBy: { day: "asc" },
           select: {
             id: true,
-            planTaskId: true,
-            status: true,
-            mediaUrl: true,
-            trainerNote: true,
-            reviewedAt: true,
-            createdAt: true,
+            day: true,
+            tasks: {
+              select: {
+                id: true,
+                title: true,
+                description: true,
+                type: true,
+                intensity: true,
+              },
+            },
           },
-        });
+        },
+      },
+    });
+    if (!plan) return null;
 
-  const latestByTask = new Map<string, (typeof taskSubmissions)[number]>();
-  for (const sub of taskSubmissions) {
-    if (!sub.planTaskId || latestByTask.has(sub.planTaskId)) continue;
-    latestByTask.set(sub.planTaskId, sub);
-  }
+    const totalDays = Math.max(plan.days.length, 1);
+    const calendarDay = computeCalendarDay(plan.createdAt, totalDays);
 
-  const currentDay = resolveUnlockedDay(plan.days, latestByTask, calendarDay);
+    const allTaskIds = plan.days.flatMap((day) => day.tasks.map((task) => task.id));
+    const latestTaskSubmissions =
+      allTaskIds.length === 0
+        ? []
+        : await prisma.submission.findMany({
+            where: { studentId: userId, planTaskId: { in: allTaskIds } },
+            orderBy: [{ planTaskId: "asc" }, { createdAt: "desc" }],
+            distinct: ["planTaskId"],
+            select: {
+              id: true,
+              planTaskId: true,
+              status: true,
+              trainerNote: true,
+              createdAt: true,
+            },
+          });
 
-  const today = plan.days.find((day) => day.day === currentDay) ?? null;
+    const latestByTask = new Map<string, (typeof latestTaskSubmissions)[number]>();
+    for (const sub of latestTaskSubmissions) {
+      if (!sub.planTaskId) continue;
+      latestByTask.set(sub.planTaskId, sub);
+    }
 
-  const decorateTask = (task: (typeof plan.days)[number]["tasks"][number]) => {
-    const latestSubmission = latestByTask.get(task.id) ?? null;
-    return {
-      ...task,
-      submissionStatus: latestSubmission?.status ?? "NOT_SUBMITTED",
-      latestSubmission,
+    const currentDay = resolveUnlockedDay(plan.days, latestByTask, calendarDay);
+    const today = plan.days.find((day) => day.day === currentDay) ?? null;
+
+    const decorateTask = (task: (typeof plan.days)[number]["tasks"][number]) => {
+      const latestSubmission = latestByTask.get(task.id) ?? null;
+      return {
+        ...task,
+        submissionStatus: latestSubmission?.status ?? "NOT_SUBMITTED",
+        latestSubmission,
+      };
     };
-  };
 
-  return {
-    ...plan,
-    currentDay,
-    totalDays,
-    today,
-    todaysTasks: today ? today.tasks.map(decorateTask) : [],
-    days: plan.days.map((day) => ({
-      ...day,
-      tasks: day.tasks.map(decorateTask),
-    })),
-  };
+    return {
+      ...plan,
+      currentDay,
+      totalDays,
+      today: today
+        ? {
+            ...today,
+            tasks: today.tasks.map(decorateTask),
+          }
+        : null,
+      todaysTasks: today ? today.tasks.map(decorateTask) : [],
+      days: plan.days.map((day) => ({
+        ...day,
+        tasks: day.tasks.map(decorateTask),
+      })),
+    };
+  });
 }
 
 export async function createSubmission(studentId: string, input: { planTaskId: string; studentNote?: string }) {
+  const startedAt = performance.now();
+  const timings: Record<string, number> = {};
+
+  const profileStartedAt = performance.now();
   const profile = await prisma.studentProfile.findUnique({ where: { userId: studentId } });
+  timings.profileLookupMs = elapsedMs(profileStartedAt);
   if (!profile?.currentPlanId) {
     throw HttpError.badRequest("No active plan found for student");
   }
 
+  const taskStartedAt = performance.now();
   const task = await prisma.planTask.findUnique({
     where: { id: input.planTaskId },
     include: {
@@ -159,6 +255,7 @@ export async function createSubmission(studentId: string, input: { planTaskId: s
       },
     },
   });
+  timings.taskLookupMs = elapsedMs(taskStartedAt);
 
   if (!task) {
     throw HttpError.notFound("Plan task not found");
@@ -168,9 +265,11 @@ export async function createSubmission(studentId: string, input: { planTaskId: s
     throw HttpError.badRequest("No trainer assigned. Please contact admin.");
   }
 
+  const trainerProfileStartedAt = performance.now();
   const trainerProfile = await prisma.trainerProfile.findUnique({
     where: { userId: profile.trainerId },
   });
+  timings.trainerProfileLookupMs = elapsedMs(trainerProfileStartedAt);
 
   const fallbackNumber = env.DEFAULT_TRAINER_WHATSAPP_NUMBER?.trim() ?? "";
   const trainerWhatsAppRaw = trainerProfile?.whatsappNumber?.trim() || fallbackNumber;
@@ -186,6 +285,7 @@ export async function createSubmission(studentId: string, input: { planTaskId: s
 
   const plan = task.planDay.plan;
   const allTaskIds = plan.days.flatMap((day) => day.tasks.map((candidate) => candidate.id));
+  const latestSubmissionsStartedAt = performance.now();
   const latestSubmissions =
     allTaskIds.length === 0
       ? []
@@ -194,6 +294,7 @@ export async function createSubmission(studentId: string, input: { planTaskId: s
           orderBy: { createdAt: "desc" },
           select: { planTaskId: true, status: true },
         });
+  timings.latestSubmissionsLookupMs = elapsedMs(latestSubmissionsStartedAt);
 
   const latestByTask = new Map<string, { status: string }>();
   for (const sub of latestSubmissions) {
@@ -220,10 +321,12 @@ export async function createSubmission(studentId: string, input: { planTaskId: s
     throw HttpError.badRequest("Task already approved");
   }
 
+  const studentLookupStartedAt = performance.now();
   const studentUser = await prisma.user.findUnique({
     where: { id: studentId },
     select: { name: true },
   });
+  timings.studentLookupMs = elapsedMs(studentLookupStartedAt);
 
   const proofRefId = buildProofReference();
   const safeStudentNote = (input.studentNote ?? "").trim();
@@ -243,6 +346,7 @@ export async function createSubmission(studentId: string, input: { planTaskId: s
 
   const whatsappUrl = `https://wa.me/${trainerWhatsAppNumber}?text=${encodeURIComponent(whatsappMessage)}`;
 
+  const createSubmissionStartedAt = performance.now();
   const createdSubmission = await prisma.submission.create({
     data: {
       studentId,
@@ -255,6 +359,7 @@ export async function createSubmission(studentId: string, input: { planTaskId: s
       planTask: { include: { planDay: true } },
     },
   });
+  timings.submissionInsertMs = elapsedMs(createSubmissionStartedAt);
 
   const submissionCreatedPayload = {
     submissionId: createdSubmission.id,
@@ -282,6 +387,13 @@ export async function createSubmission(studentId: string, input: { planTaskId: s
     ...submissionCreatedPayload,
   });
 
+  logger.info("submission.create.db_timing", {
+    studentId,
+    planTaskId: input.planTaskId,
+    ...timings,
+    totalMs: elapsedMs(startedAt),
+  });
+
   return {
     ...createdSubmission,
     proofRefId,
@@ -295,17 +407,40 @@ export async function generatePersonalizedPlan(studentId: string) {
 }
 
 export async function approveSubmission(reviewerId: string, reviewerRole: string, submissionId: string, note?: string) {
-  return prisma.$transaction(async (tx) => {
+  const startedAt = performance.now();
+  const timings: Record<string, number> = {};
+
+  const maxAttempts = 3;
+  let txResult:
+    | {
+        updated: {
+          id: string;
+          status: string;
+          reviewedAt: Date | null;
+        };
+        studentId: string;
+        trainerId: string | null;
+        notificationMessage: string;
+      }
+    | null = null;
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    const transactionStartedAt = performance.now();
+    try {
+      txResult = await prisma.$transaction(async (tx) => {
+    const lookupStartedAt = performance.now();
     const sub = await tx.submission.findUnique({
       where: { id: submissionId },
       include: { student: { include: { studentProfile: true } } },
     });
+    timings.lookupSubmissionMs = elapsedMs(lookupStartedAt);
     if (!sub) throw HttpError.notFound("Submission not found");
     if (sub.status !== "PENDING") throw HttpError.badRequest("Already reviewed");
     if (reviewerRole === "TRAINER" && sub.student.studentProfile?.trainerId !== reviewerId) {
       throw HttpError.forbidden("You can only review submissions from your assigned students");
     }
 
+    const updateSubmissionStartedAt = performance.now();
     const updated = await tx.submission.update({
       where: { id: submissionId },
       data: {
@@ -315,51 +450,117 @@ export async function approveSubmission(reviewerId: string, reviewerRole: string
         trainerNote: composeReviewNote(sub.trainerNote, note),
       },
     });
+    timings.updateSubmissionMs = elapsedMs(updateSubmissionStartedAt);
 
     // Award points
     if (sub.planTaskId) {
+      const fetchTaskStartedAt = performance.now();
       const task = await tx.planTask.findUnique({ where: { id: sub.planTaskId } });
+      timings.fetchTaskMs = elapsedMs(fetchTaskStartedAt);
       if (task) {
+        const incrementPointsStartedAt = performance.now();
         await tx.studentProfile.update({
           where: { userId: sub.studentId },
           data: { totalPoints: { increment: task.points } },
         });
+        timings.incrementPointsMs = elapsedMs(incrementPointsStartedAt);
       }
     }
 
-    // Create notification for student
-    const createdNotification = await tx.notification.create({
+    return {
+      updated,
+      studentId: sub.studentId,
+      trainerId: sub.student.studentProfile?.trainerId ?? null,
+      notificationMessage: note ? `Your submission was approved: "${note}"` : "Your submission was approved!",
+    };
+      }, {
+        maxWait: 20_000,
+        timeout: 30_000,
+      });
+
+      timings.transactionMs = elapsedMs(transactionStartedAt);
+      break;
+    } catch (error) {
+      timings.transactionMs = elapsedMs(transactionStartedAt);
+
+      if (isRetryablePrismaError(error) && attempt < maxAttempts) {
+        logger.warn("submission.approve.retry", {
+          submissionId,
+          reviewerId,
+          attempt,
+          message: error instanceof Error ? error.message : String(error),
+        });
+        await wait(120 * attempt);
+        continue;
+      }
+
+      if (isRetryablePrismaError(error)) {
+        logger.warn("submission.approve.db_busy", {
+          submissionId,
+          reviewerId,
+          attempts: attempt,
+          totalMs: elapsedMs(startedAt),
+          message: error instanceof Error ? error.message : String(error),
+        });
+        throw new HttpError(503, "Approval is temporarily unavailable. Please retry.");
+      }
+
+      throw error;
+    }
+  }
+
+  if (!txResult) {
+    throw new HttpError(503, "Approval is temporarily unavailable. Please retry.");
+  }
+
+  try {
+    const notificationStartedAt = performance.now();
+    const createdNotification = await prisma.notification.create({
       data: {
-        userId: sub.studentId,
+        userId: txResult.studentId,
         type: "trainer",
         title: "Submission Approved",
-        message: note ? `Your submission was approved: "${note}"` : "Your submission was approved!",
+        message: txResult.notificationMessage,
       },
     });
+    timings.notificationInsertMs = elapsedMs(notificationStartedAt);
 
-    publishUserEvent(sub.studentId, "notification.created", {
+    publishUserEvent(txResult.studentId, "notification.created", {
       notificationId: createdNotification.id,
       type: createdNotification.type,
       title: createdNotification.title,
       createdAt: createdNotification.createdAt.toISOString(),
     });
-
-    if (sub.student.studentProfile?.trainerId) {
-      publishUserEvent(sub.student.studentProfile.trainerId, "submission.updated", {
-        submissionId: updated.id,
-        status: updated.status,
-        reviewedAt: updated.reviewedAt?.toISOString() ?? null,
-      });
-    }
-
-    publishUserEvent(sub.studentId, "submission.updated", {
-      submissionId: updated.id,
-      status: updated.status,
-      reviewedAt: updated.reviewedAt?.toISOString() ?? null,
+  } catch (error) {
+    logger.warn("submission.approve.notification_failed", {
+      submissionId,
+      reviewerId,
+      message: error instanceof Error ? error.message : String(error),
     });
+  }
 
-    return updated;
+  if (txResult.trainerId) {
+    publishUserEvent(txResult.trainerId, "submission.updated", {
+      submissionId: txResult.updated.id,
+      status: txResult.updated.status,
+      reviewedAt: txResult.updated.reviewedAt?.toISOString() ?? null,
+    });
+  }
+
+  publishUserEvent(txResult.studentId, "submission.updated", {
+    submissionId: txResult.updated.id,
+    status: txResult.updated.status,
+    reviewedAt: txResult.updated.reviewedAt?.toISOString() ?? null,
   });
+
+  logger.info("submission.approve.db_timing", {
+    submissionId,
+    reviewerId,
+    ...timings,
+    totalMs: elapsedMs(startedAt),
+  });
+
+  return txResult.updated;
 }
 
 export async function rejectSubmission(reviewerId: string, reviewerRole: string, submissionId: string, note: string) {

@@ -1237,7 +1237,10 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
         users: { ...state.users, [normalizedUser.id]: normalizedUser },
       }));
 
-      await get().refreshData();
+      void get().refreshData({
+        background: true,
+        scope: getRefreshScopeForRole(normalizedUser.role),
+      });
       return true;
     } catch (error) {
       console.error("Login failed:", error);
@@ -1332,7 +1335,10 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
         users: { ...state.users, [normalizedUser.id]: normalizedUser },
       }));
 
-      await get().refreshData();
+      void get().refreshData({
+        background: true,
+        scope: getRefreshScopeForRole(normalizedUser.role),
+      });
     } catch (error) {
       console.error("Signup failed:", error);
       set((state) => ({ system: { ...state.system, isLoading: false } }));
@@ -1732,8 +1738,13 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
 
     try {
       await approveSubmissionAPI(submissionId, note || "");
-      await get().refreshData({ background: true, scope: getRefreshScopeForRole(get().session.currentUser?.role) });
+      await get().fetchSubmissions();
     } catch (error) {
+      const message = error instanceof Error ? error.message : "";
+      if (/already reviewed/i.test(message)) {
+        await get().fetchSubmissions();
+        return;
+      }
       console.error("Approval failed:", error);
       set((state) => ({
         ...state,
@@ -1766,8 +1777,13 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
 
     try {
       await rejectSubmissionAPI(submissionId, note);
-      await get().refreshData({ background: true, scope: getRefreshScopeForRole(get().session.currentUser?.role) });
+      await get().fetchSubmissions();
     } catch (error) {
+      const message = error instanceof Error ? error.message : "";
+      if (/already reviewed/i.test(message)) {
+        await get().fetchSubmissions();
+        return;
+      }
       console.error("Rejection failed:", error);
       set((state) => ({
         ...state,

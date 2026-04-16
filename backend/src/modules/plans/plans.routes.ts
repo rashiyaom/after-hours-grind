@@ -2,12 +2,21 @@ import { Router } from "express";
 import { asyncHandler } from "../../lib/asyncHandler.js";
 import { requireAuth } from "../../middleware/requireAuth.js";
 import { requireRole } from "../../middleware/requireRole.js";
+import { createRateLimit } from "../../middleware/rateLimit.js";
+import { env } from "../../config/env.js";
 import * as ctrl from "./plans.controller.js";
 
 const router = Router();
 
+const authReadLimiter = createRateLimit({
+	key: "api-auth-read",
+	windowMs: env.API_AUTH_READ_RATE_LIMIT_WINDOW_MS,
+	maxRequests: env.API_AUTH_READ_RATE_LIMIT_MAX_REQUESTS,
+	keyResolver: (req) => req.user?.userId ?? req.ip ?? "unknown",
+});
+
 // Student
-router.get("/student/plan/today", requireAuth, requireRole("STUDENT"), asyncHandler(ctrl.getTodayPlanHandler));
+router.get("/student/plan/today", requireAuth, requireRole("STUDENT"), authReadLimiter, asyncHandler(ctrl.getTodayPlanHandler));
 router.post("/student/plan/generate", requireAuth, requireRole("STUDENT"), asyncHandler(ctrl.generatePersonalizedPlanHandler));
 router.post("/submissions", requireAuth, requireRole("STUDENT"), asyncHandler(ctrl.createSubmissionHandler));
 router.post("/plans/:id/submit", requireAuth, requireRole("STUDENT"), asyncHandler(ctrl.submitForApprovalHandler));
@@ -22,7 +31,7 @@ router.get("/plans/pending", requireAuth, requireRole("TRAINER", "ADMIN"), async
 router.post("/plans/:id/review", requireAuth, requireRole("TRAINER", "ADMIN"), asyncHandler(ctrl.reviewPlanHandler));
 
 // Trainer + Admin
-router.get("/submissions", requireAuth, requireRole("TRAINER", "ADMIN"), asyncHandler(ctrl.getSubmissionsHandler));
+router.get("/submissions", requireAuth, requireRole("TRAINER", "ADMIN"), authReadLimiter, asyncHandler(ctrl.getSubmissionsHandler));
 router.post("/submissions/:id/approve", requireAuth, requireRole("TRAINER", "ADMIN"), asyncHandler(ctrl.approveHandler));
 router.post("/submissions/:id/reject", requireAuth, requireRole("TRAINER", "ADMIN"), asyncHandler(ctrl.rejectHandler));
 

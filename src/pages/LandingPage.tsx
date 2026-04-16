@@ -78,28 +78,28 @@ const pillars = [
     title: "SMART PLAN ENGINE",
     body: "Your goals, timeline, and history fuel a structured 30-day execution blueprint — generated in seconds, built to last.",
     icon: Zap,
-    accent: "#4DD2FF", // Cyan
+    accent: "#C9F85A",
   },
   {
     num: "02",
     title: "TRAINER APPROVAL GATE",
     body: "No plan goes live without expert eyes. Every programme is locked until your assigned trainer signs off.",
     icon: Lock,
-    accent: "#A78BFA", // Violet
+    accent: "#FFD36E",
   },
   {
     num: "03",
     title: "PROOF LOOP SYSTEM",
     body: "Daily uploads. Check-in streaks. Hard data. Discipline isn't a feeling — it's a number we track for you.",
     icon: BarChart3,
-    accent: "#4DD2FF",
+    accent: "#C9F85A",
   },
   {
     num: "04",
     title: "THE HOURS THAT COUNT",
     body: "Most people train when it's convenient. You train after hours — when the room is empty and the results are earned.",
     icon: Clock,
-    accent: "#A78BFA",
+    accent: "#FFD36E",
   },
 ];
 
@@ -216,7 +216,7 @@ export default function LandingPage() {
           width: 600,
           height: 600,
           borderRadius: "50%",
-          background: "radial-gradient(circle, rgba(77,210,255,0.25) 0%, rgba(77,210,255,0.08) 35%, rgba(77,210,255,0) 70%)",
+          background: "radial-gradient(circle, rgba(201,248,90,0.24) 0%, rgba(201,248,90,0.08) 35%, rgba(201,248,90,0) 70%)",
           filter: "blur(24px)",
           mixBlendMode: "screen",
           zIndex: 5,
@@ -228,7 +228,7 @@ export default function LandingPage() {
         style={{
           scaleX,
           position: "fixed", top: 0, left: 0, right: 0, height: 2,
-          background: "linear-gradient(90deg, #4DD2FF, #A78BFA)",
+          background: "linear-gradient(90deg, #C9F85A, #FFD36E)",
           transformOrigin: "left", zIndex: 100,
         }}
       />
@@ -245,13 +245,13 @@ export default function LandingPage() {
         }} />
 
         <motion.div style={{ y: heroY, position: "absolute", inset: 0, zIndex: 1, pointerEvents: "none" }}>
-          <div style={{ position: "absolute", top: "10%", left: "-10%", width: "60vw", height: "60vw", borderRadius: "50%", background: "radial-gradient(circle, rgba(77,210,255,0.08) 0%, transparent 70%)", filter: "blur(40px)" }} />
-          <div style={{ position: "absolute", top: "20%", right: "-10%", width: "50vw", height: "50vw", borderRadius: "50%", background: "radial-gradient(circle, rgba(167,139,250,0.07) 0%, transparent 70%)", filter: "blur(40px)" }} />
+          <div style={{ position: "absolute", top: "10%", left: "-10%", width: "60vw", height: "60vw", borderRadius: "50%", background: "radial-gradient(circle, rgba(201,248,90,0.08) 0%, transparent 70%)", filter: "blur(40px)" }} />
+          <div style={{ position: "absolute", top: "20%", right: "-10%", width: "50vw", height: "50vw", borderRadius: "50%", background: "radial-gradient(circle, rgba(255,211,110,0.07) 0%, transparent 70%)", filter: "blur(40px)" }} />
         </motion.div>
 
         <div style={{ position: "relative", zIndex: 2, padding: "calc(64px + clamp(1.8rem,5vw,1.9rem)) clamp(1.5rem,5vw,6vw) clamp(2.5rem,6vh,3rem)", maxWidth: 1400, width: "100%", flex: 1 }}>
           <motion.div {...heroUp(0.1)} className="hidden sm:block" style={{ marginBottom: "1.6rem" }}>
-            <span style={{ display: "inline-block", fontSize: "clamp(0.58rem,1.9vw,0.7rem)", fontWeight: 700, letterSpacing: "0.18em", color: "#4DD2FF", padding: "5px 10px", border: "1px solid rgba(77,210,255,0.3)" }}>
+            <span style={{ display: "inline-block", fontSize: "clamp(0.58rem,1.9vw,0.7rem)", fontWeight: 700, letterSpacing: "0.18em", color: "#C9F85A", padding: "5px 10px", border: "1px solid rgba(201,248,90,0.35)" }}>
               THEAFTERHOUR SOCIALS — SPORTS -MADE SOCIAL
             </span>
           </motion.div>
@@ -267,7 +267,7 @@ export default function LandingPage() {
             </motion.h1>
           </div>
           <div style={{ paddingBottom: "0.2em" }}>
-            <motion.h1 {...heroUp(0.30)} style={{ fontSize: "clamp(2.9rem,10vw,9rem)", fontWeight: 800, lineHeight: 1.2, letterSpacing: "-0.03em", color: "#4DD2FF", margin: 0, textTransform: "uppercase" }}>
+            <motion.h1 {...heroUp(0.30)} style={{ fontSize: "clamp(2.9rem,10vw,9rem)", fontWeight: 800, lineHeight: 1.2, letterSpacing: "-0.03em", color: "#C9F85A", margin: 0, textTransform: "uppercase" }}>
               AFTER HOURS.
             </motion.h1>
           </div>
@@ -276,7 +276,7 @@ export default function LandingPage() {
             {...heroUp(0.42)}
             className="mt-6 flex flex-col items-start gap-6 sm:mt-[clamp(1.2rem,2.4vh,2.5rem)] sm:flex-row sm:flex-wrap sm:items-end sm:gap-[clamp(1rem,3vw,3rem)]"
           >
-            <p style={{ maxWidth: 420, fontSize: "clamp(0.88rem,2.6vw,1rem)", fontWeight: 300, lineHeight: 1.7, color: "rgba(239,239,239,0.5)", margin: 0, borderLeft: "2px solid rgba(77,210,255,0.6)", paddingLeft: "1rem" }}>
+            <p style={{ maxWidth: 420, fontSize: "clamp(0.88rem,2.6vw,1rem)", fontWeight: 300, lineHeight: 1.7, color: "rgba(239,239,239,0.5)", margin: 0, borderLeft: "2px solid rgba(201,248,90,0.7)", paddingLeft: "1rem" }}>
               A precision coaching platform built for people who train when the rest of the world is asleep.
               Smart plans. Expert sign-off. Daily proof.
             </p>
@@ -288,14 +288,14 @@ export default function LandingPage() {
                 style={{
                   position: "relative",
                   display: "flex", alignItems: "center", justifyContent: "center", gap: 10,
-                  background: "#4DD2FF", color: "#000", textDecoration: "none",
+                  background: "#C9F85A", color: "#0E1400", textDecoration: "none",
                   padding: "17px 28px", fontSize: "0.83rem", fontWeight: 700,
                   letterSpacing: "0.12em", textTransform: "uppercase",
                   transition: "transform 0.2s, background 0.2s", borderRadius: 8,
                   width: "100%", overflow: "hidden",
                 }}
-                onMouseEnter={e => { e.currentTarget.style.transform = "translateY(-2px)"; e.currentTarget.style.background = "#3ab8e6"; }}
-                onMouseLeave={e => { e.currentTarget.style.transform = "translateY(0)"; e.currentTarget.style.background = "#4DD2FF"; }}
+                onMouseEnter={e => { e.currentTarget.style.transform = "translateY(-2px)"; e.currentTarget.style.background = "#d7ff72"; }}
+                onMouseLeave={e => { e.currentTarget.style.transform = "translateY(0)"; e.currentTarget.style.background = "#C9F85A"; }}
               >
                 <motion.span
                   style={{ position: "absolute", inset: 0, background: "linear-gradient(105deg, transparent 40%, rgba(255,255,255,0.3) 50%, transparent 60%)", backgroundSize: "200% 100%" }}
@@ -323,12 +323,12 @@ export default function LandingPage() {
             style={{ marginTop: "3.5rem", paddingTop: "2rem", borderTop: "1px solid rgba(255,255,255,0.06)", gap: "3rem", alignItems: "flex-start" }}
           >
             <div ref={ref94}>
-              <div style={{ fontSize: "2.1rem", fontWeight: 800, color: "#4DD2FF", lineHeight: 1, fontVariantNumeric: "tabular-nums" }}>{count94}%</div>
+              <div style={{ fontSize: "2.1rem", fontWeight: 800, color: "#C9F85A", lineHeight: 1, fontVariantNumeric: "tabular-nums" }}>{count94}%</div>
               <div style={{ marginTop: "0.45rem", fontSize: "0.6rem", letterSpacing: "0.14em", color: "rgba(239,239,239,0.28)", textTransform: "uppercase" }}>Plan completion</div>
             </div>
             <div style={{ width: 1, height: 36, background: "rgba(255,255,255,0.08)", alignSelf: "center" }} />
             <div ref={ref100}>
-              <div style={{ fontSize: "2.1rem", fontWeight: 800, color: "#A78BFA", lineHeight: 1, fontVariantNumeric: "tabular-nums" }}>{count100}%</div>
+              <div style={{ fontSize: "2.1rem", fontWeight: 800, color: "#FFD36E", lineHeight: 1, fontVariantNumeric: "tabular-nums" }}>{count100}%</div>
               <div style={{ marginTop: "0.45rem", fontSize: "0.6rem", letterSpacing: "0.14em", color: "rgba(239,239,239,0.28)", textTransform: "uppercase" }}>Trainer-reviewed</div>
             </div>
           </motion.div>
@@ -350,7 +350,7 @@ export default function LandingPage() {
         <div className="grid grid-cols-4 border-l border-white/10" style={{ gap: 0 }}>
           {stats.map((s, i) => (
             <motion.div key={s.label} {...revealUp(i * 0.08)} className="border-r border-b border-white/10" style={{ padding: "clamp(1.1rem,3.2vw,2.2rem) clamp(1rem,3vw,2rem)", textAlign: "center" }}>
-              <div style={{ fontSize: "clamp(1.8rem,3vw,2.8rem)", fontWeight: 800, color: i % 2 === 0 ? "#4DD2FF" : "#A78BFA", lineHeight: 1 }}>{s.value}</div>
+              <div style={{ fontSize: "clamp(1.8rem,3vw,2.8rem)", fontWeight: 800, color: i % 2 === 0 ? "#C9F85A" : "#FFD36E", lineHeight: 1 }}>{s.value}</div>
               <div style={{ marginTop: "0.5rem", fontSize: "0.7rem", fontWeight: 400, letterSpacing: "0.12em", color: "rgba(239,239,239,0.35)", textTransform: "uppercase" }}>{s.label}</div>
             </motion.div>
           ))}
@@ -369,7 +369,7 @@ export default function LandingPage() {
       {/* ── PILLARS ──────────────────────────────────────── */}
       <section style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}>
         <motion.div {...revealLeft(0)} style={{ display: "flex", alignItems: "center", gap: "1rem", padding: "2.5rem clamp(1.5rem,6vw,6vw) 0", marginBottom: "2.5rem" }}>
-          <motion.span initial={{ scaleX: 0 }} whileInView={{ scaleX: 1 }} viewport={{ once: true, amount: 0.5 }} transition={{ duration: 0.5, ease: snappyEase }} style={{ width: 32, height: 1, background: "#4DD2FF", display: "inline-block", transformOrigin: "left" }} />
+          <motion.span initial={{ scaleX: 0 }} whileInView={{ scaleX: 1 }} viewport={{ once: true, amount: 0.5 }} transition={{ duration: 0.5, ease: snappyEase }} style={{ width: 32, height: 1, background: "#C9F85A", display: "inline-block", transformOrigin: "left" }} />
           <span style={{ fontSize: "0.65rem", letterSpacing: "0.25em", color: "rgba(255,255,255,0.35)", textTransform: "uppercase" }}>The System</span>
         </motion.div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: "1px", background: "rgba(255,255,255,0.06)" }}>
@@ -379,7 +379,7 @@ export default function LandingPage() {
 
       {/* ── IDENTITY SECTION ─────────────────────────────── */}
       <section style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", minHeight: "60vh", borderTop: "1px solid rgba(255,255,255,0.06)" }}>
-        <motion.div {...revealUp(0, 40)} style={{ background: "#4DD2FF", padding: "clamp(2.5rem,7vw,5rem) clamp(1.5rem,6vw,4rem)", display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
+        <motion.div {...revealUp(0, 40)} style={{ background: "#C9F85A", padding: "clamp(2.5rem,7vw,5rem) clamp(1.5rem,6vw,4rem)", display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
           <motion.span {...fadeIn(0.2)} style={{ fontSize: "0.65rem", fontWeight: 700, letterSpacing: "0.25em", color: "rgba(0,0,0,0.5)", textTransform: "uppercase" }}>TheAfterHour Socials</motion.span>
           <div>
             <motion.div {...revealUp(0.15, 24)} style={{ fontSize: "clamp(2.2rem,5vw,4.5rem)", fontWeight: 800, lineHeight: 0.9, letterSpacing: "-0.03em", color: "#000", textTransform: "uppercase" }}>BUILT FOR THOSE WHO SHOW UP.</motion.div>
@@ -403,11 +403,11 @@ export default function LandingPage() {
         <motion.span {...fadeIn(0)} style={{ fontSize: "0.65rem", fontWeight: 700, letterSpacing: "0.28em", color: "rgba(255,255,255,0.25)", textTransform: "uppercase" }}>Ready?</motion.span>
         <motion.h2 {...revealUp(0.08, 36)} style={{ fontSize: "clamp(2.4rem,7vw,6rem)", fontWeight: 800, letterSpacing: "-0.03em", lineHeight: 0.95, textTransform: "uppercase", margin: "1.2rem 0 2rem", color: "#EFEFEF" }}>
           YOUR PLAN. YOUR PROOF.<br />
-          <motion.span initial={{ color: "#EFEFEF" }} whileInView={{ color: "#4DD2FF" }} viewport={{ once: true, amount: 0.5 }} transition={{ duration: 0.65, delay: 0.3 }}>YOUR GRIND.</motion.span>
+          <motion.span initial={{ color: "#EFEFEF" }} whileInView={{ color: "#C9F85A" }} viewport={{ once: true, amount: 0.5 }} transition={{ duration: 0.65, delay: 0.3 }}>YOUR GRIND.</motion.span>
         </motion.h2>
         <motion.p {...revealUp(0.18)} style={{ maxWidth: 460, margin: "0 auto 2.5rem", fontSize: "0.9rem", fontWeight: 300, lineHeight: 1.8, color: "rgba(239,239,239,0.4)" }}>Join the platform where accountability isn't optional and progress is measurable. From day one to day thirty — we watch every rep.</motion.p>
         <motion.div {...revealUp(0.26)} className="flex flex-col sm:flex-row justify-center items-stretch sm:items-center gap-3 sm:gap-4">
-          <Link to="/signup" style={{ position: "relative", display: "flex", alignItems: "center", justifyContent: "center", gap: 10, background: "#4DD2FF", color: "#000", textDecoration: "none", padding: "18px 40px", fontSize: "0.85rem", fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", transition: "opacity 0.2s", overflow: "hidden", borderRadius: 8 }} onMouseEnter={e => (e.currentTarget.style.opacity = "0.85")} onMouseLeave={e => (e.currentTarget.style.opacity = "1")}>
+          <Link to="/signup" style={{ position: "relative", display: "flex", alignItems: "center", justifyContent: "center", gap: 10, background: "#C9F85A", color: "#0E1400", textDecoration: "none", padding: "18px 40px", fontSize: "0.85rem", fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", transition: "opacity 0.2s", overflow: "hidden", borderRadius: 8 }} onMouseEnter={e => (e.currentTarget.style.opacity = "0.85")} onMouseLeave={e => (e.currentTarget.style.opacity = "1")}>
             <motion.span style={{ position: "absolute", inset: 0, background: "linear-gradient(105deg, transparent 35%, rgba(255,255,255,0.3) 50%, transparent 65%)", backgroundSize: "200% 100%" }} animate={{ backgroundPosition: ["200% 0", "-200% 0"] }} transition={{ duration: 2.6, repeat: Infinity, ease: "linear", repeatDelay: 1.5 }} />
             Create Free Account <ArrowRight size={16} />
           </Link>
@@ -419,27 +419,27 @@ export default function LandingPage() {
 
       {/* ── EVENTS TEASER ───────────────────────────────── */}
       <section style={{ borderTop: "1px solid rgba(255,255,255,0.06)", padding: "clamp(3rem,9vw,7rem) clamp(1.5rem,6vw,6vw)", position: "relative", overflow: "hidden" }}>
-        <div style={{ position: "absolute", top: 0, right: 0, width: "40vw", height: "40vw", background: "radial-gradient(circle, rgba(77,210,255,0.06) 0%, transparent 70%)", filter: "blur(50px)", pointerEvents: "none" }} />
+        <div style={{ position: "absolute", top: 0, right: 0, width: "40vw", height: "40vw", background: "radial-gradient(circle, rgba(201,248,90,0.08) 0%, transparent 70%)", filter: "blur(50px)", pointerEvents: "none" }} />
         <div style={{ maxWidth: 1400 }}>
           <motion.div {...revealUp(0)} style={{ display: "flex", alignItems: "center", gap: "1rem", marginBottom: "2.5rem" }}>
-            <motion.span initial={{ scaleX: 0 }} whileInView={{ scaleX: 1 }} viewport={{ once: true, amount: 0.5 }} transition={{ duration: 0.5, ease: snappyEase }} style={{ width: 32, height: 1, background: "#4DD2FF", display: "inline-block", transformOrigin: "left" }} />
+            <motion.span initial={{ scaleX: 0 }} whileInView={{ scaleX: 1 }} viewport={{ once: true, amount: 0.5 }} transition={{ duration: 0.5, ease: snappyEase }} style={{ width: 32, height: 1, background: "#C9F85A", display: "inline-block", transformOrigin: "left" }} />
             <span style={{ fontSize: "0.65rem", letterSpacing: "0.25em", color: "rgba(255,255,255,0.35)", textTransform: "uppercase" }}>Events & Competitions</span>
           </motion.div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: "3rem", alignItems: "center" }}>
             <div>
-              <motion.h2 {...revealUp(0.08)} style={{ fontSize: "clamp(2rem,5.5vw,4.5rem)", fontWeight: 800, letterSpacing: "-0.03em", lineHeight: 0.95, textTransform: "uppercase", margin: "0 0 1.5rem", color: "#EFEFEF" }}>EVENTS WHERE<br /><span style={{ color: "#4DD2FF" }}>ATHLETES RISE.</span></motion.h2>
+              <motion.h2 {...revealUp(0.08)} style={{ fontSize: "clamp(2rem,5.5vw,4.5rem)", fontWeight: 800, letterSpacing: "-0.03em", lineHeight: 0.95, textTransform: "uppercase", margin: "0 0 1.5rem", color: "#EFEFEF" }}>EVENTS WHERE<br /><span style={{ color: "#C9F85A" }}>ATHLETES RISE.</span></motion.h2>
               <motion.p {...revealUp(0.15)} style={{ maxWidth: 460, fontSize: "clamp(0.88rem,2.2vw,1rem)", fontWeight: 300, lineHeight: 1.75, color: "rgba(239,239,239,0.45)", margin: "0 0 2rem" }}>Competitions, workshops, and masterclasses — all in one place. Register, compete, and prove you earned it.</motion.p>
               <motion.div {...revealUp(0.22)} style={{ display: "flex", flexWrap: "wrap", gap: "0.75rem", marginBottom: "2rem" }}>
-                {["Competition", "Workshop", "Masterclass", "Challenge"].map((tag) => <span key={tag} style={{ fontSize: "0.65rem", fontWeight: 700, letterSpacing: "0.18em", color: "rgba(77,210,255,0.7)", background: "rgba(77,210,255,0.06)", border: "1px solid rgba(77,210,255,0.15)", padding: "5px 12px", borderRadius: 999, textTransform: "uppercase" }}>{tag}</span>)}
+                {["Competition", "Workshop", "Masterclass", "Challenge"].map((tag) => <span key={tag} style={{ fontSize: "0.65rem", fontWeight: 700, letterSpacing: "0.18em", color: "rgba(201,248,90,0.8)", background: "rgba(201,248,90,0.08)", border: "1px solid rgba(201,248,90,0.18)", padding: "5px 12px", borderRadius: 999, textTransform: "uppercase" }}>{tag}</span>)}
               </motion.div>
               <motion.div {...revealUp(0.28)}>
-                <Link to="/events" style={{ display: "inline-flex", alignItems: "center", gap: 10, padding: "14px 28px", background: "#4DD2FF", color: "#000", textDecoration: "none", fontWeight: 700, fontSize: "0.85rem", letterSpacing: "0.1em", textTransform: "uppercase", borderRadius: 8, transition: "opacity 0.2s" }} onMouseEnter={(e) => (e.currentTarget.style.opacity = "0.85")} onMouseLeave={(e) => (e.currentTarget.style.opacity = "1")}>View All Events <ArrowRight size={15} /></Link>
+                <Link to="/events" style={{ display: "inline-flex", alignItems: "center", gap: 10, padding: "14px 28px", background: "#C9F85A", color: "#0E1400", textDecoration: "none", fontWeight: 700, fontSize: "0.85rem", letterSpacing: "0.1em", textTransform: "uppercase", borderRadius: 8, transition: "opacity 0.2s" }} onMouseEnter={(e) => (e.currentTarget.style.opacity = "0.85")} onMouseLeave={(e) => (e.currentTarget.style.opacity = "1")}>View All Events <ArrowRight size={15} /></Link>
               </motion.div>
             </div>
             <motion.div {...revealUp(0.1)} className="hidden sm:flex" style={{ flexDirection: "column", gap: "1rem", minWidth: 220 }}>
               {[{ icon: Trophy, label: "Live Events", sub: "Compete in real-time" }, { icon: Calendar, label: "Upcoming", sub: "Plan ahead" }, { icon: MapPin, label: "Nationwide", sub: "Multiple cities" }].map(({ icon: Icon, label, sub }) => (
                 <div key={label} style={{ display: "flex", alignItems: "center", gap: 14, padding: "14px 18px", background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 14 }}>
-                  <div style={{ width: 38, height: 38, borderRadius: 10, background: "rgba(77,210,255,0.08)", border: "1px solid rgba(77,210,255,0.12)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}><Icon size={16} color="#4DD2FF" /></div>
+                  <div style={{ width: 38, height: 38, borderRadius: 10, background: "rgba(201,248,90,0.1)", border: "1px solid rgba(201,248,90,0.2)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}><Icon size={16} color="#C9F85A" /></div>
                   <div><div style={{ fontSize: "0.85rem", fontWeight: 600, color: "#EFEFEF" }}>{label}</div><div style={{ fontSize: "0.7rem", color: "rgba(239,239,239,0.35)" }}>{sub}</div></div>
                 </div>
               ))}
@@ -456,7 +456,7 @@ export default function LandingPage() {
             <span style={{ fontSize: "0.7rem", fontWeight: 700, letterSpacing: "0.18em", color: "rgba(255,255,255,0.3)", textTransform: "uppercase" }}>TheAfterHour Socials</span>
           </div>
           <div style={{ width: 1, height: 16, background: "rgba(255,255,255,0.1)" }} />
-          <a href="https://www.instagram.com/the.afterhoursocials/" target="_blank" rel="noopener noreferrer" style={{ display: "flex", alignItems: "center", gap: 6, color: "rgba(255,255,255,0.4)", textDecoration: "none", fontSize: "0.7rem", fontWeight: 600, transition: "color 0.2s" }} onMouseEnter={(e) => (e.currentTarget.style.color = "#4DD2FF")} onMouseLeave={(e) => (e.currentTarget.style.color = "rgba(255,255,255,0.4)")}>
+          <a href="https://www.instagram.com/the.afterhoursocials/" target="_blank" rel="noopener noreferrer" style={{ display: "flex", alignItems: "center", gap: 6, color: "rgba(255,255,255,0.4)", textDecoration: "none", fontSize: "0.7rem", fontWeight: 600, transition: "color 0.2s" }} onMouseEnter={(e) => (e.currentTarget.style.color = "#C9F85A")} onMouseLeave={(e) => (e.currentTarget.style.color = "rgba(255,255,255,0.4)")}>
             <Instagram size={14} /> Instagram
           </a>
         </div>

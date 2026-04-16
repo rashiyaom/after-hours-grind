@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Check, Flame, Dumbbell, Utensils, Footprints, Droplets,
+  Upload,
   ChevronRight, ChevronLeft, ChevronRight as ChevRight,
   Play, Info, Clock, X, Activity, Zap, ArrowUpRight, Target,
   ChevronDown

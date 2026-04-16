@@ -13,8 +13,8 @@ import { csrfProtection } from "./middleware/csrfProtection.js";
 
 const apiGlobalLimiter = createRateLimit({
   key: "api-global",
-  windowMs: 60 * 1000,
-  maxRequests: 300,
+  windowMs: env.API_GLOBAL_RATE_LIMIT_WINDOW_MS,
+  maxRequests: env.API_GLOBAL_RATE_LIMIT_MAX_REQUESTS,
 });
 
 const app = express();

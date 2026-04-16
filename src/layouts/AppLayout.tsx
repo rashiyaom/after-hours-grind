@@ -198,6 +198,8 @@ export default function AppLayout() {
             },
           };
         });
+        // Submission events also affect progress and plan widgets; refresh bundle quickly.
+        scheduleRefresh(liveScope === "student" ? "student-dashboard" : liveScope);
         return;
       }
       if (event.type === "chat.message") {

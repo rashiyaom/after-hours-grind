@@ -102,8 +102,9 @@ export default function TrainerDashboard() {
       setSelectedSubmissionId(null);
       setFeedbackNote("");
       toast.success("Task approved! Student has been notified and awarded points.");
-    } catch {
-      toast.error("Could not approve submission. Please try again.");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Could not approve submission. Please try again.";
+      toast.error(message);
     } finally {
       setReviewing(false);
     }
@@ -121,8 +122,9 @@ export default function TrainerDashboard() {
       setSelectedSubmissionId(null);
       setFeedbackNote("");
       toast.warning("Changes requested. Student has been notified.");
-    } catch {
-      toast.error("Could not reject submission. Please try again.");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Could not reject submission. Please try again.";
+      toast.error(message);
     } finally {
       setReviewing(false);
     }

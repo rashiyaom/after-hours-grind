@@ -30,6 +30,99 @@ function parseSeedAdminEmail(): string {
   return (nodeProcess?.env.SEED_ADMIN_EMAIL ?? "admin@ahg.com").trim().toLowerCase();
 }
 
+function parseLoadStudentCount(): number {
+  const raw = nodeProcess?.env.SEED_LOAD_STUDENT_COUNT;
+  const parsed = Number(raw ?? 50);
+  if (!Number.isFinite(parsed) || parsed < 1) return 50;
+  return Math.floor(parsed);
+}
+
+async function seedDedicatedLoadDataset(trainerId: string, defaultHash: string): Promise<void> {
+  const studentCount = parseLoadStudentCount();
+  const prefix = "load.student";
+
+  for (let i = 1; i <= studentCount; i += 1) {
+    const num = String(i).padStart(2, "0");
+    const email = `${prefix}${num}@ahg.com`;
+    const name = `Load Student ${num}`;
+
+    const student = await prisma.user.upsert({
+      where: { email },
+      update: {
+        name,
+        passwordHash: defaultHash,
+        role: Role.STUDENT,
+      },
+      create: {
+        email,
+        name,
+        passwordHash: defaultHash,
+        role: Role.STUDENT,
+      },
+    });
+
+    await prisma.studentProfile.upsert({
+      where: { userId: student.id },
+      update: {
+        trainerId,
+        onboardingCompleted: true,
+        fitnessGoal: "load_test",
+        collegeId: `LOAD-${num}`,
+      },
+      create: {
+        userId: student.id,
+        trainerId,
+        onboardingCompleted: true,
+        fitnessGoal: "load_test",
+        collegeId: `LOAD-${num}`,
+        heightCm: 170,
+        weightKg: 70,
+      },
+    });
+
+    await prisma.submission.deleteMany({ where: { studentId: student.id } });
+    await prisma.plan.deleteMany({ where: { studentId: student.id } });
+
+    const plan = await prisma.plan.create({
+      data: {
+        name: `Load Plan ${num}`,
+        trainerId,
+        studentId: student.id,
+        difficulty: "beginner",
+        goalType: "load_test",
+        status: "ACTIVE",
+        days: {
+          create: [
+            {
+              day: 1,
+              tasks: {
+                create: [
+                  {
+                    type: "workout",
+                    title: `Load Task ${num}`,
+                    description: "Synthetic load testing task",
+                    durationMin: 20,
+                    intensity: "moderate",
+                    points: 10,
+                  },
+                ],
+              },
+            },
+          ],
+        },
+      },
+      select: { id: true },
+    });
+
+    await prisma.studentProfile.update({
+      where: { userId: student.id },
+      data: { currentPlanId: plan.id },
+    });
+  }
+
+  console.log(`Load dataset ready: ${studentCount} load students with active plans.`);
+}
+
 async function main() {
   const adminEmail = parseSeedAdminEmail();
   const adminPassword = parseSeedAdminPassword();
@@ -142,6 +235,8 @@ async function main() {
       { threadId: thread.id, senderId: s1.id, text: "Great coach! Feeling stronger already." },
     ],
   });
+
+  await seedDedicatedLoadDataset(trainer.id, defaultHash);
 
   console.log("✅ Seed complete: admin, trainer, 2 students, plan, posts, chat");
 }

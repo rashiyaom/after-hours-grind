@@ -54,13 +54,16 @@ export const createRateLimit = ({
   key,
   windowMs,
   maxRequests,
+  keyResolver,
 }: {
   key: string;
   windowMs: number;
   maxRequests: number;
+  keyResolver?: (req: Request) => string;
 }) => {
   return async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-    const bucketKey = `${key}:${getClientIp(req)}`;
+    const resolvedKey = keyResolver?.(req) ?? getClientIp(req);
+    const bucketKey = `${key}:${resolvedKey}`;
     const currentTime = now();
 
     const redisBucket = await hitRedisBucket(bucketKey, windowMs);

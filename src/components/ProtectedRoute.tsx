@@ -15,6 +15,11 @@ const ProtectedRoute = ({ allowedRoles, requiredPermission }: ProtectedRouteProp
   const permissions = usePermissions();
   const plans = useAppStore((state) => state.plans);
 
+  // During refresh/session bootstrap, avoid a false unauthorized redirect.
+  if (isAuthenticated && !currentUser) {
+    return null;
+  }
+
   if (isAuthenticated && currentUser?.role === "student") {
     const student = currentUser as Student;
     const onboardingIncomplete = student.onboardingStatus !== "completed";

@@ -21,7 +21,7 @@ const CATEGORIES = ["Competition", "Workshop", "Seminar", "Social", "Challenge",
 
 const inputCls: React.CSSProperties = {
   width: "100%", padding: "10px 14px",
-  background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.1)",
+  background: "rgba(201,248,90,0.05)", border: "1px solid rgba(201,248,90,0.16)",
   borderRadius: 8, color: "#EFEFEF", fontSize: "0.875rem", outline: "none",
   fontFamily: "inherit", boxSizing: "border-box",
 };
@@ -36,14 +36,14 @@ function FieldEditor({ field, onUpdate, onDelete }: { field: EventFormField; onU
       <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 14px", cursor: "pointer" }} onClick={() => setExpanded(!expanded)}>
         <GripVertical size={14} color="rgba(255,255,255,0.2)" />
         <span style={{ flex: 1, fontSize: "0.875rem", color: "#EFEFEF", fontWeight: 500 }}>{field.label || "Untitled Field"}</span>
-        <span style={{ fontSize: "0.7rem", color: "rgba(77,210,255,0.7)", background: "rgba(77,210,255,0.08)", border: "1px solid rgba(77,210,255,0.15)", padding: "2px 8px", borderRadius: 999 }}>{field.type}</span>
+        <span style={{ fontSize: "0.7rem", color: "rgba(201,248,90,0.9)", background: "rgba(201,248,90,0.08)", border: "1px solid rgba(201,248,90,0.2)", padding: "2px 8px", borderRadius: 999 }}>{field.type}</span>
         {field.required && <span style={{ fontSize: "0.65rem", color: "#FF6B6B" }}>required</span>}
         <button onClick={(e) => { e.stopPropagation(); onDelete(); }} style={{ background: "none", border: "none", color: "rgba(255,100,100,0.5)", cursor: "pointer", padding: 4, display: "flex" }}><Trash2 size={13} /></button>
         {expanded ? <ChevronUp size={14} color="rgba(255,255,255,0.3)" /> : <ChevronDown size={14} color="rgba(255,255,255,0.3)" />}
       </div>
       {expanded && (
         <div style={{ padding: "12px 14px", borderTop: "1px solid rgba(255,255,255,0.06)", display: "flex", flexDirection: "column", gap: "0.75rem" }}>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))", gap: "0.75rem" }}>
             <div>
               <label style={{ display: "block", fontSize: "0.72rem", fontWeight: 600, color: "rgba(239,239,239,0.5)", marginBottom: 6, letterSpacing: "0.08em" }}>LABEL</label>
               <input style={inputCls} value={field.label} onChange={(e) => onUpdate({ ...field, label: e.target.value })} placeholder="Field label" />
@@ -68,7 +68,7 @@ function FieldEditor({ field, onUpdate, onDelete }: { field: EventFormField; onU
             </div>
           )}
           <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", fontSize: "0.82rem", color: "rgba(239,239,239,0.7)" }}>
-            <input type="checkbox" checked={field.required} onChange={(e) => onUpdate({ ...field, required: e.target.checked })} style={{ accentColor: "#4DD2FF" }} />
+            <input type="checkbox" checked={field.required} onChange={(e) => onUpdate({ ...field, required: e.target.checked })} style={{ accentColor: "#C9F85A" }} />
             Required field
           </label>
         </div>
@@ -118,7 +118,7 @@ function EventFormModal({ existing, onClose }: { existing?: AHGEvent; onClose: (
         <form onSubmit={handleSave} style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
           {/* Basic Info */}
           <div style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 12, padding: "1.25rem" }}>
-            <p style={{ fontSize: "0.7rem", fontWeight: 700, letterSpacing: "0.16em", color: "rgba(77,210,255,0.7)", marginBottom: "1rem", textTransform: "uppercase" }}>Event Details</p>
+            <p style={{ fontSize: "0.7rem", fontWeight: 700, letterSpacing: "0.16em", color: "rgba(201,248,90,0.75)", marginBottom: "1rem", textTransform: "uppercase" }}>Event Details</p>
             <div style={{ display: "flex", flexDirection: "column", gap: "0.875rem" }}>
               <div>
                 <label style={{ display: "block", fontSize: "0.72rem", fontWeight: 600, color: "rgba(239,239,239,0.5)", marginBottom: 6, letterSpacing: "0.08em" }}>EVENT TITLE *</label>
@@ -128,7 +128,7 @@ function EventFormModal({ existing, onClose }: { existing?: AHGEvent; onClose: (
                 <label style={{ display: "block", fontSize: "0.72rem", fontWeight: 600, color: "rgba(239,239,239,0.5)", marginBottom: 6, letterSpacing: "0.08em" }}>DESCRIPTION</label>
                 <textarea rows={3} style={{ ...inputCls, resize: "vertical" }} value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Describe your event…" />
               </div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem" }}>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: "0.75rem" }}>
                 <div>
                   <label style={{ display: "block", fontSize: "0.72rem", fontWeight: 600, color: "rgba(239,239,239,0.5)", marginBottom: 6, letterSpacing: "0.08em" }}>DATE & TIME *</label>
                   <input type="datetime-local" required style={{ ...inputCls, colorScheme: "dark" }} value={date} onChange={(e) => setDate(e.target.value)} />
@@ -138,7 +138,7 @@ function EventFormModal({ existing, onClose }: { existing?: AHGEvent; onClose: (
                   <input style={inputCls} value={location} onChange={(e) => setLocation(e.target.value)} placeholder="Mumbai / Online" />
                 </div>
               </div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem" }}>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: "0.75rem" }}>
                 <div>
                   <label style={{ display: "block", fontSize: "0.72rem", fontWeight: 600, color: "rgba(239,239,239,0.5)", marginBottom: 6, letterSpacing: "0.08em" }}>CATEGORY</label>
                   <select style={{ ...inputCls, cursor: "pointer" }} value={category} onChange={(e) => setCategory(e.target.value)}>{CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}</select>
@@ -153,7 +153,7 @@ function EventFormModal({ existing, onClose }: { existing?: AHGEvent; onClose: (
                 <input style={inputCls} value={mediaUrl} onChange={(e) => setMediaUrl(e.target.value)} placeholder="https://images.unsplash.com/…" />
               </div>
               <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", fontSize: "0.85rem", color: "rgba(239,239,239,0.7)" }}>
-                <input type="checkbox" checked={regOpen} onChange={(e) => setRegOpen(e.target.checked)} style={{ accentColor: "#4DD2FF" }} />
+                <input type="checkbox" checked={regOpen} onChange={(e) => setRegOpen(e.target.checked)} style={{ accentColor: "#C9F85A" }} />
                 Registration Open
               </label>
             </div>
@@ -162,8 +162,8 @@ function EventFormModal({ existing, onClose }: { existing?: AHGEvent; onClose: (
           {/* Form Builder */}
           <div style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 12, padding: "1.25rem" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" }}>
-              <p style={{ fontSize: "0.7rem", fontWeight: 700, letterSpacing: "0.16em", color: "rgba(77,210,255,0.7)", margin: 0, textTransform: "uppercase" }}>Registration Form Fields</p>
-              <button type="button" onClick={addField} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.75rem", fontWeight: 700, color: "#4DD2FF", background: "rgba(77,210,255,0.08)", border: "1px solid rgba(77,210,255,0.2)", borderRadius: 8, padding: "6px 12px", cursor: "pointer" }}><Plus size={13} /> Add Field</button>
+              <p style={{ fontSize: "0.7rem", fontWeight: 700, letterSpacing: "0.16em", color: "rgba(201,248,90,0.75)", margin: 0, textTransform: "uppercase" }}>Registration Form Fields</p>
+              <button type="button" onClick={addField} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.75rem", fontWeight: 700, color: "#C9F85A", background: "rgba(201,248,90,0.08)", border: "1px solid rgba(201,248,90,0.2)", borderRadius: 8, padding: "6px 12px", cursor: "pointer" }}><Plus size={13} /> Add Field</button>
             </div>
             {fields.length === 0 ? (
               <p style={{ fontSize: "0.82rem", color: "rgba(255,255,255,0.2)", textAlign: "center", padding: "1.5rem 0" }}>No fields yet. Add one above.</p>
@@ -179,9 +179,9 @@ function EventFormModal({ existing, onClose }: { existing?: AHGEvent; onClose: (
             )}
           </div>
 
-          <div style={{ display: "flex", gap: "0.75rem" }}>
+          <div style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap" }}>
             <button type="button" onClick={onClose} style={{ flex: 1, padding: "13px", background: "transparent", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 10, color: "rgba(239,239,239,0.5)", fontWeight: 600, cursor: "pointer" }}>Cancel</button>
-            <button type="submit" style={{ flex: 2, padding: "13px", background: "#4DD2FF", border: "none", borderRadius: 10, color: "#000", fontWeight: 700, cursor: "pointer", letterSpacing: "0.06em" }}>{existing ? "Save Changes" : "Create Event"}</button>
+            <button type="submit" style={{ flex: 2, minWidth: 220, padding: "13px", background: "#C9F85A", border: "none", borderRadius: 10, color: "#0E1400", fontWeight: 700, cursor: "pointer", letterSpacing: "0.06em" }}>{existing ? "Save Changes" : "Create Event"}</button>
           </div>
         </form>
       </motion.div>
@@ -197,7 +197,7 @@ function EntriesModal({ event, onClose }: { event: AHGEvent; onClose: () => void
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.5rem" }}>
           <div>
             <h2 style={{ fontSize: "1.1rem", fontWeight: 700, color: "#EFEFEF", margin: 0 }}>{event.title}</h2>
-            <p style={{ fontSize: "0.75rem", color: "rgba(77,210,255,0.7)", margin: "4px 0 0" }}>{event.entries.length} registered entries</p>
+            <p style={{ fontSize: "0.75rem", color: "rgba(201,248,90,0.72)", margin: "4px 0 0" }}>{event.entries.length} registered entries</p>
           </div>
           <button onClick={onClose} style={{ background: "rgba(255,255,255,0.06)", border: "none", borderRadius: 8, padding: 8, cursor: "pointer", color: "rgba(255,255,255,0.5)", display: "flex" }}><X size={16} /></button>
         </div>
@@ -208,7 +208,7 @@ function EntriesModal({ event, onClose }: { event: AHGEvent; onClose: () => void
             {event.entries.map((entry, idx) => (
               <div key={entry.id} style={{ border: "1px solid rgba(255,255,255,0.06)", borderRadius: 12, padding: "1rem", background: "rgba(255,255,255,0.02)" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "0.75rem" }}>
-                  <span style={{ fontSize: "0.72rem", fontWeight: 700, color: "rgba(77,210,255,0.6)" }}>Entry #{idx + 1}</span>
+                  <span style={{ fontSize: "0.72rem", fontWeight: 700, color: "rgba(201,248,90,0.7)" }}>Entry #{idx + 1}</span>
                   <span style={{ fontSize: "0.68rem", color: "rgba(255,255,255,0.3)" }}>{new Date(entry.submittedAt).toLocaleString()}</span>
                 </div>
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(200px,1fr))", gap: "0.5rem" }}>
@@ -241,27 +241,27 @@ export default function AdminEventsManager() {
   const [viewing, setViewing] = useState<AHGEvent | null>(null);
 
   return (
-    <div style={{ padding: "clamp(1.5rem,4vw,2.5rem)", minHeight: "100vh", background: "hsl(0 0% 2%)", color: "#EFEFEF", fontFamily: "'Inter',system-ui,sans-serif" }}>
+    <div style={{ padding: "clamp(1rem,4vw,2.5rem)", minHeight: "100vh", background: "radial-gradient(800px 420px at 20% 0%, rgba(201,248,90,0.14) 0%, transparent 60%), linear-gradient(180deg, #050804 0%, #040603 45%, #030502 100%)", color: "#EFEFEF", fontFamily: "'Outfit',system-ui,sans-serif" }}>
       {/* Header */}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "2rem", flexWrap: "wrap", gap: "1rem" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "1.4rem", flexWrap: "wrap", gap: "1rem" }}>
         <div>
-          <h1 style={{ fontSize: "1.5rem", fontWeight: 700, color: "#EFEFEF", margin: 0 }}>Events Manager</h1>
-          <p style={{ fontSize: "0.85rem", color: "rgba(239,239,239,0.4)", margin: "4px 0 0" }}>Create, manage and view entries for all After Hours events.</p>
+          <h1 style={{ fontSize: "clamp(1.25rem,4.2vw,1.85rem)", fontWeight: 800, color: "#F3FFD2", margin: 0, letterSpacing: "-0.02em" }}>Events Manager</h1>
+          <p style={{ fontSize: "0.85rem", color: "rgba(239,239,239,0.56)", margin: "4px 0 0" }}>Create, manage and review registrations from one control center.</p>
         </div>
-        <button onClick={() => setCreating(true)} style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 20px", background: "#4DD2FF", border: "none", borderRadius: 10, color: "#000", fontWeight: 700, fontSize: "0.85rem", cursor: "pointer", letterSpacing: "0.06em", transition: "opacity 0.2s" }} onMouseEnter={(e) => (e.currentTarget.style.opacity = "0.85")} onMouseLeave={(e) => (e.currentTarget.style.opacity = "1")}>
+        <button onClick={() => setCreating(true)} style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 20px", background: "#C9F85A", border: "1px solid rgba(201,248,90,0.4)", borderRadius: 12, color: "#111A00", fontWeight: 800, fontSize: "0.8rem", cursor: "pointer", letterSpacing: "0.09em", transition: "opacity 0.2s", textTransform: "uppercase" }} onMouseEnter={(e) => (e.currentTarget.style.opacity = "0.85")} onMouseLeave={(e) => (e.currentTarget.style.opacity = "1")}>
           <Plus size={16} /> New Event
         </button>
       </div>
 
       {/* Stats */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(160px,1fr))", gap: "1rem", marginBottom: "2rem" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(150px,1fr))", gap: "0.8rem", marginBottom: "1.6rem" }}>
         {[
-          { label: "Total Events", value: events.length, color: "#4DD2FF" },
-          { label: "Upcoming", value: events.filter((e) => e.status === "upcoming").length, color: "#A78BFA" },
-          { label: "Total Entries", value: events.reduce((s, e) => s + e.entries.length, 0), color: "#34D399" },
-          { label: "Live Now", value: events.filter((e) => e.status === "live").length, color: "#FF3C3C" },
+          { label: "Total Events", value: events.length, color: "#C9F85A" },
+          { label: "Upcoming", value: events.filter((e) => e.status === "upcoming").length, color: "#D9FF84" },
+          { label: "Total Entries", value: events.reduce((s, e) => s + e.entries.length, 0), color: "#9BE53D" },
+          { label: "Live Now", value: events.filter((e) => e.status === "live").length, color: "#FF7A70" },
         ].map(({ label, value, color }) => (
-          <div key={label} style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 12, padding: "1rem" }}>
+          <div key={label} style={{ background: "linear-gradient(180deg, rgba(255,255,255,0.045) 0%, rgba(255,255,255,0.015) 100%)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 14, padding: "0.9rem" }}>
             <div style={{ fontSize: "1.8rem", fontWeight: 800, color, lineHeight: 1 }}>{value}</div>
             <div style={{ fontSize: "0.7rem", color: "rgba(239,239,239,0.4)", marginTop: 4, letterSpacing: "0.08em", textTransform: "uppercase" }}>{label}</div>
           </div>
@@ -277,17 +277,17 @@ export default function AdminEventsManager() {
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
           {events.map((event) => (
-            <div key={event.id} style={{ display: "flex", gap: "1rem", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 14, background: "rgba(255,255,255,0.02)", padding: "1rem", alignItems: "center", flexWrap: "wrap" }}>
+            <div key={event.id} style={{ display: "flex", gap: "0.9rem", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 16, background: "linear-gradient(180deg, rgba(255,255,255,0.035) 0%, rgba(255,255,255,0.01) 100%)", padding: "0.9rem", alignItems: "center", flexWrap: "wrap", boxShadow: "0 16px 30px rgba(0,0,0,0.24)" }}>
               {event.mediaUrl && (
-                <img src={event.mediaUrl} alt={event.title} style={{ width: 80, height: 60, objectFit: "cover", borderRadius: 8, flexShrink: 0 }} />
+                <img src={event.mediaUrl} alt={event.title} style={{ width: "clamp(72px,24vw,120px)", height: "clamp(56px,18vw,84px)", objectFit: "cover", borderRadius: 10, flexShrink: 0 }} />
               )}
               <div style={{ flex: 1, minWidth: 200 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4, flexWrap: "wrap" }}>
                   <span style={{ fontSize: "0.95rem", fontWeight: 700, color: "#EFEFEF" }}>{event.title}</span>
                   <span style={{ fontSize: "0.6rem", fontWeight: 700, padding: "2px 8px", borderRadius: 999, textTransform: "uppercase", letterSpacing: "0.14em",
-                    background: event.status === "upcoming" ? "rgba(77,210,255,0.1)" : event.status === "live" ? "rgba(255,60,60,0.1)" : "rgba(255,255,255,0.05)",
-                    color: event.status === "upcoming" ? "#4DD2FF" : event.status === "live" ? "#FF3C3C" : "rgba(255,255,255,0.35)",
-                    border: `1px solid ${event.status === "upcoming" ? "rgba(77,210,255,0.25)" : event.status === "live" ? "rgba(255,60,60,0.25)" : "rgba(255,255,255,0.08)"}`,
+                    background: event.status === "upcoming" ? "rgba(201,248,90,0.12)" : event.status === "live" ? "rgba(255,60,60,0.1)" : "rgba(255,255,255,0.05)",
+                    color: event.status === "upcoming" ? "#C9F85A" : event.status === "live" ? "#FF7979" : "rgba(255,255,255,0.35)",
+                    border: `1px solid ${event.status === "upcoming" ? "rgba(201,248,90,0.28)" : event.status === "live" ? "rgba(255,60,60,0.25)" : "rgba(255,255,255,0.08)"}`,
                   }}>{event.status}</span>
                 </div>
                 <div style={{ display: "flex", flexWrap: "wrap", gap: "0.75rem" }}>
@@ -295,11 +295,11 @@ export default function AdminEventsManager() {
                   <span style={{ display: "flex", alignItems: "center", gap: 5, fontSize: "0.75rem", color: "rgba(239,239,239,0.4)" }}><MapPin size={11} />{event.location || "TBD"}</span>
                   <span style={{ display: "flex", alignItems: "center", gap: 5, fontSize: "0.75rem", color: "rgba(239,239,239,0.4)" }}><Tag size={11} />{event.category}</span>
                   <span style={{ display: "flex", alignItems: "center", gap: 5, fontSize: "0.75rem", color: "rgba(239,239,239,0.4)" }}><Users size={11} />{event.entries.length} entries</span>
-                  {event.formFields.length > 0 && <span style={{ fontSize: "0.72rem", color: "rgba(167,139,250,0.7)" }}>{event.formFields.length} form fields</span>}
+                  {event.formFields.length > 0 && <span style={{ fontSize: "0.72rem", color: "rgba(201,248,90,0.7)" }}>{event.formFields.length} form fields</span>}
                 </div>
               </div>
-              <div style={{ display: "flex", gap: "0.5rem", flexShrink: 0 }}>
-                <button onClick={() => setViewing(event)} title="View Entries" style={{ padding: "8px 12px", background: "rgba(77,210,255,0.08)", border: "1px solid rgba(77,210,255,0.2)", borderRadius: 8, color: "#4DD2FF", cursor: "pointer", display: "flex", alignItems: "center", gap: 6, fontSize: "0.78rem", fontWeight: 600 }}><Eye size={13} />Entries</button>
+              <div style={{ display: "flex", gap: "0.5rem", flexShrink: 0, flexWrap: "wrap" }}>
+                <button onClick={() => setViewing(event)} title="View Entries" style={{ padding: "8px 12px", background: "rgba(201,248,90,0.1)", border: "1px solid rgba(201,248,90,0.24)", borderRadius: 9, color: "#C9F85A", cursor: "pointer", display: "flex", alignItems: "center", gap: 6, fontSize: "0.78rem", fontWeight: 700 }}><Eye size={13} />Entries</button>
                 <button onClick={() => setEditing(event)} title="Edit" style={{ padding: "8px 12px", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 8, color: "rgba(239,239,239,0.6)", cursor: "pointer", display: "flex", alignItems: "center", gap: 6, fontSize: "0.78rem" }}><Edit3 size={13} />Edit</button>
                 <button onClick={() => { if (confirm(`Delete "${event.title}"?`)) deleteEvent(event.id); }} title="Delete" style={{ padding: "8px", background: "rgba(255,60,60,0.06)", border: "1px solid rgba(255,60,60,0.15)", borderRadius: 8, color: "rgba(255,100,100,0.6)", cursor: "pointer", display: "flex" }}><Trash2 size={13} /></button>
               </div>
