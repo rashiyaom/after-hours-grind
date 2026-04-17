@@ -176,3 +176,10 @@ export async function assignExerciseTemplateBulkHandler(req: Request, res: Respo
     const result = await svc.assignExerciseTemplateBulk(payload);
     res.json(result);
 }
+
+export async function bulkDeleteUsersHandler(req: Request, res: Response) {
+    const { userIds } = z.object({ userIds: z.array(z.string().min(1)).min(1) }).parse(req.body);
+    const result = await svc.bulkDeleteUsersAdmin(userIds);
+    res.json(result);
+}
+

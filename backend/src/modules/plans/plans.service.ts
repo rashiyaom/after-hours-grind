@@ -141,10 +141,53 @@ const withReadRetry = async <T>(operation: string, userId: string, work: () => P
 };
 
 const computeCalendarDay = (createdAt: Date, totalDays: number): number => {
+  const startOfDay = (d: Date) => Date.UTC(d.getFullYear(), d.getMonth(), d.getDate());
   const msPerDay = 24 * 60 * 60 * 1000;
-  const elapsedDays = Math.floor((Date.now() - createdAt.getTime()) / msPerDay);
+  
+  const createdDate = startOfDay(createdAt);
+  const currentDate = startOfDay(new Date());
+  
+  const elapsedDays = Math.floor((currentDate - createdDate) / msPerDay);
   return Math.max(1, Math.min(totalDays, elapsedDays + 1));
 };
+
+/**
+ * calculateStreak — determines consecutive days of approved activity ending either today or yesterday.
+ */
+async function calculateStreak(userId: string, createdAt: Date): Promise<number> {
+  const startOfDayUTC = (d: Date) => Date.UTC(d.getFullYear(), d.getMonth(), d.getDate());
+  const msPerDay = 24 * 60 * 60 * 1000;
+  const now = new Date();
+  
+  const createdDate = startOfDayUTC(createdAt);
+  const currentDate = startOfDayUTC(now);
+  const currentDayNumber = Math.floor((currentDate - createdDate) / msPerDay) + 1;
+
+  // Fetch all approved submissions for this student
+  const approved = await prismaRead.submission.findMany({
+    where: { studentId: userId, status: "APPROVED" },
+    select: { createdAt: true },
+    orderBy: { createdAt: "desc" }
+  });
+
+  if (approved.length === 0) return 0;
+
+  // Map to unique day numbers since account creation
+  const activityDays = new Set(
+    approved.map(sub => Math.floor((startOfDayUTC(sub.createdAt) - createdDate) / msPerDay) + 1)
+  );
+
+  let streak = 0;
+  let checkDay = activityDays.has(currentDayNumber) ? currentDayNumber : currentDayNumber - 1;
+
+  while (checkDay > 0 && activityDays.has(checkDay)) {
+    streak += 1;
+    checkDay -= 1;
+  }
+
+  return streak;
+}
+
 
 const resolveUnlockedDay = (
   planDays: Array<{ day: number; tasks: Array<{ id: string }> }>,
@@ -237,7 +280,7 @@ export async function getTodayPlan(userId: string) {
   return withReadRetry("student.today_plan", userId, async () => {
     const profile = await prismaRead.studentProfile.findUnique({
       where: { userId },
-      select: { currentPlanId: true },
+      select: { currentPlanId: true, streak: true, user: { select: { createdAt: true } } },
     });
     if (!profile?.currentPlanId) return null;
 
@@ -268,7 +311,16 @@ export async function getTodayPlan(userId: string) {
     if (!plan) return null;
 
     const totalDays = Math.max(plan.days.length, 1);
-    const calendarDay = computeCalendarDay(plan.createdAt, totalDays);
+    const currentDay = computeCalendarDay(profile.user.createdAt, totalDays);
+    
+    // Sync streak on every direct fetch
+    const calculatedStreak = await calculateStreak(userId, profile.user.createdAt);
+    if (calculatedStreak !== (profile as { streak?: number }).streak) {
+      await prisma.studentProfile.update({
+        where: { userId },
+        data: { streak: calculatedStreak }
+      });
+    }
 
     const allTaskIds = plan.days.flatMap((day) => day.tasks.map((task) => task.id));
     const latestTaskSubmissions =
@@ -293,7 +345,6 @@ export async function getTodayPlan(userId: string) {
       latestByTask.set(sub.planTaskId, sub);
     }
 
-    const currentDay = resolveUnlockedDay(plan.days, latestByTask, calendarDay);
     const today = plan.days.find((day) => day.day === currentDay) ?? null;
 
     const decorateTask = (task: (typeof plan.days)[number]["tasks"][number]) => {
@@ -336,7 +387,7 @@ export async function getTodayPlanLite(userId: string) {
   return withReadRetry("student.today_plan_lite", userId, async () => {
     const profile = await prismaRead.studentProfile.findUnique({
       where: { userId },
-      select: { currentPlanId: true },
+      select: { currentPlanId: true, user: { select: { createdAt: true } } },
     });
     if (!profile?.currentPlanId) return null;
 
@@ -364,7 +415,9 @@ export async function getTodayPlanLite(userId: string) {
     if (!plan) return null;
 
     const totalDays = Math.max(plan._count.days, 1);
-    const calendarDay = computeCalendarDay(plan.createdAt, totalDays);
+    
+    // Calculate currentDay purely based on account creation date
+    const currentDay = computeCalendarDay(profile.user.createdAt, totalDays);
 
     const allTaskIds = planDays.flatMap((day) => day.tasks.map((task) => task.id));
     const latestTaskSubmissions =
@@ -388,8 +441,6 @@ export async function getTodayPlanLite(userId: string) {
       if (!sub.planTaskId) continue;
       latestByTask.set(sub.planTaskId, sub);
     }
-
-    const currentDay = resolveUnlockedDay(planDays, latestByTask, calendarDay);
 
     const todayDay = await prismaRead.planDay.findFirst({
       where: { planId: plan.id, day: currentDay },
@@ -691,6 +742,26 @@ export async function approveSubmission(reviewerId: string, reviewerRole: string
       });
 
       timings.transactionMs = elapsedMs(transactionStartedAt);
+
+      // Trigger streak Sync after successful approval
+      try {
+        const student = await prismaRead.studentProfile.findUnique({
+          where: { userId: txResult!.studentId },
+          include: { user: { select: { createdAt: true } } }
+        });
+        if (student) {
+          const newStreak = await calculateStreak(student.userId, student.user.createdAt);
+          if (newStreak !== student.streak) {
+            await prisma.studentProfile.update({
+              where: { userId: student.userId },
+              data: { streak: newStreak }
+            });
+          }
+        }
+      } catch (streakErr) {
+        logger.error("streak.sync.failed", { userId: txResult!.studentId, error: streakErr });
+      }
+
       break;
     } catch (error) {
       timings.transactionMs = elapsedMs(transactionStartedAt);

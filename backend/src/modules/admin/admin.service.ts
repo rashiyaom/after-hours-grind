@@ -1143,3 +1143,37 @@ export async function assignExerciseTemplateBulk(payload: {
         appliedToPlanCount,
     };
 }
+
+export async function bulkDeleteUsersAdmin(userIds: string[]) {
+    if (userIds.length === 0) return { deletedCount: 0 };
+
+    return prisma.$transaction(async (tx) => {
+        // 1. Handle non-cascading relations manually
+        // Delete plans where these users are either student or trainer
+        await tx.plan.deleteMany({
+            where: {
+                OR: [
+                    { studentId: { in: userIds } },
+                    { trainerId: { in: userIds } },
+                ],
+            },
+        });
+
+        // Delete event entries for these users
+        await tx.eventEntry.deleteMany({
+            where: {
+                userId: { in: userIds },
+            },
+        });
+
+        // 2. Delete the users themselves (Prisma will handle cascading for Profile, Posts, etc. as defined in schema)
+        const result = await tx.user.deleteMany({
+            where: {
+                id: { in: userIds },
+            },
+        });
+
+        return { deletedCount: result.count };
+    });
+}
+

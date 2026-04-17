@@ -564,21 +564,6 @@ export async function fetchLeaderboardAPI(limit = 50): Promise<ApiRecord[]> {
   return authedRequest<ApiRecord[]>(`/leaderboard?limit=${limit}`, { method: "GET" });
 }
 
-export async function fetchProgressOverviewAPI(): Promise<ApiRecord> {
-  return authedRequest<ApiRecord>("/progress", { method: "GET" });
-}
-
-export async function fetchProgressWeeklyAPI(): Promise<ApiRecord> {
-  return authedRequest<ApiRecord>("/progress/weekly", { method: "GET" });
-}
-
-export async function fetchProgressMonthlyAPI(planId: string): Promise<ApiRecord> {
-  return authedRequest<ApiRecord>(`/progress/monthly/${planId}`, { method: "GET" });
-}
-
-export async function fetchProgressHeatmapAPI(): Promise<ApiRecord> {
-  return authedRequest<ApiRecord>("/progress/heatmap", { method: "GET" });
-}
 
 /**
  * Aggregated dashboard call — replaces 3-4 separate progress requests.
@@ -665,17 +650,6 @@ export async function fetchExerciseTemplateAssignmentsAPI(): Promise<ApiRecord[]
   return authedRequest<ApiRecord[]>("/admin/exercise-templates/assignments", { method: "GET" });
 }
 
-export async function assignExerciseTemplateAPI(payload: {
-  templateId: string;
-  studentIds: string[];
-  dayNumber: number;
-  sortOrder?: number;
-}): Promise<ApiRecord> {
-  return authedRequest<ApiRecord>("/admin/exercise-templates/assign", {
-    method: "POST",
-    body: JSON.stringify(payload),
-  });
-}
 
 export async function assignExerciseTemplateBulkAPI(payload: {
   studentIds: string[];
@@ -687,5 +661,12 @@ export async function assignExerciseTemplateBulkAPI(payload: {
   return authedRequest<ApiRecord>("/admin/exercise-templates/assign-bulk", {
     method: "POST",
     body: JSON.stringify(payload),
+  });
+}
+
+export async function bulkDeleteUsersAPI(userIds: string[]): Promise<ApiRecord> {
+  return authedRequest<ApiRecord>("/admin/users/bulk", {
+    method: "DELETE",
+    body: JSON.stringify({ userIds }),
   });
 }

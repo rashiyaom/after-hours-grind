@@ -65,6 +65,7 @@ import {
   fetchAdminPermissionsAPI,
   setAdminPermissionAPI,
   resetAdminPermissionsAPI,
+  bulkDeleteUsersAPI,
 } from '@/lib/api';
 
 type LegacyTodayTask = {
@@ -556,6 +557,7 @@ interface AppActions {
   // User Actions
   updateUser: (userId: string, data: Partial<User>) => void;
   banUser: (userId: string) => void;
+  bulkDeleteUsers: (userIds: string[]) => Promise<void>;
   verifyTrainer: (trainerId: string) => Promise<void>;
   createPlan: (payload: {
     title: string;
@@ -1441,6 +1443,44 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
       console.error("Ban user failed:", error);
     }
   },
+
+  bulkDeleteUsers: async (userIds) => {
+    try {
+      await bulkDeleteUsersAPI(userIds);
+      
+      // Eagerly purge deleted users, posts, and leaderboard entries from local state
+      set((state) => {
+        const nextUsers = { ...state.users };
+        const nextPosts = { ...state.posts };
+        
+        userIds.forEach((id) => { delete nextUsers[id]; });
+        Object.keys(nextPosts).forEach((postId) => {
+          if (userIds.includes(nextPosts[postId].userId)) {
+            delete nextPosts[postId];
+          }
+        });
+        const nextLeaderboard = state.system.leaderboardEntries.filter(
+          (entry) => !userIds.includes(entry.userId)
+        );
+
+        return {
+          ...state,
+          users: nextUsers,
+          posts: nextPosts,
+          system: {
+            ...state.system,
+            leaderboardEntries: nextLeaderboard,
+          }
+        };
+      });
+
+      await get().refreshData();
+    } catch (error) {
+      console.error("Bulk delete users failed:", error);
+      throw error;
+    }
+  },
+
 
   verifyTrainer: async (trainerId) => {
     try {
@@ -2405,57 +2445,73 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
         await get().fetchSubmissions().catch(() => {});
       }
 
-      set((state) => ({
-        // Merge first-page backend posts to avoid dropping already-loaded feed pages.
-        posts: feedPosts.length > 0
-          ? feedPosts.reduce<Record<string, Post>>((acc, post) => {
-              acc[post.id] = post;
-              return acc;
-            }, { ...state.posts })
-          : state.posts,
-        system: {
-          ...state.system,
-          chatThreads: chatThreads ?? state.system.chatThreads,
-          events: events ?? state.system.events,
-          notifications: systemNotifications,
-          legacyNotifications,
-          progressOverview: progressOverview ?? state.system.progressOverview,
-          progressWeekly: progressWeekly.length > 0 ? progressWeekly : state.system.progressWeekly,
-          progressMonthly: progressMonthly.length > 0 ? progressMonthly : state.system.progressMonthly,
-          progressHeatmap: progressHeatmap.length > 0 ? progressHeatmap : state.system.progressHeatmap,
-          leaderboardEntries: leaderboardEntries.length > 0 ? leaderboardEntries : state.system.leaderboardEntries,
-          studentTodayPlan: studentTodayPlan ?? state.system.studentTodayPlan,
-          permissions: adminPermissions ?? state.system.permissions,
-          progressLoading: false,
-          planLoading: false,
-          isLoading: false,
-        },
-        users: (() => {
-          const nextUsers = { ...state.users };
+      set((state) => {
+        const nextUsers = fetchAdminBundle ? {} : { ...state.users };
+        const nextPosts = { ...state.posts };
 
+        // 1. Reconcile Users
+        if (fetchAdminBundle) {
           adminUsers.forEach((adminUserCandidate) => {
             const record = asRecord(adminUserCandidate);
             if (!record) return;
             const id = asString(record.id);
-            const normalized = normalizeBackendUser(record, id ? nextUsers[id] : undefined);
-            if (!normalized) return;
-            nextUsers[normalized.id] = normalized;
+            const normalized = normalizeBackendUser(record, state.users[id]);
+            if (normalized) nextUsers[normalized.id] = normalized;
           });
-
+        } else {
           trainersStudents.forEach((studentRecord) => {
             const normalized = normalizeTrainerStudentRecord(
               studentRecord,
-              asRecord(studentRecord)
-                ? nextUsers[asString(asRecord(studentRecord)?.userId)]
-                : undefined
+              nextUsers[asString(asRecord(studentRecord)?.userId)]
             );
-            if (!normalized) return;
-            nextUsers[normalized.id] = normalized;
+            if (normalized) nextUsers[normalized.id] = normalized;
           });
+        }
 
-          return nextUsers;
-        })(),
-      }));
+        // 2. Reconcile Posts (Merge new ones, but PURGE posts from users not in store if we're in admin mode)
+        const mergedPosts = { ...nextPosts };
+        if (feedPosts.length > 0) {
+          feedPosts.forEach(post => {
+            mergedPosts[post.id] = post;
+          });
+        }
+
+        // 3. Security/Integrity check: remove any posts or data from users who are no longer in our authoritative lists
+        const activeUserIds = new Set(Object.keys(nextUsers));
+        // Add current session user to active set just in case
+        if (state.session.currentUser) activeUserIds.add(state.session.currentUser.id);
+        
+        Object.keys(mergedPosts).forEach(pid => {
+          if (!activeUserIds.has(mergedPosts[pid].userId)) {
+            delete mergedPosts[pid];
+          }
+        });
+
+        // Purge leaderboard entries too
+        const nextLeaderboard = leaderboardEntries.filter(e => activeUserIds.has(e.userId));
+
+        return {
+          posts: mergedPosts,
+          users: nextUsers,
+          system: {
+            ...state.system,
+            chatThreads: chatThreads ?? state.system.chatThreads,
+            events: events ?? state.system.events,
+            notifications: systemNotifications,
+            legacyNotifications,
+            progressOverview: progressOverview ?? state.system.progressOverview,
+            progressWeekly: progressWeekly.length > 0 ? progressWeekly : state.system.progressWeekly,
+            progressMonthly: progressMonthly.length > 0 ? progressMonthly : state.system.progressMonthly,
+            progressHeatmap: progressHeatmap.length > 0 ? progressHeatmap : state.system.progressHeatmap,
+            leaderboardEntries: nextLeaderboard,
+            studentTodayPlan: studentTodayPlan ?? state.system.studentTodayPlan,
+            permissions: adminPermissions ?? state.system.permissions,
+            progressLoading: false,
+            planLoading: false,
+            isLoading: false,
+          },
+        };
+      });
     } catch (error) {
       console.error("Data refresh failed:", error);
       set((state) => ({

@@ -168,7 +168,7 @@ export default function AdminTemplatesPage() {
     return next;
   }, [cycleDays]);
 
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     setLoading(true);
     try {
       const [templateRows, assignmentRows] = await Promise.all([
@@ -187,7 +187,7 @@ export default function AdminTemplatesPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [templateSearch, categoryFilter, showActiveOnly]);
 
   useEffect(() => {
     void loadData();
@@ -195,7 +195,7 @@ export default function AdminTemplatesPage() {
       void loadData();
     }, 15000);
     return () => window.clearInterval(intervalId);
-  }, [templateSearch, categoryFilter, showActiveOnly]);
+  }, [loadData]);
 
   useEffect(() => {
     if (selectedStudentIds.length === 0) {

@@ -17,6 +17,12 @@ export interface User {
   passwordHash: string;
   avatar: string;
   role: UserRole;
+  streak?: number;
+  rank?: number;
+  completionPercentage?: number;
+  followers?: number;
+  following?: number;
+  collegeId?: string;
 }
 
 export interface Student extends User {

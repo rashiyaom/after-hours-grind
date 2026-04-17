@@ -102,9 +102,10 @@ export default function ProfilePage() {
         setFollowersList([]);
         setFollowingList([]);
       } finally {
-        if (!isMounted) return;
-        setSocialLoading(false);
-        setLoading(false);
+        if (isMounted) {
+          setSocialLoading(false);
+          setLoading(false);
+        }
       }
     };
 

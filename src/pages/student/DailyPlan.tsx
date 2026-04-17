@@ -12,6 +12,49 @@ import { Link } from "react-router-dom";
 import { toast } from "sonner";
 import { LUXURY_TWEEN_MEDIUM, LUXURY_TWEEN_SLOW } from "@/lib/motionTokens";
 
+type MealFood = {
+  item: string;
+  grams: number;
+};
+
+type MealMacros = {
+  protein: number;
+  carbs: number;
+  fats: number;
+};
+
+type WorkoutExercise = {
+  id: string;
+  name: string;
+  sets: number;
+  reps: number;
+  rest: string;
+  completed: boolean;
+  focus: string;
+  equipmentMode: "bodyweight_only" | "basic" | "full_gym";
+  alternatives: string[];
+  videoUrl?: string;
+  videoEmbedUrl?: string;
+};
+
+type DietMeal = {
+  id: string;
+  meal: string;
+  description: string;
+  time: string;
+  calories: number;
+  completed: boolean;
+  foods: MealFood[];
+  macros: MealMacros;
+};
+
+type TodayTaskViewModel = {
+  stepTarget: number;
+  hydrationGoal: string;
+  workout: WorkoutExercise[];
+  diet: DietMeal[];
+};
+
 const dayTypes = [
   "Push Day — Chest & Triceps",
   "Pull Day — Back & Biceps",
@@ -79,6 +122,36 @@ export default function DailyPlanPage() {
     backendPlanRecord && typeof backendPlanRecord.currentDay === "number" ? backendPlanRecord.currentDay : s.currentDay;
   const [selectedDay, setSelectedDay] = useState(backendCurrentDay);
   const fallbackTask = getDayTask(selectedDay);
+  const normalizedFallbackTask = useMemo<TodayTaskViewModel>(() => ({
+    stepTarget: Number(fallbackTask.stepTarget ?? 0),
+    hydrationGoal: String(fallbackTask.hydrationGoal ?? ""),
+    workout: fallbackTask.workout.map((task) => ({
+      id: task.id,
+      name: task.name,
+      sets: task.sets,
+      reps: task.reps,
+      rest: task.rest,
+      completed: task.completed,
+      focus: task.focus,
+      equipmentMode: task.equipmentMode,
+      alternatives: task.alternatives,
+    })),
+    diet: fallbackTask.diet.map((task) => ({
+      id: task.id,
+      meal: task.meal,
+      description: task.description,
+      time: task.time,
+      calories: Number(task.calories ?? 0),
+      completed: task.completed,
+      foods: task.foods.map((food) => ({ item: food.item, grams: Number(food.grams ?? 0) })),
+      macros: {
+        protein: Number(task.macros.protein ?? 0),
+        carbs: Number(task.macros.carbs ?? 0),
+        fats: Number(task.macros.fats ?? 0),
+      },
+    })),
+  }), [fallbackTask]);
+
   const dayTasks = useMemo(() => {
     if (!backendPlanRecord || !Array.isArray(backendPlanRecord.days)) return [] as Array<Record<string, unknown>>;
     const dayRecord = backendPlanRecord.days.find((item) => {
@@ -90,7 +163,7 @@ export default function DailyPlanPage() {
     return dayRecord.tasks.filter((task) => task && typeof task === "object") as Array<Record<string, unknown>>;
   }, [backendPlanRecord, selectedDay]);
 
-  const todayTask = dayTasks.length
+  const todayTask: TodayTaskViewModel = dayTasks.length
     ? {
         stepTarget: 9000,
         hydrationGoal: "3L",
@@ -131,15 +204,15 @@ export default function DailyPlanPage() {
               meal: title,
               description: String(task.description ?? "Complete your nutrition target for the day."),
               time: resolvedTime,
-            calories: 0,
-            completed: String(task.submissionStatus ?? "") === "APPROVED",
-            foods: [],
-            macros: { protein: 0, carbs: 0, fats: 0 },
+              calories: 0,
+              completed: String(task.submissionStatus ?? "") === "APPROVED",
+              foods: [] as MealFood[],
+              macros: { protein: 0, carbs: 0, fats: 0 },
             };
           }),
       }
-    : fallbackTask;
-  const [selectedExercise, setSelectedExercise] = useState<typeof todayTask.workout[0] | null>(null);
+    : normalizedFallbackTask;
+  const [selectedExercise, setSelectedExercise] = useState<WorkoutExercise | null>(null);
   const [expandedMeal, setExpandedMeal] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<"workout" | "diet">("workout");
   const [proofModal, setProofModal] = useState<{
@@ -494,8 +567,8 @@ export default function DailyPlanPage() {
               <ChevronLeft className="h-4 w-4" />
             </button>
             <button
-              onClick={() => setSelectedDay((d) => Math.min(totalDays, d + 1))}
-              disabled={selectedDay >= totalDays}
+              onClick={() => setSelectedDay((d) => Math.min(backendCurrentDay, d + 1))}
+              disabled={selectedDay >= backendCurrentDay}
               className="p-2.5 rounded-full bg-[#1D1D1D] border border-white/10 text-white/60 hover:text-white hover:bg-[#282828] disabled:opacity-25 transition-all"
             >
               <ChevronRight className="h-4 w-4" />
@@ -559,8 +632,8 @@ export default function DailyPlanPage() {
             </button>
             <span className="text-xs text-white/40 font-medium px-1">Week {Math.ceil(selectedDay / 7)}</span>
             <button
-              onClick={() => setSelectedDay((d) => Math.min(totalDays, d + 7))}
-              disabled={selectedDay > totalDays - 7}
+              onClick={() => setSelectedDay((d) => Math.min(backendCurrentDay, d + 7))}
+              disabled={selectedDay > Math.min(totalDays, backendCurrentDay) - 7}
               className="p-1.5 rounded-lg bg-[#1D1D1D] hover:bg-[#282828] text-white/60 hover:text-white disabled:opacity-25 transition-all"
             >
               <ChevronRight className="h-4 w-4" />
@@ -577,16 +650,18 @@ export default function DailyPlanPage() {
             return (
               <motion.button
                 key={day}
-                whileTap={{ scale: 0.92 }}
-                onClick={() => setSelectedDay(day)}
+                whileTap={{ scale: day <= backendCurrentDay ? 0.92 : 1 }}
+                onClick={() => day <= backendCurrentDay && setSelectedDay(day)}
+                disabled={day > backendCurrentDay}
+                title={day > backendCurrentDay ? "Unlocks on this day" : ""}
                 className={`aspect-square rounded-xl flex flex-col items-center justify-center relative transition-all text-xs font-bold border ${
                   isSelected
                     ? "bg-[#C9F85A] border-[#C9F85A] text-black shadow-[0_4px_20px_rgba(201,248,90,0.3)]"
                     : isTodayDay
                     ? "bg-[#C9F85A]/10 border-[#C9F85A]/30 text-[#C9F85A]"
                     : isDone
-                    ? "bg-[#1A1A1A] border-white/5 text-white/30"
-                    : "bg-transparent border-white/5 text-white/20 hover:border-white/15 hover:text-white/40"
+                    ? "bg-[#1A1A1A] border-white/5 text-white/30 hover:border-white/15 hover:text-white/50"
+                    : "bg-transparent border-white/5 text-white/10 opacity-50 cursor-not-allowed" // locked style
                 }`}
               >
                 {day}

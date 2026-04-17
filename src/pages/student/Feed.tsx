@@ -107,7 +107,13 @@ export default function FeedPage() {
     let isMounted = true;
 
     const hydrateFeed = async () => {
-      setLoading(true);
+      const existingPosts = Object.values(useAppStore.getState().posts);
+      const hasExistingPosts = existingPosts.length > 0;
+
+      // For a "natural refresh" like Instagram, we always want to fetch the first page 
+      // of the feed when the user visits the page, even if we have cached posts.
+      setLoading(!hasExistingPosts); // Only show skeleton if we have literally nothing.
+
       try {
         const response = await fetchFeedPageFromBackend(undefined, FEED_PAGE_SIZE);
         if (!isMounted) return;
@@ -138,6 +144,7 @@ export default function FeedPage() {
       isMounted = false;
     };
   }, [mergeRemotePosts, setLoading]);
+
 
   useEffect(() => {
     if (!initialLoadAttempted || !hasMore) return;
