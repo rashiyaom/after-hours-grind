@@ -34,6 +34,7 @@ import {
   createChatThreadAPI,
   sendChatMessageAPI, 
   fetchTodayPlanAPI,
+  fetchTodayPlanLiteAPI,
   submitTaskAPI,
   approveSubmissionAPI,
   rejectSubmissionAPI,
@@ -56,10 +57,7 @@ import {
   deleteEventAPI,
   fetchNotificationsAPI,
   markNotificationReadAPI,
-  fetchProgressOverviewAPI,
-  fetchProgressWeeklyAPI,
-  fetchProgressMonthlyAPI,
-  fetchProgressHeatmapAPI,
+  fetchProgressDashboardAPI,
   createPostAPI,
   addCommentAPI,
   followUserAPI,
@@ -2316,72 +2314,77 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
       let adminPermissions: PermissionMatrix | null = null;
 
       if (fetchStudentBundle) {
-        const [todayPlanRes, progressOverviewRes, progressWeeklyRes, progressHeatmapRes, leaderboardRes] = await Promise.allSettled([
-          fetchStudentTodayAndProgress ? fetchTodayPlanAPI() : Promise.resolve(null),
-          fetchStudentTodayAndProgress ? fetchProgressOverviewAPI() : Promise.resolve(null),
-          fetchStudentTodayAndProgress ? fetchProgressWeeklyAPI() : Promise.resolve(null),
-          fetchStudentTodayAndProgress ? fetchProgressHeatmapAPI() : Promise.resolve(null),
+        const useLiteTodayPlan = effectiveScope === 'student-dashboard';
+        const currentUser = get().session.currentUser;
+        const currentPlanId = currentUser && 'currentPlanId' in currentUser ? asString((currentUser as Student).currentPlanId) : undefined;
+
+        const [todayPlanRes, dashboardRes, leaderboardRes] = await Promise.allSettled([
+          fetchStudentTodayAndProgress
+            ? useLiteTodayPlan
+              ? fetchTodayPlanLiteAPI()
+              : fetchTodayPlanAPI()
+            : Promise.resolve(null),
+          fetchStudentTodayAndProgress ? fetchProgressDashboardAPI(currentPlanId || undefined) : Promise.resolve(null),
           fetchStudentTodayAndProgress || fetchStudentLeaderboardOnly ? fetchLeaderboardAPI() : Promise.resolve([]),
         ]);
 
         if (fetchStudentTodayAndProgress && todayPlanRes.status === 'fulfilled') {
-          const planRecord = asRecord(todayPlanRes.value);
-          studentTodayPlan = planRecord;
-          const planId = asString(planRecord?.id);
-          if (planId) {
-            const monthlyRes = await Promise.allSettled([fetchProgressMonthlyAPI(planId)]);
-            if (monthlyRes[0].status === 'fulfilled') {
-              const data = (asRecord(monthlyRes[0].value)?.data ?? []) as unknown[];
-              progressMonthly = data
-                .map((item) => asRecord(item))
-                .filter((item): item is Record<string, unknown> => Boolean(item))
-                .map((item) => ({
-                  week: asString(item.week),
-                  completion: asNumber(item.completion),
-                  completedTasks: asNumber(item.completedTasks),
-                  totalTasks: asNumber(item.totalTasks),
-                }));
+          studentTodayPlan = asRecord(todayPlanRes.value);
+        }
+
+        if (fetchStudentTodayAndProgress && dashboardRes.status === 'fulfilled') {
+          const dashData = asRecord(dashboardRes.value);
+          if (dashData) {
+            // Overall
+            const overallRecord = asRecord(dashData.overall);
+            if (overallRecord) {
+              progressOverview = {
+                streak: asNumber(overallRecord.streak),
+                totalPoints: asNumber(overallRecord.totalPoints),
+                weeklyAvgWorkoutMinutes: asNumber(overallRecord.weeklyAvgWorkoutMinutes),
+                totalStepsLast30Days: asNumber(overallRecord.totalStepsLast30Days),
+                checkInsLast30Days: asNumber(overallRecord.checkInsLast30Days),
+                completionPercentage: asNumber(overallRecord.completionPercentage),
+              };
             }
+
+            // Weekly
+            const wData = (asRecord(dashData.weekly)?.data ?? []) as unknown[];
+            progressWeekly = wData
+              .map((item) => asRecord(item))
+              .filter((item): item is Record<string, unknown> => Boolean(item))
+              .map((item) => ({
+                date: asString(item.date),
+                day: asString(item.day),
+                completion: asNumber(item.completion),
+                workoutMinutes: asNumber(item.workoutMinutes),
+                steps: asNumber(item.steps),
+                points: asNumber(item.points),
+              }));
+
+            // Heatmap
+            const hData = (asRecord(dashData.heatmap)?.data ?? []) as unknown[];
+            progressHeatmap = hData
+              .map((item) => asRecord(item))
+              .filter((item): item is Record<string, unknown> => Boolean(item))
+              .map((item) => ({
+                date: asString(item.date),
+                value: asNumber(item.value),
+                level: asNumber(item.level),
+              }));
+
+            // Monthly
+            const mData = (asRecord(dashData.monthly)?.data ?? []) as unknown[];
+            progressMonthly = mData
+              .map((item) => asRecord(item))
+              .filter((item): item is Record<string, unknown> => Boolean(item))
+              .map((item) => ({
+                week: asString(item.week),
+                completion: asNumber(item.completion),
+                completedTasks: asNumber(item.completedTasks),
+                totalTasks: asNumber(item.totalTasks),
+              }));
           }
-        }
-
-        if (fetchStudentTodayAndProgress && progressOverviewRes.status === 'fulfilled') {
-          const record = asRecord(progressOverviewRes.value);
-          progressOverview = {
-            streak: asNumber(record?.streak),
-            totalPoints: asNumber(record?.totalPoints),
-            weeklyAvgWorkoutMinutes: asNumber(record?.weeklyAvgWorkoutMinutes),
-            totalStepsLast30Days: asNumber(record?.totalStepsLast30Days),
-            checkInsLast30Days: asNumber(record?.checkInsLast30Days),
-            completionPercentage: asNumber(record?.completionPercentage),
-          };
-        }
-
-        if (fetchStudentTodayAndProgress && progressWeeklyRes.status === 'fulfilled') {
-          const data = (asRecord(progressWeeklyRes.value)?.data ?? []) as unknown[];
-          progressWeekly = data
-            .map((item) => asRecord(item))
-            .filter((item): item is Record<string, unknown> => Boolean(item))
-            .map((item) => ({
-              date: asString(item.date),
-              day: asString(item.day),
-              completion: asNumber(item.completion),
-              workoutMinutes: asNumber(item.workoutMinutes),
-              steps: asNumber(item.steps),
-              points: asNumber(item.points),
-            }));
-        }
-
-        if (fetchStudentTodayAndProgress && progressHeatmapRes.status === 'fulfilled') {
-          const data = (asRecord(progressHeatmapRes.value)?.data ?? []) as unknown[];
-          progressHeatmap = data
-            .map((item) => asRecord(item))
-            .filter((item): item is Record<string, unknown> => Boolean(item))
-            .map((item) => ({
-              date: asString(item.date),
-              value: asNumber(item.value),
-              level: asNumber(item.level),
-            }));
         }
 
         if ((fetchStudentTodayAndProgress || fetchStudentLeaderboardOnly) && leaderboardRes.status === 'fulfilled') {

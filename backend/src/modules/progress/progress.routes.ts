@@ -14,6 +14,12 @@ const authReadLimiter = createRateLimit({
 	keyResolver: (req) => req.user?.userId ?? req.ip ?? "unknown",
 });
 
+// ── Aggregated dashboard endpoint — one request instead of 3-4 ──────────────
+// GET /progress/dashboard?planId=<planId>
+// Returns: { overall, weekly, heatmap, monthly }
+router.get("/progress/dashboard", requireAuth, authReadLimiter, asyncHandler(ctrl.getDashboardHandler));
+
+// ── Individual endpoints (kept for backward compat / granular refresh) ────────
 router.get("/progress", requireAuth, authReadLimiter, asyncHandler(ctrl.getOverallHandler));
 router.get("/progress/weekly", requireAuth, authReadLimiter, asyncHandler(ctrl.getWeeklyHandler));
 router.get("/progress/monthly/:planId", requireAuth, authReadLimiter, asyncHandler(ctrl.getMonthlyHandler));
@@ -26,3 +32,4 @@ router.get("/progress/history", requireAuth, authReadLimiter, asyncHandler(ctrl.
 router.get("/progress/summary", requireAuth, authReadLimiter, asyncHandler(ctrl.getSummaryHandler));
 
 export default router;
+

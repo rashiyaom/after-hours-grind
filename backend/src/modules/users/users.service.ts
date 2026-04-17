@@ -74,7 +74,8 @@ export async function updateMe(userId: string, role: string, input: UpdateProfil
       fitnessGoal,
       onboardingDraft,
       onboardingStep,
-      onboardingCompleted,
+      // onboardingCompleted and currentPlanId are intentionally NOT destructured here.
+      // They are controlled exclusively by trainer/admin-triggered backend workflows.
     } = input;
     
     await prisma.studentProfile.update({
@@ -86,7 +87,6 @@ export async function updateMe(userId: string, role: string, input: UpdateProfil
         ...(fitnessGoal !== undefined ? { fitnessGoal } : {}),
         ...(onboardingDraft !== undefined ? { onboardingDraft: onboardingDraft as Prisma.InputJsonValue } : {}),
         ...(onboardingStep !== undefined ? { onboardingStep } : {}),
-        ...(onboardingCompleted !== undefined ? { onboardingCompleted } : {}),
       },
     });
   }

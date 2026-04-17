@@ -7,10 +7,12 @@ const ROUNDS = Number(process.env.LOAD_ROUNDS || 4);
 const LOGIN_SAMPLE_USERS = Number(process.env.LOAD_LOGIN_USERS || 20);
 const SESSION_POOL_SIZE = Number(process.env.LOAD_SESSION_POOL || VIRTUAL_USERS);
 const TIMEOUT_MS = Number(process.env.LOAD_TIMEOUT_MS || 15000);
+const BURST_READ_TIMEOUT_MS = Number(process.env.LOAD_BURST_TIMEOUT_MS || TIMEOUT_MS);
 const MUTATION_TIMEOUT_MS = Number(process.env.LOAD_MUTATION_TIMEOUT_MS || 30000);
 const THINK_TIME_MIN_MS = Number(process.env.LOAD_THINK_MIN_MS || 250);
 const THINK_TIME_MAX_MS = Number(process.env.LOAD_THINK_MAX_MS || 900);
 const TRAINER_APPROVE_BATCH = Number(process.env.LOAD_TRAINER_APPROVE_BATCH || 10);
+const STUDENT_PLAN_PATH = process.env.LOAD_STUDENT_PLAN_PATH || "/student/plan/today";
 
 const STUDENT_CREDENTIALS = Array.from({ length: VIRTUAL_USERS }, (_, i) => {
   const num = String(i + 1).padStart(2, "0");
@@ -94,7 +96,8 @@ class CookieJar {
 
 async function request(flow, jar, path, { method = "GET", body, expected = [200] } = {}) {
   const controller = new AbortController();
-  const timeoutMs = method === "GET" || method === "HEAD" ? TIMEOUT_MS : MUTATION_TIMEOUT_MS;
+  const readTimeoutMs = PROFILE === "burst" ? BURST_READ_TIMEOUT_MS : TIMEOUT_MS;
+  const timeoutMs = method === "GET" || method === "HEAD" ? readTimeoutMs : MUTATION_TIMEOUT_MS;
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
   const started = performance.now();
 
@@ -189,13 +192,13 @@ async function runStudentReadFlows(vuIndex, sessionPool) {
   if (!poolEntry?.healthy) return;
   const jar = poolEntry.jar;
 
-  await request("student.plan.today", jar, "/student/plan/today", { method: "GET", expected: [200] });
+    await request("student.plan.today", jar, STUDENT_PLAN_PATH, { method: "GET", expected: [200] });
   if (PROFILE === "paced") await sleep(randomThinkMs());
 
   await request("student.progress", jar, "/progress", { method: "GET", expected: [200] });
   if (PROFILE === "paced") await sleep(randomThinkMs());
 
-  const planRes = await request("student.plan.today", jar, "/student/plan/today", { method: "GET", expected: [200] });
+  const planRes = await request("student.plan.today", jar, STUDENT_PLAN_PATH, { method: "GET", expected: [200] });
   const planPayload = planRes.payload && typeof planRes.payload === "object" ? planRes.payload : null;
   const todaysTasks = Array.isArray(planPayload?.todaysTasks) ? planPayload.todaysTasks : [];
   const targetTask = todaysTasks.find((task) => task && task.id && task.submissionStatus === "NOT_SUBMITTED") || todaysTasks[0];
@@ -334,7 +337,9 @@ function summarizeAndPrint() {
     thinkTimeMinMs: THINK_TIME_MIN_MS,
     thinkTimeMaxMs: THINK_TIME_MAX_MS,
     trainerApproveBatch: TRAINER_APPROVE_BATCH,
-    timeoutMs: TIMEOUT_MS,
+        trainerApproveBatch: TRAINER_APPROVE_BATCH,
+        burstReadTimeoutMs: BURST_READ_TIMEOUT_MS,
+        studentPlanPath: STUDENT_PLAN_PATH,
     mutationTimeoutMs: MUTATION_TIMEOUT_MS,
   };
 

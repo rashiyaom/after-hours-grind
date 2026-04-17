@@ -17,6 +17,13 @@ const apiGlobalLimiter = createRateLimit({
   maxRequests: env.API_GLOBAL_RATE_LIMIT_MAX_REQUESTS,
 });
 
+// Tighter limit for authenticated read traffic to protect DB pool from bursts.
+const apiAuthReadLimiter = createRateLimit({
+  key: "api-auth-read",
+  windowMs: env.API_AUTH_READ_RATE_LIMIT_WINDOW_MS,
+  maxRequests: env.API_AUTH_READ_RATE_LIMIT_MAX_REQUESTS,
+});
+
 const app = express();
 if (env.TRUST_PROXY) {
   app.set("trust proxy", 1);
@@ -57,8 +64,10 @@ app.get("/", (req, res) => {
   });
 });
 
-// Routes
-app.use("/api", apiGlobalLimiter, apiRouter);
+// Routes — global limiter + auth-read limiter applied as a stack.
+// The global limiter protects the absolute ceiling; the auth-read limiter
+// provides a tighter read-path budget to shield the DB connection pool.
+app.use("/api", apiGlobalLimiter, apiAuthReadLimiter, apiRouter);
 
 // 404 + error
 app.use(notFound);

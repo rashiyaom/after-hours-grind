@@ -88,6 +88,10 @@ export default function StudentDashboard() {
     activePill === "All" ? 1 : activePill === "Workout" ? 1.08 : activePill === "Nutrition" ? 0.96 : 0.9;
 
   const backendPlan = backendTodayPlan as Record<string, unknown> | null;
+  const backendTodaysTasks =
+    backendPlan && Array.isArray(backendPlan.todaysTasks)
+      ? (backendPlan.todaysTasks.filter((task) => task && typeof task === "object") as Record<string, unknown>[])
+      : [];
   const backendDay =
     backendPlan && Array.isArray(backendPlan.days)
       ? (backendPlan.days.find((day) => {
@@ -100,7 +104,7 @@ export default function StudentDashboard() {
   const quickTasks = useMemo(() => {
     const backendTasks = backendDay && Array.isArray(backendDay.tasks)
       ? (backendDay.tasks.filter((task) => task && typeof task === "object") as Record<string, unknown>[])
-      : [];
+      : backendTodaysTasks;
 
     if (backendTasks.length > 0) {
       const mapped = backendTasks.map((item) => {
@@ -140,7 +144,7 @@ export default function StudentDashboard() {
     if (activePill === "Nutrition") return nutritionTasks;
 
     return [...workoutTasks, ...nutritionTasks];
-  }, [todayTask, activePill, backendDay]);
+  }, [todayTask, activePill, backendDay, backendTodaysTasks]);
 
   const completedQuickTasks = quickTasks.filter((task) => task.completed).length;
 

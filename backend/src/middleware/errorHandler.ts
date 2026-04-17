@@ -23,14 +23,16 @@ export const errorHandler: ErrorRequestHandler = (err, req, res, _next) => {
   }
 
   const normalizedError = err instanceof Error ? err : new Error(String(err));
+  const isProduction = env.NODE_ENV === "production";
   logger.error("request.unhandled_error", {
     ...getRequestLogContext(req),
     message: normalizedError.message,
-    stack: normalizedError.stack,
+    // Stack is omitted in production to prevent sensitive data leaking into log pipelines.
+    ...(isProduction ? {} : { stack: normalizedError.stack }),
   });
   void trackError({ error: normalizedError, request: req });
 
   res.status(500).json({
-    error: env.NODE_ENV === "production" ? "Internal server error" : normalizedError.message,
+    error: isProduction ? "Internal server error" : normalizedError.message,
   });
 };

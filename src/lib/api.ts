@@ -373,6 +373,10 @@ export async function fetchTodayPlanAPI(): Promise<ApiRecord> {
   return authedRequest<ApiRecord>("/student/plan/today", { method: "GET" });
 }
 
+export async function fetchTodayPlanLiteAPI(): Promise<ApiRecord> {
+  return authedRequest<ApiRecord>("/student/plan/today-lite", { method: "GET" });
+}
+
 export async function generatePersonalizedPlanAPI(): Promise<ApiRecord> {
   return authedRequest<ApiRecord>("/student/plan/generate", { method: "POST" });
 }
@@ -574,6 +578,16 @@ export async function fetchProgressMonthlyAPI(planId: string): Promise<ApiRecord
 
 export async function fetchProgressHeatmapAPI(): Promise<ApiRecord> {
   return authedRequest<ApiRecord>("/progress/heatmap", { method: "GET" });
+}
+
+/**
+ * Aggregated dashboard call — replaces 3-4 separate progress requests.
+ * Returns { overall, weekly, heatmap, monthly } in a single round-trip.
+ * Pass planId when the student has an active plan to include monthly adherence.
+ */
+export async function fetchProgressDashboardAPI(planId?: string): Promise<ApiRecord> {
+  const params = planId ? `?planId=${encodeURIComponent(planId)}` : "";
+  return authedRequest<ApiRecord>(`/progress/dashboard${params}`, { method: "GET" });
 }
 
 export async function fetchSettingsAPI(): Promise<ApiRecord> {

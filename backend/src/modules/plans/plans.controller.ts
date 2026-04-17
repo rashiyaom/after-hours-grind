@@ -21,6 +21,11 @@ export async function getTodayPlanHandler(req: Request, res: Response) {
   res.json(plan);
 }
 
+export async function getTodayPlanLiteHandler(req: Request, res: Response) {
+  const plan = await svc.getTodayPlanLite(req.user!.userId);
+  res.json(plan);
+}
+
 export async function createSubmissionHandler(req: Request, res: Response) {
   const data = submitSchema.parse(req.body);
   const sub = await svc.createSubmission(req.user!.userId, data);

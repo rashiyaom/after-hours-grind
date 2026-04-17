@@ -251,6 +251,13 @@ model Submission {
 
   @@index([studentId])
   @@index([status])
+  // Composite indexes for the hottest read patterns in plans.service.ts:
+  // "latest submission per task for a student" uses (studentId, planTaskId, createdAt DESC)
+  @@index([studentId, planTaskId, createdAt(sort: Desc)])
+  // "trainer submissions list filtered by status" uses (studentId, status, createdAt DESC)
+  @@index([studentId, status, createdAt(sort: Desc)])
+  // planTaskId alone for join efficiency when fetching by task
+  @@index([planTaskId])
 }
 
 // ─── NOTIFICATIONS ───────────────────────────────────────

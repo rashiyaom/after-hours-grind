@@ -52,3 +52,17 @@ export async function getHeatmapHandler(req: Request, res: Response) {
   const heatmap = await svc.getActivityHeatmap(req.user!.userId);
   res.json(heatmap);
 }
+
+/**
+ * GET /progress/dashboard?planId=<planId>
+ *
+ * Aggregated endpoint: returns overall + weekly + heatmap (+ optional monthly)
+ * in a single DB round-trip. Replaces the 3-4 parallel requests the frontend
+ * used to fire on every dashboard load.
+ */
+export async function getDashboardHandler(req: Request, res: Response) {
+  const planId = typeof req.query.planId === "string" ? req.query.planId : undefined;
+  const dashboard = await svc.getProgressDashboard(req.user!.userId, planId);
+  res.json(dashboard);
+}
+

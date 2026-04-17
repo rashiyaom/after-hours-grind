@@ -17,6 +17,7 @@ const authReadLimiter = createRateLimit({
 
 // Student
 router.get("/student/plan/today", requireAuth, requireRole("STUDENT"), authReadLimiter, asyncHandler(ctrl.getTodayPlanHandler));
+router.get("/student/plan/today-lite", requireAuth, requireRole("STUDENT"), authReadLimiter, asyncHandler(ctrl.getTodayPlanLiteHandler));
 router.post("/student/plan/generate", requireAuth, requireRole("STUDENT"), asyncHandler(ctrl.generatePersonalizedPlanHandler));
 router.post("/submissions", requireAuth, requireRole("STUDENT"), asyncHandler(ctrl.createSubmissionHandler));
 router.post("/plans/:id/submit", requireAuth, requireRole("STUDENT"), asyncHandler(ctrl.submitForApprovalHandler));

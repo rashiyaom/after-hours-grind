@@ -1,4 +1,4 @@
-import { prisma } from "../../config/prisma.js";
+import { prisma, prismaRead } from "../../config/prisma.js";
 import { HttpError } from "../../lib/httpError.js";
 import { publishUserEvent } from "../../lib/realtime.js";
 import { createPersonalized25DayPlan } from "./personalizedPlan.js";
@@ -6,6 +6,10 @@ import { env } from "../../config/env.js";
 import { logger } from "../../lib/logger.js";
 
 const COMPLETE_STATUSES = new Set(["PENDING", "APPROVED"] as const);
+const TODAY_PLAN_CACHE_TTL_MS = 15_000;
+const TODAY_PLAN_LITE_CACHE_TTL_MS = 8_000;
+// Safety limit: evict oldest entries when either cache exceeds this size.
+const PLAN_CACHE_MAX_SIZE = 2_000;
 
 const STUDENT_NOTE_PREFIX = "Student note:";
 
@@ -53,6 +57,25 @@ const composeReviewNote = (existingTrainerNote: string | null, reviewNote?: stri
 const elapsedMs = (startedAt: number): number => Number((performance.now() - startedAt).toFixed(2));
 
 const wait = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
+const READ_ATTEMPT_TIMEOUT = "READ_ATTEMPT_TIMEOUT";
+
+const withAttemptTimeout = async <T>(work: () => Promise<T>, timeoutMs: number): Promise<T> => {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => {
+      reject(new Error(READ_ATTEMPT_TIMEOUT));
+    }, timeoutMs);
+
+    work()
+      .then((value) => {
+        clearTimeout(timer);
+        resolve(value);
+      })
+      .catch((error) => {
+        clearTimeout(timer);
+        reject(error);
+      });
+  });
+};
 
 const isRetryablePrismaError = (error: unknown): boolean => {
   if (!error || typeof error !== "object") return false;
@@ -71,18 +94,24 @@ const isRetryableReadPrismaError = (error: unknown): boolean => {
   if (!error || typeof error !== "object") return false;
   const maybeCode = (error as { code?: string }).code;
   const maybeMessage = String((error as { message?: string }).message ?? "").toLowerCase();
-  return maybeCode === "P2024" || maybeMessage.includes("timed out fetching a new connection from the connection pool");
+  return (
+    maybeCode === "P2024" ||
+    maybeMessage.includes("timed out fetching a new connection from the connection pool") ||
+    maybeMessage.includes(READ_ATTEMPT_TIMEOUT.toLowerCase())
+  );
 };
 
 const withReadRetry = async <T>(operation: string, userId: string, work: () => Promise<T>): Promise<T> => {
-  const maxAttempts = 3;
+  const maxAttempts = 2;
+  const maxTotalMs = 10_500;
   const startedAt = performance.now();
 
   for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
     try {
-      return await work();
+      return await withAttemptTimeout(work, 5_000);
     } catch (error) {
-      if (isRetryableReadPrismaError(error) && attempt < maxAttempts) {
+      const totalMs = elapsedMs(startedAt);
+      if (isRetryableReadPrismaError(error) && attempt < maxAttempts && totalMs < maxTotalMs) {
         logger.warn("read.retry", {
           scope: operation,
           userId,
@@ -98,7 +127,7 @@ const withReadRetry = async <T>(operation: string, userId: string, work: () => P
           scope: operation,
           userId,
           attempts: attempt,
-          totalMs: elapsedMs(startedAt),
+          totalMs,
           message: error instanceof Error ? error.message : String(error),
         });
         throw new HttpError(503, "Data is temporarily unavailable. Please retry.");
@@ -135,15 +164,84 @@ const resolveUnlockedDay = (
   return Math.max(1, Math.min(calendarDay, firstIncompleteDay));
 };
 
+const todayPlanCache = new Map<string, { expiresAt: number; value: unknown }>();
+const todayPlanLiteCache = new Map<string, { expiresAt: number; value: unknown }>();
+
+const getCachedTodayPlan = (userId: string): unknown | null => {
+  const cached = todayPlanCache.get(userId);
+  if (!cached) return null;
+  if (cached.expiresAt <= Date.now()) {
+    todayPlanCache.delete(userId);
+    return null;
+  }
+  return cached.value;
+};
+
+const evictOldestFromCache = (cache: Map<string, { expiresAt: number; value: unknown }>): void => {
+  // First try to remove already-expired entries.
+  const now = Date.now();
+  for (const [key, entry] of cache) {
+    if (entry.expiresAt <= now) cache.delete(key);
+  }
+  // If still over limit, remove the first (oldest-inserted) entry.
+  if (cache.size >= PLAN_CACHE_MAX_SIZE) {
+    const firstKey = cache.keys().next().value;
+    if (firstKey !== undefined) cache.delete(firstKey);
+  }
+};
+
+const setCachedTodayPlan = (userId: string, value: unknown): void => {
+  if (!todayPlanCache.has(userId) && todayPlanCache.size >= PLAN_CACHE_MAX_SIZE) {
+    evictOldestFromCache(todayPlanCache);
+  }
+  todayPlanCache.set(userId, {
+    value,
+    expiresAt: Date.now() + TODAY_PLAN_CACHE_TTL_MS,
+  });
+};
+
+const invalidateTodayPlanCache = (userId: string): void => {
+  todayPlanCache.delete(userId);
+};
+
+const getCachedTodayPlanLite = (userId: string): unknown | null => {
+  const cached = todayPlanLiteCache.get(userId);
+  if (!cached) return null;
+  if (cached.expiresAt <= Date.now()) {
+    todayPlanLiteCache.delete(userId);
+    return null;
+  }
+  return cached.value;
+};
+
+const setCachedTodayPlanLite = (userId: string, value: unknown): void => {
+  if (!todayPlanLiteCache.has(userId) && todayPlanLiteCache.size >= PLAN_CACHE_MAX_SIZE) {
+    evictOldestFromCache(todayPlanLiteCache);
+  }
+  todayPlanLiteCache.set(userId, {
+    value,
+    expiresAt: Date.now() + TODAY_PLAN_LITE_CACHE_TTL_MS,
+  });
+};
+
+const invalidateTodayPlanLiteCache = (userId: string): void => {
+  todayPlanLiteCache.delete(userId);
+};
+
 export async function getTodayPlan(userId: string) {
+  const cached = getCachedTodayPlan(userId);
+  if (cached) {
+    return cached;
+  }
+
   return withReadRetry("student.today_plan", userId, async () => {
-    const profile = await prisma.studentProfile.findUnique({
+    const profile = await prismaRead.studentProfile.findUnique({
       where: { userId },
       select: { currentPlanId: true },
     });
     if (!profile?.currentPlanId) return null;
 
-    const plan = await prisma.plan.findUnique({
+    const plan = await prismaRead.plan.findUnique({
       where: { id: profile.currentPlanId },
       select: {
         id: true,
@@ -176,7 +274,7 @@ export async function getTodayPlan(userId: string) {
     const latestTaskSubmissions =
       allTaskIds.length === 0
         ? []
-        : await prisma.submission.findMany({
+        : await prismaRead.submission.findMany({
             where: { studentId: userId, planTaskId: { in: allTaskIds } },
             orderBy: [{ planTaskId: "asc" }, { createdAt: "desc" }],
             distinct: ["planTaskId"],
@@ -207,7 +305,7 @@ export async function getTodayPlan(userId: string) {
       };
     };
 
-    return {
+    const response = {
       ...plan,
       currentDay,
       totalDays,
@@ -223,6 +321,117 @@ export async function getTodayPlan(userId: string) {
         tasks: day.tasks.map(decorateTask),
       })),
     };
+
+    setCachedTodayPlan(userId, response);
+    return response;
+  });
+}
+
+export async function getTodayPlanLite(userId: string) {
+  const cached = getCachedTodayPlanLite(userId);
+  if (cached) {
+    return cached;
+  }
+
+  return withReadRetry("student.today_plan_lite", userId, async () => {
+    const profile = await prismaRead.studentProfile.findUnique({
+      where: { userId },
+      select: { currentPlanId: true },
+    });
+    if (!profile?.currentPlanId) return null;
+
+    const [plan, planDays] = await Promise.all([
+      prismaRead.plan.findUnique({
+        where: { id: profile.currentPlanId },
+        select: {
+          id: true,
+          name: true,
+          createdAt: true,
+          _count: { select: { days: true } },
+        },
+      }),
+      prismaRead.planDay.findMany({
+        where: { planId: profile.currentPlanId },
+        orderBy: { day: "asc" },
+        select: {
+          id: true,
+          day: true,
+          tasks: { select: { id: true } },
+        },
+      }),
+    ]);
+
+    if (!plan) return null;
+
+    const totalDays = Math.max(plan._count.days, 1);
+    const calendarDay = computeCalendarDay(plan.createdAt, totalDays);
+
+    const allTaskIds = planDays.flatMap((day) => day.tasks.map((task) => task.id));
+    const latestTaskSubmissions =
+      allTaskIds.length === 0
+        ? []
+        : await prismaRead.submission.findMany({
+            where: { studentId: userId, planTaskId: { in: allTaskIds } },
+            orderBy: [{ planTaskId: "asc" }, { createdAt: "desc" }],
+            distinct: ["planTaskId"],
+            select: {
+              id: true,
+              planTaskId: true,
+              status: true,
+              trainerNote: true,
+              createdAt: true,
+            },
+          });
+
+    const latestByTask = new Map<string, (typeof latestTaskSubmissions)[number]>();
+    for (const sub of latestTaskSubmissions) {
+      if (!sub.planTaskId) continue;
+      latestByTask.set(sub.planTaskId, sub);
+    }
+
+    const currentDay = resolveUnlockedDay(planDays, latestByTask, calendarDay);
+
+    const todayDay = await prismaRead.planDay.findFirst({
+      where: { planId: plan.id, day: currentDay },
+      select: {
+        id: true,
+        day: true,
+        tasks: {
+          select: {
+            id: true,
+            title: true,
+            description: true,
+            type: true,
+            intensity: true,
+          },
+        },
+      },
+    });
+
+    const todaysTasks = (todayDay?.tasks ?? []).map((task) => {
+      const latestSubmission = latestByTask.get(task.id) ?? null;
+      return {
+        ...task,
+        submissionStatus: latestSubmission?.status ?? "NOT_SUBMITTED",
+        latestSubmission,
+      };
+    });
+
+    const response = {
+      planId: plan.id,
+      planName: plan.name,
+      currentDay,
+      totalDays,
+      todaysTasks,
+      metrics: {
+        totalTasks: todaysTasks.length,
+        completedTasks: todaysTasks.filter((task) => task.submissionStatus === "APPROVED").length,
+        pendingTasks: todaysTasks.filter((task) => task.submissionStatus === "PENDING").length,
+      },
+    };
+
+    setCachedTodayPlanLite(userId, response);
+    return response;
   });
 }
 
@@ -394,6 +603,9 @@ export async function createSubmission(studentId: string, input: { planTaskId: s
     totalMs: elapsedMs(startedAt),
   });
 
+  invalidateTodayPlanCache(studentId);
+  invalidateTodayPlanLiteCache(studentId);
+
   return {
     ...createdSubmission,
     proofRefId,
@@ -560,6 +772,9 @@ export async function approveSubmission(reviewerId: string, reviewerRole: string
     totalMs: elapsedMs(startedAt),
   });
 
+  invalidateTodayPlanCache(txResult.studentId);
+  invalidateTodayPlanLiteCache(txResult.studentId);
+
   return txResult.updated;
 }
 
@@ -616,6 +831,9 @@ export async function rejectSubmission(reviewerId: string, reviewerRole: string,
     reviewedAt: updated.reviewedAt?.toISOString() ?? null,
   });
 
+  invalidateTodayPlanCache(sub.studentId);
+  invalidateTodayPlanLiteCache(sub.studentId);
+
   return updated;
 }
 
@@ -626,8 +844,8 @@ export async function createPlan(trainerId: string, input: {
   difficulty: string; 
   studentIds: string[];
 }) {
-  return prisma.$transaction(async (tx) => {
-    const plan = await tx.plan.create({
+  const plan = await prisma.$transaction(async (tx) => {
+    const created = await tx.plan.create({
       data: {
         name: input.name,
         trainerId,
@@ -638,43 +856,62 @@ export async function createPlan(trainerId: string, input: {
     });
 
     const daysData = Array.from({ length: input.duration }, (_, i) => ({
-      planId: plan.id,
+      planId: created.id,
       day: i + 1,
     }));
-    
+
     await tx.planDay.createMany({ data: daysData });
 
     if (input.studentIds.length > 0) {
       await tx.studentProfile.updateMany({
         where: { userId: { in: input.studentIds } },
-        data: { 
-          currentPlanId: plan.id,
-          onboardingCompleted: true
-        }
+        data: {
+          currentPlanId: created.id,
+          onboardingCompleted: true,
+        },
       });
-
-      // Notify assigned students
-      for (const studentId of input.studentIds) {
-        const createdNotification = await tx.notification.create({
-          data: {
-            userId: studentId,
-            type: "plan",
-            title: "New Plan Assigned",
-            message: `You've been assigned a new plan: "${input.name}"`,
-          },
-        });
-
-        publishUserEvent(studentId, "notification.created", {
-          notificationId: createdNotification.id,
-          type: createdNotification.type,
-          title: createdNotification.title,
-          createdAt: createdNotification.createdAt.toISOString(),
-        });
-      }
     }
 
-    return plan;
+    return created;
   });
+
+  // Post-commit: create notifications and publish events outside the
+  // transaction to avoid inflating lock time for large student groups.
+  if (input.studentIds.length > 0) {
+    const planName = input.name;
+    const planId = plan.id;
+    void Promise.allSettled(
+      input.studentIds.map(async (studentId) => {
+        try {
+          const createdNotification = await prisma.notification.create({
+            data: {
+              userId: studentId,
+              type: "plan",
+              title: "New Plan Assigned",
+              message: `You've been assigned a new plan: "${planName}"`,
+            },
+          });
+          publishUserEvent(studentId, "notification.created", {
+            notificationId: createdNotification.id,
+            type: createdNotification.type,
+            title: createdNotification.title,
+            createdAt: createdNotification.createdAt.toISOString(),
+          });
+          // Invalidate the student's cached plan so they see the new one.
+          invalidateTodayPlanCache(studentId);
+          invalidateTodayPlanLiteCache(studentId);
+        } catch (err) {
+          logger.warn("plan.create.notify_failed", {
+            planId,
+            studentId,
+            message: err instanceof Error ? err.message : String(err),
+          });
+        }
+      })
+    );
+  }
+
+  return plan;
 }
 
 export async function submitPlanForApproval(studentId: string, planId: string) {
