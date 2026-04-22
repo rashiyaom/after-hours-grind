@@ -1,6 +1,6 @@
-# After Hours Grind
+# THE afterhour socials
 
-After Hours Grind is a full-stack fitness accountability platform built for two roles:
+THE afterhour socials is a full-stack fitness accountability platform built for two roles:
 
 1. Student users who execute daily plans, upload progress proof, and track performance.
 2. Trainer users who monitor submissions, review student activity, and build plans.
@@ -140,6 +140,12 @@ npm install
 
 2. Run dev server
 npm run dev
+
+Marketing screenshots mode (hardcoded student-side demo data)
+npm run dev:marketing
+
+Disable marketing mode and return to live data
+npm run dev:real
 
 3. Run lint
 npm run lint

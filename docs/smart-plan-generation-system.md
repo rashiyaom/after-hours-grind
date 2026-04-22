@@ -1,4 +1,4 @@
-# Smart Plan Generation System - After Hours Grind
+# Smart Plan Generation System - THE afterhour socials
 
 ## 1) Signup Trigger Flow
 

@@ -303,7 +303,7 @@ export default function StudentDashboard() {
 
   const handleDownloadSummary = () => {
     const lines = [
-      `TheAfterHour Socials Dashboard Summary`,
+      `THE afterhour socials Dashboard Summary`,
       `Student: ${s.name}`,
       `Generated At: ${new Date().toLocaleString()}`,
       `Tab: ${activeTab}`,
@@ -540,7 +540,7 @@ export default function StudentDashboard() {
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ ...LUXURY_TWEEN_MEDIUM, delay: 0.06 }}
-          className="rounded-3xl border border-white/10 bg-[#151515] p-5 lg:col-span-5"
+          className="flex h-full flex-col rounded-3xl border border-white/10 bg-[#151515] p-5 lg:col-span-5 lg:h-[34rem]"
         >
           <div className="mb-5 flex items-center justify-between">
             <div className="flex items-center gap-2">
@@ -552,8 +552,8 @@ export default function StudentDashboard() {
             </div>
           </div>
 
-          <div className="space-y-2.5">
-            {filteredQuickTasks.slice(0, 6).map((task) => (
+          <div className="min-h-0 flex-1 space-y-2.5 overflow-y-auto pr-2 [scrollbar-width:thin] [scrollbar-color:#2C2C2C_transparent] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-[#2C2C2C] hover:[&::-webkit-scrollbar-thumb]:bg-[#3A3A3A]">
+            {filteredQuickTasks.map((task) => (
               <button
                 key={task.id}
                 type="button"
@@ -615,7 +615,7 @@ export default function StudentDashboard() {
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ ...LUXURY_TWEEN_MEDIUM, delay: 0.12 }}
-          className="rounded-3xl border border-white/10 bg-[#151515] p-5 lg:col-span-4"
+          className="flex h-full flex-col rounded-3xl border border-white/10 bg-[#151515] p-5 lg:col-span-4 lg:h-[34rem]"
         >
           {/* Header */}
           <div className="mb-5 flex items-center justify-between">
@@ -667,7 +667,7 @@ export default function StudentDashboard() {
           </div>
 
           {/* Stats */}
-          <div className="mt-4 grid grid-cols-2 gap-2">
+          <div className="mt-auto grid grid-cols-2 gap-2 pt-4">
             <div className="rounded-2xl bg-[#C9F85A]/8 border border-[#C9F85A]/20 p-3">
               <p className="text-[10px] text-[#C9F85A]/60 uppercase tracking-wider">Current streak</p>
               <p className="mt-1 text-xl font-bold text-[#C9F85A]">{s.streak} <span className="text-sm font-normal">days</span></p>
@@ -692,7 +692,7 @@ export default function StudentDashboard() {
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ ...LUXURY_TWEEN_MEDIUM, delay: 0.18 }}
-          className="rounded-3xl border border-white/10 bg-[#151515] p-5 lg:col-span-3"
+          className="flex h-full flex-col rounded-3xl border border-white/10 bg-[#151515] p-5 lg:col-span-3 lg:h-[34rem]"
         >
           {/* Header */}
           <div className="mb-4 flex items-center justify-between">
@@ -717,7 +717,7 @@ export default function StudentDashboard() {
           </div>
 
           {/* Entries */}
-          <div className="space-y-2">
+          <div className="min-h-0 flex-1 space-y-2 overflow-y-auto pr-1 [scrollbar-width:thin] [scrollbar-color:#2C2C2C_transparent] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-[#2C2C2C] hover:[&::-webkit-scrollbar-thumb]:bg-[#3A3A3A]">
             {filteredLeaderboard.slice(0, 6).map((entry) => {
               const RANK_COLORS: Record<number, { bg: string; text: string; ring: string }> = {
                 1: { bg: "bg-gradient-to-br from-[#FFD36E] to-[#FF9500]", text: "text-black", ring: "" },
@@ -727,7 +727,7 @@ export default function StudentDashboard() {
               const AVATAR_GRADS = ["from-[#C9F85A] to-[#4DD2FF]","from-[#FF7AE5] to-[#A78BFA]","from-[#FFD36E] to-[#FF4D00]","from-[#4DD2FF] to-[#6F5CFF]","from-[#C9F85A] to-[#FFD36E]"];
               const rankStyle = RANK_COLORS[entry.rank];
               const gradIdx = entry.userId.charCodeAt(0) % AVATAR_GRADS.length;
-              const initials = entry.name.split(" ").map((n: string) => n[0]).join("").slice(0, 2);
+              const initials = entry.name.split(" ").map((n: string) => n[0]).join("").slice(0, 2).toUpperCase();
               return (
                 <div key={entry.userId} className="flex items-center gap-3 rounded-2xl bg-[#1B1B1B] hover:bg-[#212121] transition-colors px-3 py-2.5 group">
                   {/* Avatar */}
@@ -747,7 +747,9 @@ export default function StudentDashboard() {
                       {entry.rank}
                     </div>
                   ) : (
-                    <span className="text-[11px] font-bold text-white/30">#{entry.rank}</span>
+                    <div className="w-6 h-6 rounded-full flex-shrink-0 flex items-center justify-center text-[10px] font-bold bg-[#242424] text-white/55 border border-white/10">
+                      {entry.rank}
+                    </div>
                   )}
                 </div>
               );
@@ -760,7 +762,7 @@ export default function StudentDashboard() {
           </div>
 
           {/* Quick links */}
-          <div className="mt-4 grid grid-cols-2 gap-2">
+          <div className="mt-auto grid grid-cols-2 gap-2 pt-4">
             {canPostFeed && (
               <Link to="/student/upload" className="rounded-xl bg-[#C9F85A] px-3 py-2 text-center text-xs font-bold text-black hover:bg-[#d4ff60] transition-colors">
                 Upload Proof

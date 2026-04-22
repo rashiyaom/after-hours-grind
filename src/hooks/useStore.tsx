@@ -954,7 +954,7 @@ const mapBackendNotificationToLegacy = (input: unknown): NotificationItem | null
     type,
     timestamp: formatRelativeTime(createdAt),
     read: asBoolean(raw.read, false),
-    userName: asString(raw.title, 'After Hours Grind'),
+    userName: asString(raw.title, 'THE afterhour socials'),
     action: message,
   };
 };
@@ -2640,8 +2640,172 @@ const normalizeTrainer = (candidate: Partial<Trainer> & Pick<User, 'id' | 'name'
   isVerified: candidate.isVerified ?? false,
 });
 
+const MARKETING_DEMO_MODE = import.meta.env.VITE_MARKETING_DEMO_MODE === 'true';
+const MARKETING_TOTAL_DAYS = 35;
+
+const buildMarketingTodayTask = (dayNumber: number): LegacyTodayTask => {
+  const cycle = dayNumber % 7;
+  const stepTarget = 10500 + (cycle % 3) * 400;
+  const hydrationGoal = `${3 + (cycle % 2) * 0.5}L`;
+
+  const workout = [
+    {
+      id: `w-${dayNumber}-1`,
+      name: 'Strength Block',
+      sets: 4,
+      reps: 10,
+      rest: '60s',
+      completed: cycle !== 0,
+      focus: 'Compound strength with controlled tempo and full range.',
+      equipmentMode: 'basic' as const,
+      alternatives: ['Bodyweight circuit', 'Resistance band circuit'],
+    },
+    {
+      id: `w-${dayNumber}-2`,
+      name: 'Conditioning Finisher',
+      sets: 3,
+      reps: 14,
+      rest: '45s',
+      completed: cycle === 1 || cycle === 2 || cycle === 4 || cycle === 5,
+      focus: 'Heart-rate push with short recovery and strong posture.',
+      equipmentMode: 'basic' as const,
+      alternatives: ['Bike intervals', 'Incline walk + carries'],
+    },
+  ];
+
+  const diet = [
+    {
+      id: `d-${dayNumber}-1`,
+      meal: 'Breakfast',
+      description: 'Protein-led plate with controlled carbs.',
+      time: '08:00',
+      calories: 480,
+      completed: cycle !== 6,
+      foods: [
+        { item: 'Eggs', grams: 120 },
+        { item: 'Oats', grams: 75 },
+        { item: 'Fruit', grams: 100 },
+      ],
+      macros: { protein: 34, carbs: 48, fats: 14 },
+    },
+    {
+      id: `d-${dayNumber}-2`,
+      meal: 'Lunch',
+      description: 'Lean protein, rice, and fiber-rich vegetables.',
+      time: '13:30',
+      calories: 620,
+      completed: cycle === 1 || cycle === 2 || cycle === 3 || cycle === 5,
+      foods: [
+        { item: 'Chicken breast', grams: 170 },
+        { item: 'Rice', grams: 200 },
+        { item: 'Salad', grams: 120 },
+      ],
+      macros: { protein: 46, carbs: 62, fats: 16 },
+    },
+    {
+      id: `d-${dayNumber}-3`,
+      meal: 'Dinner',
+      description: 'Recovery dinner with protein and micronutrient density.',
+      time: '20:00',
+      calories: 540,
+      completed: cycle !== 0,
+      foods: [
+        { item: 'Paneer/Fish', grams: 160 },
+        { item: 'Vegetables', grams: 220 },
+        { item: 'Roti', grams: 90 },
+      ],
+      macros: { protein: 38, carbs: 44, fats: 18 },
+    },
+  ];
+
+  return { stepTarget, hydrationGoal, workout, diet };
+};
+
+const buildMarketingBackendTodayPlan = (currentDay: number) => ({
+  currentDay,
+  totalDays: MARKETING_TOTAL_DAYS,
+  todaysTasks: [
+    {
+      id: `m-day-${currentDay}-t1`,
+      type: 'workout',
+      title: 'Fat-Burn Mobility Flow',
+      description: 'Low-impact flow with step-ups, glute bridge march, and tempo lunges.',
+      submissionStatus: 'PENDING',
+    },
+    {
+      id: `m-day-${currentDay}-t2`,
+      type: 'nutrition',
+      title: 'Breakfast',
+      description: 'Fat-loss plate: grilled protein, rice portion control, salad, and yogurt.',
+      submissionStatus: 'PENDING',
+    },
+    {
+      id: `m-day-${currentDay}-t3`,
+      type: 'nutrition',
+      title: 'Lunch',
+      description: 'Balanced carbs + lean protein. Daily protein target ~144g.',
+      submissionStatus: 'PENDING',
+    },
+    {
+      id: `m-day-${currentDay}-t4`,
+      type: 'nutrition',
+      title: 'Dinner',
+      description: 'Protein + vegetables focus with consistent meal timing.',
+      submissionStatus: 'PENDING',
+    },
+    {
+      id: `m-day-${currentDay}-t5`,
+      type: 'workout',
+      title: 'Upload weighing scale image',
+      description: 'Upload a clear scale photo for day-wise verification.',
+      submissionStatus: 'PENDING',
+    },
+    {
+      id: `m-day-${currentDay}-t6`,
+      type: 'workout',
+      title: 'Upload body photo',
+      description: 'Upload front/side body progress photo for review.',
+      submissionStatus: 'PENDING',
+    },
+  ],
+  days: Array.from({ length: MARKETING_TOTAL_DAYS }, (_, idx) => {
+    const day = idx + 1;
+    const base = buildMarketingTodayTask(day);
+    return {
+      day,
+      tasks: [
+        {
+          id: `m-day-${day}-w1`,
+          type: 'workout',
+          title: base.workout[0].name,
+          description: base.workout[0].focus,
+          intensity: 'moderate',
+          submissionStatus: base.workout[0].completed ? 'APPROVED' : 'PENDING',
+        },
+        {
+          id: `m-day-${day}-w2`,
+          type: 'workout',
+          title: base.workout[1].name,
+          description: base.workout[1].focus,
+          intensity: 'high',
+          submissionStatus: base.workout[1].completed ? 'APPROVED' : 'PENDING',
+        },
+        ...base.diet.map((meal, mealIndex) => ({
+          id: `m-day-${day}-n${mealIndex + 1}`,
+          type: 'nutrition',
+          title: meal.meal,
+          description: meal.description,
+          intensity: 'moderate',
+          submissionStatus: meal.completed ? 'APPROVED' : 'PENDING',
+        })),
+      ],
+    };
+  }),
+});
+
 export const useStore = () => {
   const state = useAppStore();
+  const marketingEnabled = MARKETING_DEMO_MODE && state.session.currentUser?.role === 'student';
   const users = Object.values(state.users);
   const allPosts = Object.values(state.posts);
   const studentsList = users.filter((u): u is Student => u.role === 'student');
@@ -2674,6 +2838,33 @@ export const useStore = () => {
     streak: state.system.progressOverview?.streak ?? student.streak,
   };
 
+  const marketingStudent: Student = {
+    ...resolvedStudent,
+    id: resolvedStudent.id || 'student-vinit-marketing',
+    name: 'Vinit Sharma',
+    email: resolvedStudent.email || 'vinit@ahg.com',
+    collegeId: resolvedStudent.collegeId || 'AHG-CSE-2026',
+    fitnessGoal: resolvedStudent.fitnessGoal || 'Lean muscle with visible conditioning',
+    streak: 19,
+    totalPlansCompleted: 7,
+    followers: 426,
+    following: 193,
+    currentPlanId: 'marketing-plan-2026',
+    currentDay: 18,
+    totalDays: MARKETING_TOTAL_DAYS,
+    completionPercentage: 87,
+    todaySteps: 12460,
+    rank: 1,
+    onboardingStatus: 'completed',
+    onboardingStep: 6,
+    badges: [
+      { id: 'm-b1', name: 'Consistency Machine', icon: 'flame', date: '2026-04-10', description: '14-day streak', earned: true },
+      { id: 'm-b2', name: 'Proof Master', icon: 'trophy', date: '2026-04-11', description: '50 verified uploads', earned: true },
+      { id: 'm-b3', name: '10K Club', icon: 'footprints', date: '2026-04-12', description: '10k+ steps for 10 days', earned: true },
+      { id: 'm-b4', name: 'Hydration Hero', icon: 'star', date: '', description: 'Hit water goal for 21 days', earned: false },
+    ],
+  };
+
   const trainer =
     (state.session.currentUser?.role === 'trainer'
       ? normalizeTrainer(state.session.currentUser as Trainer)
@@ -2688,7 +2879,7 @@ export const useStore = () => {
       isVerified: false,
     });
 
-  const leaderboard =
+  const fallbackLeaderboard =
     state.system.leaderboardEntries.length > 0
       ? state.system.leaderboardEntries
       : normalizedStudents
@@ -2708,27 +2899,149 @@ export const useStore = () => {
             rank: idx + 1,
           }));
 
-  const students = normalizedStudents.map((s) => ({
+  const marketingLeaderboard: LeaderboardEntry[] = [
+    { rank: 1, userId: marketingStudent.id, name: marketingStudent.name, avatar: marketingStudent.avatar, score: 4890, streak: 19, steps: 12460, uploads: 77, completionPercentage: 87 },
+    { rank: 2, userId: 'student-aarav', name: 'Aarav Patel', avatar: '', score: 4635, streak: 16, steps: 11820, uploads: 69, completionPercentage: 84 },
+    { rank: 3, userId: 'student-mira', name: 'Mira Kapoor', avatar: '', score: 4520, streak: 15, steps: 10940, uploads: 65, completionPercentage: 82 },
+    { rank: 4, userId: 'student-raghav', name: 'Raghav Iyer', avatar: '', score: 4410, streak: 14, steps: 10320, uploads: 62, completionPercentage: 81 },
+    { rank: 5, userId: 'student-iqra', name: 'Iqra Khan', avatar: '', score: 4325, streak: 13, steps: 9860, uploads: 58, completionPercentage: 79 },
+    { rank: 6, userId: 'student-neel', name: 'Neel Trivedi', avatar: '', score: 4250, streak: 12, steps: 9510, uploads: 55, completionPercentage: 78 },
+  ];
+
+  const leaderboard = marketingEnabled ? marketingLeaderboard : fallbackLeaderboard;
+
+  const students = (marketingEnabled ? marketingLeaderboard : normalizedStudents.map((s) => ({
     userId: s.id,
     name: s.name,
     streak: s.streak,
     rank: s.rank,
     completionPercentage: s.completionPercentage,
+  }))).map((candidate) => ({
+    userId: candidate.userId,
+    name: candidate.name,
+    streak: candidate.streak,
+    rank: candidate.rank,
+    completionPercentage: candidate.completionPercentage,
   }));
 
-  const suggestedUsers = normalizedStudents.map((s) => ({
+  const suggestedUsers = (marketingEnabled
+    ? [
+        marketingStudent,
+        { ...marketingStudent, id: 'student-aarav', name: 'Aarav Patel', rank: 2, streak: 16, completionPercentage: 84 },
+        { ...marketingStudent, id: 'student-mira', name: 'Mira Kapoor', rank: 3, streak: 15, completionPercentage: 82 },
+      ]
+    : normalizedStudents
+  ).map((s) => ({
     ...s,
     mutualFriends: Math.max(2, Math.floor((s.followers + s.following) / 25)),
   }));
 
-  const notifications = state.system.legacyNotifications;
-  const currentStudentPlan = resolvedStudent.currentPlanId ? state.plans[resolvedStudent.currentPlanId] : null;
+  const notifications = marketingEnabled
+    ? [
+        {
+          id: 'marketing-notif-1',
+          message: 'Coach Arjun approved your last workout proof.',
+          icon: 'check-circle',
+          type: 'trainer',
+          userName: 'Coach Arjun',
+          action: 'approved your submission',
+          timestamp: new Date(Date.now() - 15 * 60_000).toISOString(),
+          read: false,
+        },
+        {
+          id: 'marketing-notif-2',
+          message: 'You moved up to #1 on the leaderboard.',
+          icon: 'trophy',
+          type: 'rank',
+          timestamp: new Date(Date.now() - 2 * 60 * 60_000).toISOString(),
+          read: false,
+        },
+      ]
+    : state.system.legacyNotifications;
+
+  const marketingPlan: Plan = {
+    id: 'marketing-plan-2026',
+    name: 'Apex Transformation Sprint',
+    title: 'Apex Transformation Sprint',
+    difficulty: 'intermediate',
+    duration: MARKETING_TOTAL_DAYS,
+    status: 'active',
+    type: 'auto_generated',
+    dailyTasks: [],
+  };
+
+  const baseCurrentStudentPlan = resolvedStudent.currentPlanId ? state.plans[resolvedStudent.currentPlanId] : null;
+  const currentStudentPlan = marketingEnabled ? marketingPlan : baseCurrentStudentPlan;
   const autoGeneratedPlansQueue = Object.values(state.plans).filter((plan) => plan.type === 'auto_generated');
-  const getDayTask = (dayNumber: number) => buildTodayTaskFromPlan(resolvedStudent, currentStudentPlan, dayNumber);
-  const todayTask = getDayTask(resolvedStudent.currentDay);
+  const getDayTask = (dayNumber: number) =>
+    marketingEnabled ? buildMarketingTodayTask(dayNumber) : buildTodayTaskFromPlan(resolvedStudent, currentStudentPlan, dayNumber);
+  const todayTask = getDayTask(marketingEnabled ? marketingStudent.currentDay : resolvedStudent.currentDay);
+
+  const marketingProgressOverview: ProgressOverview = {
+    streak: 19,
+    totalPoints: 14250,
+    weeklyAvgWorkoutMinutes: 47,
+    totalStepsLast30Days: 356400,
+    checkInsLast30Days: 58,
+    completionPercentage: 87,
+  };
+
+  const marketingProgressWeekly: ProgressWeeklyPoint[] = [
+    { date: '2026-04-15', day: 'Mon', completion: 86, workoutMinutes: 44, steps: 10220, points: 310 },
+    { date: '2026-04-16', day: 'Tue', completion: 92, workoutMinutes: 51, steps: 12460, points: 360 },
+    { date: '2026-04-17', day: 'Wed', completion: 78, workoutMinutes: 39, steps: 9480, points: 280 },
+    { date: '2026-04-18', day: 'Thu', completion: 95, workoutMinutes: 54, steps: 13120, points: 375 },
+    { date: '2026-04-19', day: 'Fri', completion: 88, workoutMinutes: 47, steps: 11690, points: 332 },
+    { date: '2026-04-20', day: 'Sat', completion: 83, workoutMinutes: 42, steps: 10980, points: 301 },
+    { date: '2026-04-21', day: 'Sun', completion: 90, workoutMinutes: 49, steps: 12460, points: 348 },
+  ];
+
+  const marketingProgressMonthly: ProgressMonthlyPoint[] = [
+    { week: 'Week 1', completion: 76, completedTasks: 32, totalTasks: 42 },
+    { week: 'Week 2', completion: 82, completedTasks: 34, totalTasks: 41 },
+    { week: 'Week 3', completion: 87, completedTasks: 36, totalTasks: 41 },
+    { week: 'Week 4', completion: 91, completedTasks: 38, totalTasks: 42 },
+  ];
+
+  const marketingProgressHeatmap: ProgressHeatmapPoint[] = Array.from({ length: MARKETING_TOTAL_DAYS }, (_, idx) => {
+    const level = idx % 5;
+    return {
+      date: new Date(Date.now() - (MARKETING_TOTAL_DAYS - idx) * 86_400_000).toISOString().slice(0, 10),
+      value: level * 25,
+      level,
+    };
+  });
+
+  const progressOverview = marketingEnabled ? marketingProgressOverview : state.system.progressOverview;
+  const progressWeekly = marketingEnabled ? marketingProgressWeekly : state.system.progressWeekly;
+  const progressMonthly = marketingEnabled ? marketingProgressMonthly : state.system.progressMonthly;
+  const progressHeatmap = marketingEnabled ? marketingProgressHeatmap : state.system.progressHeatmap;
+
+  const backendTodayPlan = marketingEnabled
+    ? buildMarketingBackendTodayPlan(marketingStudent.currentDay)
+    : state.system.studentTodayPlan;
+
+  const marketingPosts: Post[] = [
+    {
+      id: 'marketing-post-1', userId: marketingStudent.id, userName: marketingStudent.name, userAvatar: '', userRole: 'student',
+      source: 'general', type: 'image', mediaUrl: 'https://placehold.co/1080x1350/111111/C9F85A?text=Transformation+Update',
+      caption: 'Week 3 check-in. Conditioning up, recovery better, form cleaner. #afterhours #discipline', likes: 289, comments: 34, location: 'Main Gym', timestamp: new Date(Date.now() - 3 * 60 * 60_000).toISOString(), liked: true, status: 'visible',
+    },
+    {
+      id: 'marketing-post-2', userId: 'student-mira', userName: 'Mira Kapoor', userAvatar: '', userRole: 'student',
+      source: 'general', type: 'image', mediaUrl: 'https://placehold.co/1080x1350/121212/4DD2FF?text=Leg+Day+Proof',
+      caption: 'Hit all reps and uploaded proof before 9pm. #grind', likes: 214, comments: 19, location: 'Athlete Lab', timestamp: new Date(Date.now() - 7 * 60 * 60_000).toISOString(), liked: false, status: 'visible',
+    },
+    {
+      id: 'marketing-post-3', userId: 'student-aarav', userName: 'Aarav Patel', userAvatar: '', userRole: 'student',
+      source: 'general', type: 'image', mediaUrl: 'https://placehold.co/1080x1350/151515/FFD36E?text=Nutrition+Compliance',
+      caption: 'Clean nutrition streak: 12/14 compliant meals this week.', likes: 176, comments: 12, location: 'Hostel Block C', timestamp: new Date(Date.now() - 11 * 60 * 60_000).toISOString(), liked: false, status: 'visible',
+    },
+  ];
+
   const weeklyData =
-    state.system.progressWeekly.length > 0
-      ? state.system.progressWeekly.map((item) => ({ name: item.day, uv: item.completion }))
+    progressWeekly.length > 0
+      ? progressWeekly.map((item) => ({ name: item.day, uv: item.completion }))
       : Array.from({ length: 7 }, (_, index) => {
           const absoluteDay = Math.min(resolvedStudent.totalDays, Math.max(1, resolvedStudent.currentDay - ((resolvedStudent.currentDay - 1) % 7) + index));
           const dayTask = getDayTask(absoluteDay);
@@ -2740,29 +3053,29 @@ export const useStore = () => {
             uv: percent,
           };
         });
-  const onboardingRequired = resolvedStudent.onboardingStatus !== 'completed';
-  const canStartCurrentPlan = Boolean(!currentStudentPlan || currentStudentPlan.status === 'active');
+  const onboardingRequired = marketingEnabled ? false : resolvedStudent.onboardingStatus !== 'completed';
+  const canStartCurrentPlan = marketingEnabled ? true : Boolean(!currentStudentPlan || currentStudentPlan.status === 'active');
 
   return {
-    student: resolvedStudent,
+    student: marketingEnabled ? marketingStudent : resolvedStudent,
     trainer,
     students,
     leaderboard,
     todayTask,
     getDayTask,
     weeklyData,
-    posts: allPosts,
-    loading: state.system.isLoading,
+    posts: marketingEnabled ? marketingPosts : allPosts,
+    loading: marketingEnabled ? false : state.system.isLoading,
     notifications,
     submissions: state.system.legacySubmissions,
     currentStudentPlan,
-    backendTodayPlan: state.system.studentTodayPlan,
-    progressOverview: state.system.progressOverview,
-    progressWeekly: state.system.progressWeekly,
-    progressMonthly: state.system.progressMonthly,
-    progressHeatmap: state.system.progressHeatmap,
-    progressLoading: state.system.progressLoading,
-    planLoading: state.system.planLoading,
+    backendTodayPlan,
+    progressOverview,
+    progressWeekly,
+    progressMonthly,
+    progressHeatmap,
+    progressLoading: marketingEnabled ? false : state.system.progressLoading,
+    planLoading: marketingEnabled ? false : state.system.planLoading,
     autoGeneratedPlansQueue,
     onboardingRequired,
     canStartCurrentPlan,

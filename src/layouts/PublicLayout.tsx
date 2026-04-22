@@ -25,7 +25,7 @@ export default function PublicLayout() {
         <div className="max-w-[1400px] mx-auto flex items-center justify-between h-16 px-4 sm:px-6">
           <Link to="/" className="flex items-center gap-2 relative z-[101]">
             <img src="/logo.jpg" alt="Logo" className="w-5 h-5 object-cover rounded shadow-[0_0_12px_rgba(255,255,255,0.1)]" />
-            <span className="font-bold text-[0.75rem] tracking-[0.18em] text-white uppercase">TheAfterHour Socials</span>
+            <span className="font-bold text-[0.75rem] tracking-[0.18em] text-white uppercase">THE afterhour socials</span>
           </Link>
           
           <div className="hidden md:flex items-center gap-8">

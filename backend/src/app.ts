@@ -59,7 +59,7 @@ app.use(csrfProtection);
 app.get("/", (req, res) => {
   res.status(200).json({
     status: "success",
-    message: "Welcome to The After Hours Socials API",
+    message: "Welcome to THE afterhour socials API",
     version: "1.0.0"
   });
 });

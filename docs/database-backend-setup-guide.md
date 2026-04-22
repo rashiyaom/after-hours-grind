@@ -1,7 +1,7 @@
 # Database + Backend Setup Guide (Beginner Friendly)
 
 Date: 2026-04-09
-Project: After Hours Grind
+Project: THE afterhour socials
 
 This guide helps you set up a production-friendly backend data system for your app (feed, comments, likes, users, chat, plans, submissions, notifications).
 

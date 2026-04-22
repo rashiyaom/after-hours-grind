@@ -1,4 +1,4 @@
-# After Hours Grind — Backend
+# THE afterhour socials — Backend
 
 ## Quick Start (Windows / PowerShell)
 

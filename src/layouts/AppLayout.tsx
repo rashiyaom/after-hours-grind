@@ -393,7 +393,7 @@ export default function AppLayout() {
               <div className="w-8 h-8 rounded-lg bg-[#C9F85A]/15 flex items-center justify-center border border-[#C9F85A]/25 transition-transform group-hover:scale-105 overflow-hidden">
                  <img src="/logo.jpg" alt="Logo" className="w-full h-full object-cover" />
               </div>
-              <span className="font-display font-bold text-sm tracking-widest text-foreground uppercase">TheAfterHour Socials</span>
+              <span className="font-display font-bold text-sm tracking-widest text-foreground uppercase">THE afterhour socials</span>
             </Link>
           )}
           {collapsed && (
@@ -455,7 +455,7 @@ export default function AppLayout() {
           <div className="w-8 h-8 rounded-lg bg-[#C9F85A]/15 flex items-center justify-center border border-[#C9F85A]/25 overflow-hidden">
              <img src="/logo.jpg" alt="Logo" className="w-full h-full object-cover" />
           </div>
-          <span className="font-bold text-xs tracking-widest text-white uppercase">TheAfterHour Socials</span>
+          <span className="font-bold text-xs tracking-widest text-white uppercase">THE afterhour socials</span>
         </Link>
         <div className="flex items-center gap-4">
           {!isTrainer && (

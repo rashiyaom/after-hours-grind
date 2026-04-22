@@ -3,6 +3,8 @@ import { useAppStore, useCurrentUser, useIsAuthenticated, usePermissions } from 
 import { PermissionKey, Student, UserRole } from "@/types";
 import { resolveProtectedRouteRedirect } from "@/lib/routeAccess";
 
+const MARKETING_DEMO_MODE = import.meta.env.VITE_MARKETING_DEMO_MODE === "true";
+
 interface ProtectedRouteProps {
   allowedRoles: UserRole[];
   requiredPermission?: PermissionKey;
@@ -20,7 +22,7 @@ const ProtectedRoute = ({ allowedRoles, requiredPermission }: ProtectedRouteProp
     return null;
   }
 
-  if (isAuthenticated && currentUser?.role === "student") {
+  if (isAuthenticated && currentUser?.role === "student" && !MARKETING_DEMO_MODE) {
     const student = currentUser as Student;
     const onboardingIncomplete = student.onboardingStatus !== "completed";
     const isOnboardingRoute = location.pathname.startsWith("/student/onboarding");
