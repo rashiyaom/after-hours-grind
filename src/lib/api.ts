@@ -82,6 +82,7 @@ type ApiFollowerEdge = {
 type ApiSubmission = {
   id: string;
   studentId: string;
+  planTaskId?: string;
   mediaUrl: string;
   status: string;
   createdAt: string;
@@ -93,6 +94,8 @@ type ApiSubmission = {
 type ApiSubmitTaskResponse = ApiRecord & {
   whatsappUrl?: string;
   proofRefId?: string;
+  isRepeatCheckin?: boolean;
+  supersededPendingCount?: number;
 };
 
 type ApiChatMessagePayload = {
@@ -388,6 +391,13 @@ export async function submitTaskAPI(payload: { planTaskId: string; studentNote?:
   });
 }
 
+export async function resendTaskProofAPI(payload: { planTaskId: string }): Promise<ApiSubmitTaskResponse> {
+  return authedRequest<ApiSubmitTaskResponse>("/submissions/resend", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
 export async function uploadMediaFile(file: File): Promise<{ url: string; provider: string; bytes: number; contentType: string }> {
   const formData = new FormData();
   formData.append("file", file);
@@ -402,10 +412,14 @@ export async function fetchSubmissionsAPI(): Promise<ApiSubmission[]> {
   return authedRequest<ApiSubmission[]>("/submissions", { method: "GET" });
 }
 
-export async function approveSubmissionAPI(submissionId: string, trainerNote: string): Promise<ApiRecord> {
+export async function approveSubmissionAPI(
+  submissionId: string,
+  trainerNote: string,
+  awardedPoints?: number
+): Promise<ApiRecord> {
   return authedRequest<ApiRecord>(`/submissions/${submissionId}/approve`, {
     method: "POST",
-    body: JSON.stringify({ note: trainerNote })
+    body: JSON.stringify({ note: trainerNote, awardedPoints })
   });
 }
 
@@ -413,6 +427,12 @@ export async function rejectSubmissionAPI(submissionId: string, trainerNote: str
   return authedRequest<ApiRecord>(`/submissions/${submissionId}/reject`, {
     method: "POST",
     body: JSON.stringify({ note: trainerNote })
+  });
+}
+
+export async function markSubmissionWhatsAppReceivedAPI(submissionId: string): Promise<ApiRecord> {
+  return authedRequest<ApiRecord>(`/submissions/${submissionId}/mark-whatsapp-received`, {
+    method: "POST",
   });
 }
 

@@ -1,6 +1,23 @@
 import { prisma } from "../../config/prisma.js";
+import { deleteCacheByPattern, getJsonCache, setJsonCache } from "../../lib/cache.js";
+
+const LEADERBOARD_CACHE_TTL_SECONDS = 30;
+
+const getLeaderboardCacheKey = (limit: number) => `leaderboard:v1:limit:${limit}`;
+
+export async function invalidateLeaderboardCache() {
+  await deleteCacheByPattern("leaderboard:v1:*");
+}
 
 export async function getLeaderboard(limit = 50) {
+  const cacheKey = getLeaderboardCacheKey(limit);
+  const cached = await getJsonCache<Array<Record<string, unknown>>>(cacheKey, {
+    endpoint: "GET /leaderboard",
+  });
+  if (cached) {
+    return cached;
+  }
+
   const last7Days = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
 
   const profiles = await prisma.studentProfile.findMany({
@@ -71,8 +88,11 @@ export async function getLeaderboard(limit = 50) {
 
   rows.sort((a, b) => b.score - a.score);
 
-  return rows.map((row, i) => ({
+  const result = rows.map((row, i) => ({
     rank: i + 1,
     ...row,
   }));
+
+  await setJsonCache(cacheKey, result, LEADERBOARD_CACHE_TTL_SECONDS);
+  return result;
 }

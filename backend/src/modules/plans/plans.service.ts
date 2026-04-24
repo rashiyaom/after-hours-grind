@@ -4,14 +4,21 @@ import { publishUserEvent } from "../../lib/realtime.js";
 import { createPersonalized25DayPlan } from "./personalizedPlan.js";
 import { env } from "../../config/env.js";
 import { logger } from "../../lib/logger.js";
+import { deleteCacheByPattern, getJsonCache, setJsonCache } from "../../lib/cache.js";
+import { invalidateLeaderboardCache } from "../leaderboard/leaderboard.service.js";
+import { invalidateNotificationsCacheForUser } from "../notifications/notifications.service.js";
 
 const COMPLETE_STATUSES = new Set(["PENDING", "APPROVED"] as const);
 const TODAY_PLAN_CACHE_TTL_MS = 15_000;
 const TODAY_PLAN_LITE_CACHE_TTL_MS = 8_000;
+const TODAY_PLAN_CACHE_TTL_SECONDS = Math.ceil(TODAY_PLAN_CACHE_TTL_MS / 1000);
+const TODAY_PLAN_LITE_CACHE_TTL_SECONDS = Math.ceil(TODAY_PLAN_LITE_CACHE_TTL_MS / 1000);
 // Safety limit: evict oldest entries when either cache exceeds this size.
 const PLAN_CACHE_MAX_SIZE = 2_000;
 
 const STUDENT_NOTE_PREFIX = "Student note:";
+const TRAINER_NOTE_PREFIX = "Trainer note:";
+const WHATSAPP_RECEIVED_PREFIX = "WhatsApp received at:";
 
 const normalizeWhatsAppNumber = (value: string): string => {
   const digitsOnly = value.replace(/\D/g, "");
@@ -32,26 +39,94 @@ const buildProofReference = (): string => {
   return `AHG-${yyyy}${mm}${dd}-${hh}${min}-${suffix}`;
 };
 
+const extractProofRefFromMediaUrl = (mediaUrl: string): string | null => {
+  if (!mediaUrl.startsWith("whatsapp://proof/")) return null;
+  const value = mediaUrl.replace("whatsapp://proof/", "").trim();
+  return value || null;
+};
+
+const extractLineValue = (source: string | null | undefined, prefix: string): string | null => {
+  if (!source) return null;
+  const line = source
+    .split("\n")
+    .map((entry) => entry.trim())
+    .find((entry) => entry.startsWith(prefix));
+  if (!line) return null;
+  const value = line.slice(prefix.length).trim();
+  return value || null;
+};
+
 const extractStudentNote = (trainerNote: string | null): string => {
-  if (!trainerNote) return "";
-  if (!trainerNote.startsWith(STUDENT_NOTE_PREFIX)) return "";
-  return trainerNote.replace(STUDENT_NOTE_PREFIX, "").trim();
+  return extractLineValue(trainerNote, STUDENT_NOTE_PREFIX) ?? "";
+};
+
+const extractTrainerReviewNote = (trainerNote: string | null): string => {
+  return extractLineValue(trainerNote, TRAINER_NOTE_PREFIX) ?? "";
+};
+
+const extractWhatsAppReceivedAt = (trainerNote: string | null): string | null => {
+  return extractLineValue(trainerNote, WHATSAPP_RECEIVED_PREFIX);
+};
+
+const withWhatsAppReceivedMarker = (trainerNote: string | null): string => {
+  const existingReceipt = extractWhatsAppReceivedAt(trainerNote);
+  if (existingReceipt) return trainerNote ?? `${WHATSAPP_RECEIVED_PREFIX} ${existingReceipt}`;
+
+  const receiptLine = `${WHATSAPP_RECEIVED_PREFIX} ${new Date().toISOString()}`;
+  if (!trainerNote || !trainerNote.trim()) return receiptLine;
+  return `${receiptLine}\n${trainerNote.trim()}`;
 };
 
 const composeReviewNote = (existingTrainerNote: string | null, reviewNote?: string): string | null => {
+  const receiptLine = extractWhatsAppReceivedAt(existingTrainerNote);
   const studentNote = extractStudentNote(existingTrainerNote);
+  const existingTrainerReview = extractTrainerReviewNote(existingTrainerNote);
   const trimmedReviewNote = reviewNote?.trim() ?? "";
+  const finalReview = trimmedReviewNote || existingTrainerReview;
 
-  if (studentNote && trimmedReviewNote) {
-    return `${STUDENT_NOTE_PREFIX} ${studentNote}\n\nTrainer note: ${trimmedReviewNote}`;
+  const lines: string[] = [];
+
+  if (receiptLine) {
+    lines.push(`${WHATSAPP_RECEIVED_PREFIX} ${receiptLine}`);
   }
+
   if (studentNote) {
-    return `${STUDENT_NOTE_PREFIX} ${studentNote}`;
+    lines.push(`${STUDENT_NOTE_PREFIX} ${studentNote}`);
   }
-  if (trimmedReviewNote) {
-    return trimmedReviewNote;
+
+  if (finalReview) {
+    lines.push(`${TRAINER_NOTE_PREFIX} ${finalReview}`);
   }
+
+  if (lines.length > 0) {
+    return lines.join("\n");
+  }
+
   return null;
+};
+
+const buildWhatsAppProofMessage = (params: {
+  proofRefId: string;
+  studentName: string;
+  taskTitle: string;
+  dayNumber: number;
+  planName: string;
+  studentNote?: string;
+}): string => {
+  return [
+    "AHG CHECK-IN",
+    `Reference: ${params.proofRefId}`,
+    `Student: ${params.studentName}`,
+    `Task: ${params.taskTitle}`,
+    `Day: ${params.dayNumber}`,
+    `Plan: ${params.planName}`,
+    `Submitted At: ${new Date().toISOString()}`,
+    params.studentNote ? `Student note: ${params.studentNote}` : "",
+    "Important: Attach exactly one photo/video for this check-in reference.",
+    "Coach, please review and approve/reject this reference in AHG dashboard.",
+  ]
+    .filter(Boolean)
+    .join("\n");
 };
 
 const elapsedMs = (startedAt: number): number => Number((performance.now() - startedAt).toFixed(2));
@@ -245,6 +320,7 @@ const setCachedTodayPlan = (userId: string, value: unknown): void => {
 
 const invalidateTodayPlanCache = (userId: string): void => {
   todayPlanCache.delete(userId);
+  void deleteCacheByPattern(`plans:today:v1:user:${userId}`);
 };
 
 const getCachedTodayPlanLite = (userId: string): unknown | null => {
@@ -269,12 +345,22 @@ const setCachedTodayPlanLite = (userId: string, value: unknown): void => {
 
 const invalidateTodayPlanLiteCache = (userId: string): void => {
   todayPlanLiteCache.delete(userId);
+  void deleteCacheByPattern(`plans:today-lite:v1:user:${userId}`);
 };
 
 export async function getTodayPlan(userId: string) {
   const cached = getCachedTodayPlan(userId);
   if (cached) {
     return cached;
+  }
+
+  const redisCacheKey = `plans:today:v1:user:${userId}`;
+  const redisCached = await getJsonCache<unknown>(redisCacheKey, {
+    endpoint: "GET /student/plan/today",
+  });
+  if (redisCached) {
+    setCachedTodayPlan(userId, redisCached);
+    return redisCached;
   }
 
   return withReadRetry("student.today_plan", userId, async () => {
@@ -374,6 +460,7 @@ export async function getTodayPlan(userId: string) {
     };
 
     setCachedTodayPlan(userId, response);
+    await setJsonCache(redisCacheKey, response, TODAY_PLAN_CACHE_TTL_SECONDS);
     return response;
   });
 }
@@ -382,6 +469,15 @@ export async function getTodayPlanLite(userId: string) {
   const cached = getCachedTodayPlanLite(userId);
   if (cached) {
     return cached;
+  }
+
+  const redisCacheKey = `plans:today-lite:v1:user:${userId}`;
+  const redisCached = await getJsonCache<unknown>(redisCacheKey, {
+    endpoint: "GET /student/plan/today-lite",
+  });
+  if (redisCached) {
+    setCachedTodayPlanLite(userId, redisCached);
+    return redisCached;
   }
 
   return withReadRetry("student.today_plan_lite", userId, async () => {
@@ -482,6 +578,7 @@ export async function getTodayPlanLite(userId: string) {
     };
 
     setCachedTodayPlanLite(userId, response);
+    await setJsonCache(redisCacheKey, response, TODAY_PLAN_LITE_CACHE_TTL_SECONDS);
     return response;
   });
 }
@@ -533,11 +630,18 @@ export async function createSubmission(studentId: string, input: { planTaskId: s
 
   const fallbackNumber = env.DEFAULT_TRAINER_WHATSAPP_NUMBER?.trim() ?? "";
   const trainerWhatsAppRaw = trainerProfile?.whatsappNumber?.trim() || fallbackNumber;
-  if (!trainerWhatsAppRaw) {
-    throw HttpError.badRequest("Trainer WhatsApp number is not configured. Please ask trainer/admin to update profile.");
+  let trainerWhatsAppNumber: string | undefined;
+  if (trainerWhatsAppRaw) {
+    try {
+      trainerWhatsAppNumber = normalizeWhatsAppNumber(trainerWhatsAppRaw);
+    } catch (error) {
+      logger.warn("submission.whatsapp.invalid_number", {
+        studentId,
+        trainerId: profile.trainerId,
+        message: error instanceof Error ? error.message : String(error),
+      });
+    }
   }
-
-  const trainerWhatsAppNumber = normalizeWhatsAppNumber(trainerWhatsAppRaw);
 
   if (task.planDay.planId !== profile.currentPlanId) {
     throw HttpError.forbidden("Task does not belong to your active plan");
@@ -552,7 +656,7 @@ export async function createSubmission(studentId: string, input: { planTaskId: s
       : await prisma.submission.findMany({
           where: { studentId, planTaskId: { in: allTaskIds } },
           orderBy: { createdAt: "desc" },
-          select: { planTaskId: true, status: true },
+          select: { id: true, planTaskId: true, status: true },
         });
   timings.latestSubmissionsLookupMs = elapsedMs(latestSubmissionsStartedAt);
 
@@ -574,12 +678,13 @@ export async function createSubmission(studentId: string, input: { planTaskId: s
   }
 
   const latestForTarget = latestByTask.get(task.id);
-  if (latestForTarget && latestForTarget.status === "PENDING") {
-    throw HttpError.badRequest("Task proof is already pending review");
-  }
   if (latestForTarget && latestForTarget.status === "APPROVED") {
     throw HttpError.badRequest("Task already approved");
   }
+
+  const existingPendingForTargetIds = latestSubmissions
+    .filter((submission) => submission.planTaskId === task.id && submission.status === "PENDING")
+    .map((submission) => submission.id);
 
   const studentLookupStartedAt = performance.now();
   const studentUser = await prisma.user.findUnique({
@@ -591,20 +696,18 @@ export async function createSubmission(studentId: string, input: { planTaskId: s
   const proofRefId = buildProofReference();
   const safeStudentNote = (input.studentNote ?? "").trim();
 
-  const whatsappMessage = [
-    "Hello Coach, I have completed my AHG task and I am sharing proof here.",
-    `Reference: ${proofRefId}`,
-    `Student: ${studentUser?.name ?? "Student"}`,
-    `Task: ${task.title}`,
-    `Day: ${task.planDay.day}`,
-    `Plan: ${plan.name}`,
-    safeStudentNote ? `Note: ${safeStudentNote}` : "",
-    "Please verify in AHG dashboard after reviewing this proof.",
-  ]
-    .filter(Boolean)
-    .join("\n");
+  const whatsappMessage = buildWhatsAppProofMessage({
+    proofRefId,
+    studentName: studentUser?.name ?? "Student",
+    taskTitle: task.title,
+    dayNumber: task.planDay.day,
+    planName: plan.name,
+    studentNote: safeStudentNote || undefined,
+  });
 
-  const whatsappUrl = `https://wa.me/${trainerWhatsAppNumber}?text=${encodeURIComponent(whatsappMessage)}`;
+  const whatsappUrl = trainerWhatsAppNumber
+    ? `https://wa.me/${trainerWhatsAppNumber}?text=${encodeURIComponent(whatsappMessage)}`
+    : undefined;
 
   const createSubmissionStartedAt = performance.now();
   const createdSubmission = await prisma.submission.create({
@@ -634,6 +737,9 @@ export async function createSubmission(studentId: string, input: { planTaskId: s
     whatsappUrl,
     status: createdSubmission.status,
     trainerNote: createdSubmission.trainerNote ?? "",
+    isRepeatCheckin: existingPendingForTargetIds.length > 0,
+    supersededPendingCount: existingPendingForTargetIds.length,
+    supersededPendingSubmissionIds: existingPendingForTargetIds,
     createdAt: createdSubmission.createdAt.toISOString(),
   };
 
@@ -662,6 +768,9 @@ export async function createSubmission(studentId: string, input: { planTaskId: s
     proofRefId,
     whatsappUrl,
     trainerWhatsappNumber: trainerWhatsAppNumber,
+    isRepeatCheckin: existingPendingForTargetIds.length > 0,
+    supersededPendingCount: existingPendingForTargetIds.length,
+    supersededPendingSubmissionIds: existingPendingForTargetIds,
   };
 }
 
@@ -669,7 +778,13 @@ export async function generatePersonalizedPlan(studentId: string) {
   return createPersonalized25DayPlan(prisma, studentId);
 }
 
-export async function approveSubmission(reviewerId: string, reviewerRole: string, submissionId: string, note?: string) {
+export async function approveSubmission(
+  reviewerId: string,
+  reviewerRole: string,
+  submissionId: string,
+  note?: string,
+  awardedPoints?: number
+) {
   const startedAt = performance.now();
   const timings: Record<string, number> = {};
 
@@ -721,10 +836,14 @@ export async function approveSubmission(reviewerId: string, reviewerRole: string
       const task = await tx.planTask.findUnique({ where: { id: sub.planTaskId } });
       timings.fetchTaskMs = elapsedMs(fetchTaskStartedAt);
       if (task) {
+        const resolvedPoints = typeof awardedPoints === "number" ? awardedPoints : task.points;
+        if (resolvedPoints > task.points) {
+          throw HttpError.badRequest(`Custom marks cannot exceed ${task.points} for this task`);
+        }
         const incrementPointsStartedAt = performance.now();
         await tx.studentProfile.update({
           where: { userId: sub.studentId },
-          data: { totalPoints: { increment: task.points } },
+          data: { totalPoints: { increment: resolvedPoints } },
         });
         timings.incrementPointsMs = elapsedMs(incrementPointsStartedAt);
       }
@@ -814,6 +933,7 @@ export async function approveSubmission(reviewerId: string, reviewerRole: string
       title: createdNotification.title,
       createdAt: createdNotification.createdAt.toISOString(),
     });
+    await invalidateNotificationsCacheForUser(txResult.studentId);
   } catch (error) {
     logger.warn("submission.approve.notification_failed", {
       submissionId,
@@ -845,6 +965,7 @@ export async function approveSubmission(reviewerId: string, reviewerRole: string
 
   invalidateTodayPlanCache(txResult.studentId);
   invalidateTodayPlanLiteCache(txResult.studentId);
+  await invalidateLeaderboardCache();
 
   return txResult.updated;
 }
@@ -887,6 +1008,7 @@ export async function rejectSubmission(reviewerId: string, reviewerRole: string,
     title: createdNotification.title,
     createdAt: createdNotification.createdAt.toISOString(),
   });
+  await invalidateNotificationsCacheForUser(sub.studentId);
 
   if (sub.student.studentProfile?.trainerId) {
     publishUserEvent(sub.student.studentProfile.trainerId, "submission.updated", {
@@ -968,6 +1090,7 @@ export async function createPlan(trainerId: string, input: {
             title: createdNotification.title,
             createdAt: createdNotification.createdAt.toISOString(),
           });
+          await invalidateNotificationsCacheForUser(studentId);
           // Invalidate the student's cached plan so they see the new one.
           invalidateTodayPlanCache(studentId);
           invalidateTodayPlanLiteCache(studentId);
@@ -1013,6 +1136,7 @@ export async function submitPlanForApproval(studentId: string, planId: string) {
       title: createdNotification.title,
       createdAt: createdNotification.createdAt.toISOString(),
     });
+    await invalidateNotificationsCacheForUser(plan.trainerId);
   }
 
   return updated;
@@ -1055,6 +1179,7 @@ export async function reviewPlan(reviewerId: string, planId: string, action: "ap
       title: createdNotification.title,
       createdAt: createdNotification.createdAt.toISOString(),
     });
+    await invalidateNotificationsCacheForUser(plan.studentId);
   }
 
   return updated;
@@ -1112,6 +1237,7 @@ export async function assignStudentToTrainer(trainerId: string, studentId: strin
     title: createdNotification.title,
     createdAt: createdNotification.createdAt.toISOString(),
   });
+  await invalidateNotificationsCacheForUser(studentId);
 }
 
 export async function unassignStudent(trainerId: string, studentId: string) {
@@ -1162,6 +1288,117 @@ export async function getSubmissions(userId: string, role: string) {
     },
     orderBy: { createdAt: "desc" },
   });
+}
+
+export async function resendSubmissionWhatsApp(studentId: string, input: { planTaskId: string }) {
+  const profile = await prisma.studentProfile.findUnique({
+    where: { userId: studentId },
+    select: { trainerId: true },
+  });
+  if (!profile) throw HttpError.notFound("Student profile not found");
+  if (!profile.trainerId) {
+    throw HttpError.badRequest("No trainer assigned. Please contact admin.");
+  }
+
+  const [submission, trainerProfile, studentUser] = await Promise.all([
+    prisma.submission.findFirst({
+      where: {
+        studentId,
+        planTaskId: input.planTaskId,
+        status: "PENDING",
+      },
+      include: {
+        planTask: {
+          include: {
+            planDay: {
+              include: {
+                plan: { select: { name: true } },
+              },
+            },
+          },
+        },
+      },
+      orderBy: { createdAt: "desc" },
+    }),
+    prisma.trainerProfile.findUnique({ where: { userId: profile.trainerId } }),
+    prisma.user.findUnique({ where: { id: studentId }, select: { name: true } }),
+  ]);
+
+  if (!submission || !submission.planTask || !submission.planTask.planDay) {
+    throw HttpError.badRequest("No pending check-in found for this task.");
+  }
+
+  const proofRefId = extractProofRefFromMediaUrl(submission.mediaUrl);
+  if (!proofRefId) {
+    throw HttpError.badRequest("Could not reconstruct WhatsApp reference for this check-in.");
+  }
+
+  const fallbackNumber = env.DEFAULT_TRAINER_WHATSAPP_NUMBER?.trim() ?? "";
+  const trainerWhatsAppRaw = trainerProfile?.whatsappNumber?.trim() || fallbackNumber;
+  if (!trainerWhatsAppRaw) {
+    throw HttpError.badRequest("Trainer WhatsApp number is not configured. Please ask trainer/admin to update profile.");
+  }
+
+  const trainerWhatsAppNumber = normalizeWhatsAppNumber(trainerWhatsAppRaw);
+  const whatsappMessage = buildWhatsAppProofMessage({
+    proofRefId,
+    studentName: studentUser?.name ?? "Student",
+    taskTitle: submission.planTask.title,
+    dayNumber: submission.planTask.planDay.day,
+    planName: submission.planTask.planDay.plan.name,
+    studentNote: extractStudentNote(submission.trainerNote),
+  });
+
+  return {
+    submissionId: submission.id,
+    proofRefId,
+    whatsappUrl: `https://wa.me/${trainerWhatsAppNumber}?text=${encodeURIComponent(whatsappMessage)}`,
+    trainerWhatsappNumber: trainerWhatsAppNumber,
+  };
+}
+
+export async function markSubmissionWhatsAppReceived(reviewerId: string, reviewerRole: string, submissionId: string) {
+  const submission = await prisma.submission.findUnique({
+    where: { id: submissionId },
+    include: { student: { include: { studentProfile: true } } },
+  });
+
+  if (!submission) throw HttpError.notFound("Submission not found");
+  if (submission.status !== "PENDING") {
+    throw HttpError.badRequest("Only pending submissions can be marked as WhatsApp received");
+  }
+  if (reviewerRole === "TRAINER" && submission.student.studentProfile?.trainerId !== reviewerId) {
+    throw HttpError.forbidden("You can only mark submissions from your assigned students");
+  }
+
+  const updated = await prisma.submission.update({
+    where: { id: submissionId },
+    data: {
+      trainerNote: withWhatsAppReceivedMarker(submission.trainerNote),
+    },
+  });
+
+  const receivedAt = extractWhatsAppReceivedAt(updated.trainerNote);
+  if (submission.student.studentProfile?.trainerId) {
+    publishUserEvent(submission.student.studentProfile.trainerId, "submission.updated", {
+      submissionId: updated.id,
+      status: updated.status,
+      trainerNote: updated.trainerNote ?? "",
+      whatsappReceivedAt: receivedAt,
+    });
+  }
+
+  publishUserEvent(submission.studentId, "submission.updated", {
+    submissionId: updated.id,
+    status: updated.status,
+    trainerNote: updated.trainerNote ?? "",
+    whatsappReceivedAt: receivedAt,
+  });
+
+  return {
+    ...updated,
+    whatsappReceivedAt: receivedAt,
+  };
 }
 
 export async function getStudentDetail(trainerId: string, studentId: string) {

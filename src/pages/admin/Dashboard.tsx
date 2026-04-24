@@ -365,7 +365,7 @@ const AdminDashboard = () => {
                           <Button
                             size="sm"
                             onClick={async () => {
-                              await approveTaskSubmission(sub.id, reviewNote || undefined);
+                              await approveTaskSubmission(sub.id, reviewNote || undefined, sub.points ?? 10);
                               await loadAdminDashboard();
                               setReviewingId(null);
                               setReviewNote("");

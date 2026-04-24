@@ -14,6 +14,16 @@ import { LUXURY_TWEEN_MEDIUM } from "@/lib/motionTokens";
 import { toast } from "sonner";
 
 type DetailTab = "Overview" | "Plan" | "Submissions" | "Profile";
+type SubmissionFilter = "all" | "pending" | "pending_long" | "missing_proof" | "latest" | "old";
+
+const PENDING_LONG_HOURS = 8;
+
+const extractTrainerReviewNote = (trainerNote: string) => {
+  const match = trainerNote.match(/Trainer note:\s*(.+)/i);
+  if (match?.[1]) return match[1].trim();
+  if (/^Student note:/i.test(trainerNote) || /^WhatsApp received at:/i.test(trainerNote)) return "";
+  return trainerNote.trim();
+};
 
 const isVideoProof = (mediaUrl: string) => {
   if (!mediaUrl) return false;
@@ -31,6 +41,7 @@ export default function StudentDetail() {
   const notifyStudentPlanUpdated = useAppStore((s) => s.notifyStudentPlanUpdated);
   const approveTaskSubmission = useAppStore((s) => s.approveTaskSubmission);
   const rejectTaskSubmission = useAppStore((s) => s.rejectTaskSubmission);
+  const markSubmissionWhatsAppReceived = useAppStore((s) => s.markSubmissionWhatsAppReceived);
   const createOrGetChatThread = useAppStore((s) => s.createOrGetChatThread);
   const sendChatMessage = useAppStore((s) => s.sendChatMessage);
 
@@ -47,13 +58,31 @@ export default function StudentDetail() {
   const [editForm, setEditForm] = useState({ workout: "", diet: "", habit: "" });
   const [savingEdit, setSavingEdit] = useState(false);
   const [reviewNote, setReviewNote] = useState("");
+  const [awardedPointsInput, setAwardedPointsInput] = useState("");
   const [reviewingId, setReviewingId] = useState<string | null>(null);
   const [coachMessage, setCoachMessage] = useState("");
+  const [submissionFilter, setSubmissionFilter] = useState<SubmissionFilter>("all");
 
   const studentSubmissions = useMemo(() =>
     s ? legacySubmissions.filter((sub) => sub.studentId === s.id) : [],
     [legacySubmissions, s]
   );
+
+  const filteredSubmissions = useMemo(() => {
+    return studentSubmissions.filter((sub) => {
+      if (submissionFilter === "all") return true;
+      if (submissionFilter === "pending") return sub.status === "pending";
+      if (submissionFilter === "pending_long") {
+        return sub.status === "pending" && (sub.pendingAgeHours ?? 0) >= PENDING_LONG_HOURS;
+      }
+      if (submissionFilter === "missing_proof") {
+        return sub.status === "pending" && !sub.whatsappReceived;
+      }
+      if (submissionFilter === "latest") return sub.pendingCheckinLabel === "latest";
+      if (submissionFilter === "old") return sub.pendingCheckinLabel === "old";
+      return true;
+    });
+  }, [studentSubmissions, submissionFilter]);
 
   if (!s) {
     return (
@@ -125,10 +154,20 @@ export default function StudentDetail() {
   };
 
   const handleApprove = async (submissionId: string) => {
+    const submission = studentSubmissions.find((item) => item.id === submissionId);
+    const maxPoints = submission?.points ?? 10;
+    const parsedPoints = Number.parseInt(awardedPointsInput.trim(), 10);
+    const awardedPoints = Number.isFinite(parsedPoints) ? parsedPoints : maxPoints;
+    if (awardedPoints < 0 || awardedPoints > maxPoints) {
+      toast.error(`Marks must be between 0 and ${maxPoints}.`);
+      return;
+    }
+
     try {
-      await approveTaskSubmission(submissionId, reviewNote || undefined);
+      await approveTaskSubmission(submissionId, reviewNote || undefined, awardedPoints);
       setReviewingId(null);
       setReviewNote("");
+      setAwardedPointsInput("");
       toast.success("Task approved! Points awarded to student.");
     } catch {
       toast.error("Could not approve submission. Please try again.");
@@ -144,9 +183,19 @@ export default function StudentDetail() {
       await rejectTaskSubmission(submissionId, reviewNote);
       setReviewingId(null);
       setReviewNote("");
+      setAwardedPointsInput("");
       toast.warning("Changes requested. Student has been notified.");
     } catch {
       toast.error("Could not reject submission. Please try again.");
+    }
+  };
+
+  const handleMarkWhatsAppReceived = async (submissionId: string) => {
+    try {
+      await markSubmissionWhatsAppReceived(submissionId);
+      toast.success("Marked as received on WhatsApp.");
+    } catch {
+      toast.error("Could not mark WhatsApp receipt right now.");
     }
   };
 
@@ -535,13 +584,40 @@ export default function StudentDetail() {
         {/* TAB: Submissions */}
         {activeTab === "Submissions" && (
           <motion.div key="submissions" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="space-y-4">
+            <div className="flex flex-wrap gap-2">
+              {([
+                ["all", "All"],
+                ["pending", "Pending"],
+                ["pending_long", `Pending ${PENDING_LONG_HOURS}h+`],
+                ["missing_proof", "Missing Proof"],
+                ["latest", "Latest"],
+                ["old", "Old"],
+              ] as Array<[SubmissionFilter, string]>).map(([value, label]) => (
+                <button
+                  key={value}
+                  onClick={() => setSubmissionFilter(value)}
+                  className={`rounded-full px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wide transition-all border ${
+                    submissionFilter === value
+                      ? "bg-[#C9F85A] text-black border-[#C9F85A]"
+                      : "bg-[#1A1A1A] border-white/10 text-white/55 hover:text-white hover:border-white/25"
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+
             {studentSubmissions.length === 0 ? (
               <div className="rounded-3xl border border-white/10 bg-[#151515] p-12 text-center">
                 <Clock className="h-12 w-12 text-white/10 mx-auto mb-4" />
                 <p className="text-sm text-white/40">No submissions yet from this student.</p>
               </div>
+            ) : filteredSubmissions.length === 0 ? (
+              <div className="rounded-3xl border border-white/10 bg-[#151515] p-10 text-center">
+                <p className="text-sm text-white/40">No submissions match this filter.</p>
+              </div>
             ) : (
-              studentSubmissions.map((sub) => (
+              filteredSubmissions.map((sub) => (
                 <div key={sub.id} className={`rounded-3xl border p-5 ${
                   sub.id === reviewingId
                     ? "border-[#C9F85A]/30 bg-[#C9F85A]/5"
@@ -558,10 +634,37 @@ export default function StudentDetail() {
                          <Clock className="h-5 w-5 text-[#FFD36E]" />}
                       </div>
                       <div>
-                        <p className="text-sm font-semibold text-white">{sub.taskName}</p>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <p className="text-sm font-semibold text-white">{sub.taskName}</p>
+                          {sub.pendingCheckinLabel === "latest" && (
+                            <span className="rounded-full border border-emerald-400/40 bg-emerald-500/15 px-2 py-0.5 text-[10px] font-semibold text-emerald-300 uppercase tracking-wide">
+                              Latest check-in
+                            </span>
+                          )}
+                          {sub.pendingCheckinLabel === "old" && (
+                            <span className="rounded-full border border-amber-300/35 bg-amber-500/15 px-2 py-0.5 text-[10px] font-semibold text-amber-200 uppercase tracking-wide">
+                              Old check-in
+                            </span>
+                          )}
+                          {sub.status === "pending" && sub.whatsappReceived && (
+                            <span className="rounded-full border border-sky-300/35 bg-sky-400/15 px-2 py-0.5 text-[10px] font-semibold text-sky-200 uppercase tracking-wide">
+                              WhatsApp received
+                            </span>
+                          )}
+                          {sub.status === "pending" && !sub.whatsappReceived && (
+                            <span className="rounded-full border border-rose-300/35 bg-rose-500/15 px-2 py-0.5 text-[10px] font-semibold text-rose-200 uppercase tracking-wide">
+                              Missing proof
+                            </span>
+                          )}
+                          {sub.status === "pending" && (sub.pendingAgeHours ?? 0) >= PENDING_LONG_HOURS && (
+                            <span className="rounded-full border border-orange-300/35 bg-orange-500/15 px-2 py-0.5 text-[10px] font-semibold text-orange-200 uppercase tracking-wide">
+                              Pending {(sub.pendingAgeHours ?? 0)}h
+                            </span>
+                          )}
+                        </div>
                         <p className="text-xs text-white/30">{sub.timestamp}</p>
                         {sub.trainerNote && sub.status !== "pending" && (
-                          <p className="text-xs text-white/40 mt-1 italic">"{sub.trainerNote}"</p>
+                          <p className="text-xs text-white/40 mt-1 italic">"{extractTrainerReviewNote(sub.trainerNote)}"</p>
                         )}
                       </div>
                     </div>
@@ -572,8 +675,22 @@ export default function StudentDetail() {
                         "bg-[#FFD36E]/15 text-[#FFD36E]"
                       }`}>{sub.status}</span>
                       {sub.status === "pending" && (
+                        !sub.whatsappReceived && (
+                          <button
+                            onClick={() => void handleMarkWhatsAppReceived(sub.id)}
+                            className="px-3 py-1.5 rounded-lg bg-[#4DD2FF]/15 border border-[#4DD2FF]/30 text-[#4DD2FF] text-[10px] font-bold hover:bg-[#4DD2FF]/25 transition-all"
+                          >
+                            Mark Received
+                          </button>
+                        )
+                      )}
+                      {sub.status === "pending" && (
                         <button
-                          onClick={() => setReviewingId(reviewingId === sub.id ? null : sub.id)}
+                          onClick={() => {
+                            const nextId = reviewingId === sub.id ? null : sub.id;
+                            setReviewingId(nextId);
+                            setAwardedPointsInput(nextId ? String(sub.points ?? 10) : "");
+                          }}
                           className="px-3 py-1.5 rounded-lg bg-[#C9F85A] text-black text-[10px] font-bold hover:bg-[#d4ff60] transition-all"
                         >
                           {reviewingId === sub.id ? "Cancel" : "Review"}
@@ -608,6 +725,20 @@ export default function StudentDetail() {
                             placeholder="Feedback for student (required for rejection)..."
                             className="w-full bg-[#1A1A1A] border border-white/8 rounded-xl p-4 text-sm text-white placeholder:text-white/25 focus:outline-none focus:border-[#C9F85A]/30 min-h-[100px] resize-none transition-all"
                           />
+                          <div className="rounded-xl bg-[#1A1A1A] border border-white/10 p-3 space-y-2">
+                            <div className="flex items-center justify-between">
+                              <p className="text-[10px] text-white/35 uppercase tracking-wider">Custom Marks</p>
+                              <p className="text-[10px] text-white/40">Max {sub.points ?? 10}</p>
+                            </div>
+                            <input
+                              type="number"
+                              min={0}
+                              max={sub.points ?? 10}
+                              value={awardedPointsInput}
+                              onChange={(event) => setAwardedPointsInput(event.target.value)}
+                              className="w-full bg-[#101010] border border-white/12 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-[#C9F85A]/30"
+                            />
+                          </div>
                           <div className="flex gap-2.5">
                             <button
                               onClick={() => handleApprove(sub.id)}

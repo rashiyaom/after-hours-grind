@@ -3,6 +3,8 @@ import { HttpError } from "../../lib/httpError.js";
 import { publishUserEvent } from "../../lib/realtime.js";
 import { randomUUID } from "node:crypto";
 import { getSmartPlanExerciseTemplateSeeds } from "../plans/personalizedPlan.js";
+import { invalidateFeedCache } from "../feed/feed.service.js";
+import { invalidateNotificationsCacheForUser } from "../notifications/notifications.service.js";
 
 const NUTRITION_TEMPLATE_SEEDS = [
     {
@@ -324,6 +326,11 @@ export async function updatePostModeration(postId: string, status: string) {
         createdAt: createdNotification.createdAt.toISOString(),
     });
 
+    await Promise.all([
+        invalidateFeedCache(),
+        invalidateNotificationsCacheForUser(post.userId),
+    ]);
+
     return updated;
 }
 
@@ -347,6 +354,11 @@ export async function deletePostAdmin(postId: string) {
         title: createdNotification.title,
         createdAt: createdNotification.createdAt.toISOString(),
     });
+
+    await Promise.all([
+        invalidateFeedCache(),
+        invalidateNotificationsCacheForUser(post.userId),
+    ]);
 }
 
 export async function getActivityLogs() {
@@ -1024,6 +1036,8 @@ export async function assignExerciseTemplate(payload: {
             createdAt: createdNotification.createdAt.toISOString(),
         });
 
+        await invalidateNotificationsCacheForUser(studentId);
+
         summary.push({ studentId, appliedToPlan, sortOrder: resolvedSortOrder });
     }
 
@@ -1134,6 +1148,8 @@ export async function assignExerciseTemplateBulk(payload: {
             title: createdNotification.title,
             createdAt: createdNotification.createdAt.toISOString(),
         });
+
+        await invalidateNotificationsCacheForUser(student.id);
     }
 
     return {

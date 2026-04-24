@@ -20,6 +20,7 @@ router.get("/student/plan/today", requireAuth, requireRole("STUDENT"), authReadL
 router.get("/student/plan/today-lite", requireAuth, requireRole("STUDENT"), authReadLimiter, asyncHandler(ctrl.getTodayPlanLiteHandler));
 router.post("/student/plan/generate", requireAuth, requireRole("STUDENT"), asyncHandler(ctrl.generatePersonalizedPlanHandler));
 router.post("/submissions", requireAuth, requireRole("STUDENT"), asyncHandler(ctrl.createSubmissionHandler));
+router.post("/submissions/resend", requireAuth, requireRole("STUDENT"), asyncHandler(ctrl.resendSubmissionWhatsAppHandler));
 router.post("/plans/:id/submit", requireAuth, requireRole("STUDENT"), asyncHandler(ctrl.submitForApprovalHandler));
 
 // Trainer
@@ -35,5 +36,6 @@ router.post("/plans/:id/review", requireAuth, requireRole("TRAINER", "ADMIN"), a
 router.get("/submissions", requireAuth, requireRole("TRAINER", "ADMIN"), authReadLimiter, asyncHandler(ctrl.getSubmissionsHandler));
 router.post("/submissions/:id/approve", requireAuth, requireRole("TRAINER", "ADMIN"), asyncHandler(ctrl.approveHandler));
 router.post("/submissions/:id/reject", requireAuth, requireRole("TRAINER", "ADMIN"), asyncHandler(ctrl.rejectHandler));
+router.post("/submissions/:id/mark-whatsapp-received", requireAuth, requireRole("TRAINER", "ADMIN"), asyncHandler(ctrl.markSubmissionWhatsAppReceivedHandler));
 
 export default router;

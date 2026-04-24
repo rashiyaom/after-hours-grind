@@ -7,13 +7,19 @@ const submitSchema = z.object({
   studentNote: z.string().trim().max(500).optional(),
 });
 
+const resendSchema = z.object({
+  planTaskId: z.string().min(1),
+});
+
 const reviewSchema = z
   .object({
     note: z.string().optional(),
     trainerNote: z.string().optional(),
+    awardedPoints: z.coerce.number().int().min(0).optional(),
   })
-  .transform(({ note, trainerNote }) => ({
+  .transform(({ note, trainerNote, awardedPoints }) => ({
     note: (note ?? trainerNote ?? "").trim(),
+    awardedPoints,
   }));
 
 export async function getTodayPlanHandler(req: Request, res: Response) {
@@ -32,14 +38,20 @@ export async function createSubmissionHandler(req: Request, res: Response) {
   res.status(201).json(sub);
 }
 
+export async function resendSubmissionWhatsAppHandler(req: Request, res: Response) {
+  const data = resendSchema.parse(req.body);
+  const result = await svc.resendSubmissionWhatsApp(req.user!.userId, data);
+  res.json(result);
+}
+
 export async function generatePersonalizedPlanHandler(req: Request, res: Response) {
   const plan = await svc.generatePersonalizedPlan(req.user!.userId);
   res.status(201).json(plan);
 }
 
 export async function approveHandler(req: Request, res: Response) {
-  const { note } = reviewSchema.parse(req.body);
-  const sub = await svc.approveSubmission(req.user!.userId, req.user!.role, req.params.id, note);
+  const { note, awardedPoints } = reviewSchema.parse(req.body);
+  const sub = await svc.approveSubmission(req.user!.userId, req.user!.role, req.params.id, note, awardedPoints);
   res.json(sub);
 }
 
@@ -50,6 +62,11 @@ export async function rejectHandler(req: Request, res: Response) {
     return;
   }
   const sub = await svc.rejectSubmission(req.user!.userId, req.user!.role, req.params.id, note);
+  res.json(sub);
+}
+
+export async function markSubmissionWhatsAppReceivedHandler(req: Request, res: Response) {
+  const sub = await svc.markSubmissionWhatsAppReceived(req.user!.userId, req.user!.role, req.params.id);
   res.json(sub);
 }
 

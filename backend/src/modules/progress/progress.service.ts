@@ -1,6 +1,7 @@
 import { prisma, prismaRead } from "../../config/prisma.js";
 import { HttpError } from "../../lib/httpError.js";
 import { logger } from "../../lib/logger.js";
+import { invalidateLeaderboardCache } from "../leaderboard/leaderboard.service.js";
 
 export type ProgressInput = {
   date?: string;
@@ -91,7 +92,7 @@ export async function upsertProgress(userId: string, input: ProgressInput) {
   // Normalize to date only
   const dateOnly = new Date(date.getFullYear(), date.getMonth(), date.getDate());
 
-  return prisma.progressEntry.upsert({
+  const result = await prisma.progressEntry.upsert({
     where: { userId_date: { userId, date: dateOnly } },
     create: {
       userId,
@@ -118,6 +119,9 @@ export async function upsertProgress(userId: string, input: ProgressInput) {
       ...(input.notes !== undefined ? { notes: input.notes } : {}),
     },
   });
+
+  await invalidateLeaderboardCache();
+  return result;
 }
 
 export async function getProgressHistory(userId: string, days = 30) {

@@ -15,6 +15,8 @@ import { Link } from "react-router-dom";
 import { LUXURY_TWEEN_MEDIUM, LUXURY_TWEEN_SLOW } from "@/lib/motionTokens";
 
 type DashTab = "Submissions" | "Roster" | "Activity";
+const PENDING_LONG_HOURS = 8;
+type SubmissionQuickFilter = "all" | "pending" | "pending_long" | "missing_proof" | "latest_retries";
 
 export default function TrainerDashboard() {
   const currentUser = useCurrentUser();
@@ -27,10 +29,12 @@ export default function TrainerDashboard() {
   const rejectTaskSubmission = useAppStore((s) => s.rejectTaskSubmission);
 
   const [feedbackNote, setFeedbackNote] = useState("");
+  const [awardedPointsInput, setAwardedPointsInput] = useState("");
   const [reviewing, setReviewing] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedSubmissionId, setSelectedSubmissionId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<DashTab>("Submissions");
+  const [submissionQuickFilter, setSubmissionQuickFilter] = useState<SubmissionQuickFilter>("all");
 
   const trainer = currentUser?.role === "trainer" ? (currentUser as Trainer) : null;
 
@@ -69,11 +73,47 @@ export default function TrainerDashboard() {
 
   const filteredSubmissions = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
-    if (!q) return mySubmissions;
-    return mySubmissions.filter(
+    const quickFiltered = mySubmissions.filter((submission) => {
+      if (submissionQuickFilter === "all") return true;
+      if (submissionQuickFilter === "pending") return submission.status === "pending";
+      if (submissionQuickFilter === "pending_long") {
+        return submission.status === "pending" && (submission.pendingAgeHours ?? 0) >= PENDING_LONG_HOURS;
+      }
+      if (submissionQuickFilter === "missing_proof") {
+        return submission.status === "pending" && !submission.whatsappReceived;
+      }
+      if (submissionQuickFilter === "latest_retries") {
+        return submission.status === "pending" && submission.pendingCheckinLabel === "latest";
+      }
+      return true;
+    });
+
+    if (!q) return quickFiltered;
+    return quickFiltered.filter(
       (s) => s.studentName.toLowerCase().includes(q) || s.taskName.toLowerCase().includes(q)
     );
-  }, [mySubmissions, searchQuery]);
+  }, [mySubmissions, searchQuery, submissionQuickFilter]);
+
+  const triageStats = useMemo(() => {
+    const pendingSubmissions = mySubmissions.filter((submission) => submission.status === "pending");
+    const totalPending = pendingSubmissions.length;
+    const pendingLong = pendingSubmissions.filter((submission) => (submission.pendingAgeHours ?? 0) >= PENDING_LONG_HOURS).length;
+    const missingProof = pendingSubmissions.filter((submission) => !submission.whatsappReceived).length;
+    const latestRetries = pendingSubmissions.filter((submission) => submission.pendingCheckinLabel === "latest").length;
+
+    return {
+      totalPending,
+      pendingLong,
+      missingProof,
+      latestRetries,
+    };
+  }, [mySubmissions]);
+
+  const handleTriageCardClick = (filter: SubmissionQuickFilter) => {
+    setActiveTab("Submissions");
+    setSubmissionQuickFilter(filter);
+    setSelectedSubmissionId(null);
+  };
 
   const selectedSubmission = filteredSubmissions.find((s) => s.id === selectedSubmissionId) ?? null;
 
@@ -96,11 +136,20 @@ export default function TrainerDashboard() {
   );
 
   const handleApprove = async (id: string) => {
+    const maxPoints = selectedSubmission?.points ?? 10;
+    const parsedPoints = Number.parseInt(awardedPointsInput.trim(), 10);
+    const awardedPoints = Number.isFinite(parsedPoints) ? parsedPoints : maxPoints;
+    if (awardedPoints < 0 || awardedPoints > maxPoints) {
+      toast.error(`Marks must be between 0 and ${maxPoints}.`);
+      return;
+    }
+
     try {
       setReviewing(true);
-      await approveTaskSubmission(id, feedbackNote || undefined);
+      await approveTaskSubmission(id, feedbackNote || undefined, awardedPoints);
       setSelectedSubmissionId(null);
       setFeedbackNote("");
+      setAwardedPointsInput("");
       toast.success("Task approved! Student has been notified and awarded points.");
     } catch (error) {
       const message = error instanceof Error ? error.message : "Could not approve submission. Please try again.";
@@ -121,6 +170,7 @@ export default function TrainerDashboard() {
       await rejectTaskSubmission(id, feedbackNote);
       setSelectedSubmissionId(null);
       setFeedbackNote("");
+      setAwardedPointsInput("");
       toast.warning("Changes requested. Student has been notified.");
     } catch (error) {
       const message = error instanceof Error ? error.message : "Could not reject submission. Please try again.";
@@ -219,6 +269,67 @@ export default function TrainerDashboard() {
             );
           })}
         </div>
+
+        <div className="mt-4 rounded-2xl border border-white/10 bg-[#151515] p-3.5">
+          <div className="mb-3 flex items-center justify-between">
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-white/40">Instant Triage</p>
+            <span className="text-[10px] text-white/30">Assigned students only</span>
+          </div>
+          <div className="grid grid-cols-2 gap-2.5 md:grid-cols-4">
+            {[
+              {
+                label: "Total Pending",
+                value: triageStats.totalPending,
+                icon: Clock,
+                color: "#FFD36E",
+                bgClass: "bg-[#FFD36E]/10 border-[#FFD36E]/20",
+                filter: "pending" as SubmissionQuickFilter,
+              },
+              {
+                label: `Pending ${PENDING_LONG_HOURS}h+`,
+                value: triageStats.pendingLong,
+                icon: Flame,
+                color: "#FF7A45",
+                bgClass: "bg-[#FF7A45]/10 border-[#FF7A45]/20",
+                filter: "pending_long" as SubmissionQuickFilter,
+              },
+              {
+                label: "Missing Proof",
+                value: triageStats.missingProof,
+                icon: AlertCircle,
+                color: "#FF6B8A",
+                bgClass: "bg-[#FF6B8A]/10 border-[#FF6B8A]/20",
+                filter: "missing_proof" as SubmissionQuickFilter,
+              },
+              {
+                label: "Latest Retries",
+                value: triageStats.latestRetries,
+                icon: Target,
+                color: "#4DD2FF",
+                bgClass: "bg-[#4DD2FF]/10 border-[#4DD2FF]/20",
+                filter: "latest_retries" as SubmissionQuickFilter,
+              },
+            ].map((item) => {
+              const Icon = item.icon;
+              return (
+                <button
+                  key={item.label}
+                  type="button"
+                  onClick={() => handleTriageCardClick(item.filter)}
+                  className={`rounded-xl border p-3 text-left transition-all hover:scale-[1.01] hover:brightness-110 ${item.bgClass} ${submissionQuickFilter === item.filter ? "ring-1 ring-white/25" : ""}`}
+                >
+                  <div className="flex items-center justify-between">
+                    <p className="text-[10px] font-semibold uppercase tracking-wide text-white/55">{item.label}</p>
+                    <Icon className="h-3.5 w-3.5" style={{ color: item.color }} />
+                  </div>
+                  <p className="mt-1.5 text-2xl font-bold leading-none" style={{ color: item.color }}>
+                    {item.value}
+                  </p>
+                </button>
+              );
+            })}
+          </div>
+        </div>
       </motion.section>
 
       {/* Main Content Grid */}
@@ -248,6 +359,39 @@ export default function TrainerDashboard() {
                 />
               </div>
             </div>
+            {activeTab === "Submissions" && (
+              <div className="mb-3 flex flex-wrap items-center gap-2">
+                {([
+                  ["all", "All"],
+                  ["pending", "Pending"],
+                  ["pending_long", `Pending ${PENDING_LONG_HOURS}h+`],
+                  ["missing_proof", "Missing Proof"],
+                  ["latest_retries", "Latest Retries"],
+                ] as Array<[SubmissionQuickFilter, string]>).map(([value, label]) => (
+                  <button
+                    key={value}
+                    type="button"
+                    onClick={() => setSubmissionQuickFilter(value)}
+                    className={`rounded-full px-3 py-1 text-[10px] font-semibold uppercase tracking-wide border transition-all ${
+                      submissionQuickFilter === value
+                        ? "bg-[#C9F85A] text-black border-[#C9F85A]"
+                        : "bg-[#1A1A1A] border-white/10 text-white/50 hover:text-white"
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+                {submissionQuickFilter !== "all" && (
+                  <button
+                    type="button"
+                    onClick={() => setSubmissionQuickFilter("all")}
+                    className="rounded-full px-3 py-1 text-[10px] font-semibold uppercase tracking-wide border border-white/12 bg-white/5 text-white/60 hover:text-white"
+                  >
+                    Clear Filter
+                  </button>
+                )}
+              </div>
+            )}
             <div className="flex gap-1">
               {(["Submissions", "Roster", "Activity"] as DashTab[]).map((tab) => (
                 <button
@@ -319,7 +463,10 @@ export default function TrainerDashboard() {
                           </td>
                           <td className="py-4 text-right">
                             <button
-                              onClick={() => setSelectedSubmissionId(sub.id)}
+                              onClick={() => {
+                                setSelectedSubmissionId(sub.id);
+                                setAwardedPointsInput(String(sub.points ?? 10));
+                              }}
                               className={`px-4 py-2 rounded-xl text-xs font-semibold transition-all ${
                                 sub.status === "pending"
                                   ? "bg-[#C9F85A] text-black hover:bg-[#d4ff60] shadow-[0_2px_12px_rgba(201,248,90,0.2)]"
@@ -342,6 +489,22 @@ export default function TrainerDashboard() {
                 {assignedStudents.length === 0 ? (
                   <div className="py-12 text-center">
                     <Users className="h-12 w-12 text-white/10 mx-auto mb-3" />
+                    {selectedSubmission.status === "pending" && (
+                      <div className="rounded-xl bg-[#1A1A1A] border border-white/5 p-3 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <p className="text-[10px] text-white/30 uppercase tracking-wider">Custom Marks</p>
+                          <p className="text-[10px] text-white/40">Max {selectedSubmission.points ?? 10}</p>
+                        </div>
+                        <input
+                          type="number"
+                          min={0}
+                          max={selectedSubmission.points ?? 10}
+                          value={awardedPointsInput}
+                          onChange={(e) => setAwardedPointsInput(e.target.value)}
+                          className="w-full bg-[#101010] border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-[#C9F85A]/30"
+                        />
+                      </div>
+                    )}
                     <p className="text-sm text-white/30">No students assigned to you yet.</p>
                   </div>
                 ) : (

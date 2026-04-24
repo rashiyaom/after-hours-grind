@@ -113,7 +113,7 @@ const removeVideoMeta = (input: string) =>
     .trim();
 
 export default function DailyPlanPage() {
-  const { student: s, getDayTask, submitTaskProof, canStartCurrentPlan, currentStudentPlan, backendTodayPlan } = useStore();
+  const { student: s, getDayTask, submitTaskProof, resendTaskProof, canStartCurrentPlan, currentStudentPlan, backendTodayPlan } = useStore();
   const currentUser = useCurrentUser();
   const permissions = usePermissions();
   const canPostFeed = Boolean(currentUser && permissions[currentUser.role].post_feed);
@@ -222,6 +222,7 @@ export default function DailyPlanPage() {
   } | null>(null);
   const [proofNote, setProofNote] = useState("");
   const [submittingProof, setSubmittingProof] = useState(false);
+  const [resendingTaskId, setResendingTaskId] = useState<string | null>(null);
 
   const workouts = todayTask.workout;
   const meals = todayTask.diet;
@@ -238,6 +239,11 @@ export default function DailyPlanPage() {
     }
     setProofModal({ taskId, taskType, taskName });
     setProofNote("");
+  };
+
+  const confirmAnotherCheckin = (label: "task" | "nutrition meal") => {
+    if (typeof window === "undefined") return true;
+    return window.confirm(`You already submitted this ${label}. Do you want to make another check-in?`);
   };
 
   const closeProofModal = () => {
@@ -265,14 +271,26 @@ export default function DailyPlanPage() {
       }
 
       closeProofModal();
+      if (submission.isRepeatCheckin) {
+        toast.success(
+          submission.whatsappUrl
+            ? "New check-in created. Previous pending check-in is kept as old; this one is latest."
+            : "New check-in marked pending. Previous pending check-in is kept as old."
+        );
+        return;
+      }
+
       toast.success(
         submission.whatsappUrl
           ? "WhatsApp opened. Send your proof there and trainer will approve in dashboard."
           : "Submission marked pending. Please send proof to trainer on WhatsApp."
       );
-    } catch {
+    } catch (error) {
       setSubmittingProof(false);
-      toast.error("Could not prepare WhatsApp proof message. Please try again.");
+      const message = error instanceof Error && error.message
+        ? error.message
+        : "Could not prepare WhatsApp proof message. Please try again.";
+      toast.error(message);
     }
   };
 
@@ -280,8 +298,7 @@ export default function DailyPlanPage() {
     const task = workouts.find((w) => w.id === id);
     if (!task || task.completed) return;
     if (pendingTaskIds.has(id)) {
-      toast.info("This task is already submitted and pending review.");
-      return;
+      if (!confirmAnotherCheckin("task")) return;
     }
     openProofModal(id, "workout", task.name);
   };
@@ -290,10 +307,38 @@ export default function DailyPlanPage() {
     const task = meals.find((m) => m.id === id);
     if (!task || task.completed) return;
     if (pendingTaskIds.has(id)) {
-      toast.info("This task is already submitted and pending review.");
-      return;
+      if (!confirmAnotherCheckin("nutrition meal")) return;
     }
     openProofModal(id, "diet", task.meal);
+  };
+
+  const resendExistingCheckin = async (taskId: string, taskType: "workout" | "diet", taskName: string) => {
+    if (!isToday) {
+      toast.info("Resend is only available for today's pending check-ins.");
+      return;
+    }
+    setResendingTaskId(taskId);
+    try {
+      const resent = await resendTaskProof({
+        taskId,
+        taskType,
+        taskName,
+        dayNumber: selectedDay,
+      });
+      if (resent.whatsappUrl) {
+        window.open(resent.whatsappUrl, "_blank", "noopener,noreferrer");
+        toast.success("Opened WhatsApp with the same reference check-in message.");
+      } else {
+        toast.error("Could not open WhatsApp link. Please try again.");
+      }
+    } catch (error) {
+      const message = error instanceof Error && error.message
+        ? error.message
+        : "Could not resend check-in right now.";
+      toast.error(message);
+    } finally {
+      setResendingTaskId(null);
+    }
   };
 
   const totalTasks = workouts.length + meals.length;
@@ -489,7 +534,7 @@ export default function DailyPlanPage() {
 
               <div className="mt-5 space-y-4">
                 <div className="rounded-2xl border border-[#4DD2FF]/35 bg-[#4DD2FF]/8 p-4 text-xs text-white/75 leading-relaxed">
-                  Tap submit to open WhatsApp with a prefilled message. Send your photo/video directly there, then your trainer will approve or reject in app.
+                  Tap submit to open WhatsApp with a prefilled check-in reference. Send exactly one photo/video for this reference, then your trainer will approve or reject in app.
                 </div>
 
                 <textarea
@@ -774,6 +819,11 @@ export default function DailyPlanPage() {
                       <span className="text-xs text-white/40">{w.sets} sets × {w.reps} reps</span>
                       <span className="text-xs text-white/30">·</span>
                       <span className="text-xs text-white/40">{w.focus}</span>
+                      {!w.completed && pendingTaskIds.has(w.id) && (
+                        <span className="rounded-full border border-[#FFD36E]/30 bg-[#FFD36E]/10 px-2 py-0.5 text-[10px] font-semibold text-[#FFD36E] uppercase tracking-wide">
+                          Pending approval
+                        </span>
+                      )}
                     </div>
                   </div>
 
@@ -793,6 +843,16 @@ export default function DailyPlanPage() {
                   >
                     <Play className="h-3.5 w-3.5 ml-0.5" />
                   </motion.button>
+
+                  {!w.completed && pendingTaskIds.has(w.id) && (
+                    <button
+                      onClick={() => void resendExistingCheckin(w.id, "workout", w.name)}
+                      disabled={resendingTaskId === w.id}
+                      className="rounded-full border border-[#4DD2FF]/35 bg-[#4DD2FF]/10 px-3 py-1 text-[10px] font-semibold text-[#4DD2FF] hover:bg-[#4DD2FF]/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {resendingTaskId === w.id ? "Resending..." : "Resend WhatsApp"}
+                    </button>
+                  )}
                 </div>
 
                 {/* Bottom bar: alternatives */}
@@ -890,6 +950,11 @@ export default function DailyPlanPage() {
                           style={{ background: `${accentColor}18`, color: accentColor }}>
                           {m.calories} kcal
                         </span>
+                        {!m.completed && pendingTaskIds.has(m.id) && (
+                          <span className="rounded-full border border-[#FFD36E]/30 bg-[#FFD36E]/10 px-2 py-0.5 text-[10px] font-semibold text-[#FFD36E] uppercase tracking-wide">
+                            Pending approval
+                          </span>
+                        )}
                       </div>
                     </div>
 
@@ -902,6 +967,16 @@ export default function DailyPlanPage() {
                     >
                       <ChevronDown className="h-4 w-4" />
                     </motion.button>
+
+                    {!m.completed && pendingTaskIds.has(m.id) && (
+                      <button
+                        onClick={() => void resendExistingCheckin(m.id, "diet", m.meal)}
+                        disabled={resendingTaskId === m.id}
+                        className="rounded-full border border-[#4DD2FF]/35 bg-[#4DD2FF]/10 px-3 py-1 text-[10px] font-semibold text-[#4DD2FF] hover:bg-[#4DD2FF]/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {resendingTaskId === m.id ? "Resending..." : "Resend WhatsApp"}
+                      </button>
+                    )}
                   </div>
 
                   {/* Expanded details */}

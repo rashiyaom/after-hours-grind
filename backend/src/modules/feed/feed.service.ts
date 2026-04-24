@@ -1,6 +1,17 @@
 import { prisma } from "../../config/prisma.js";
 import { HttpError } from "../../lib/httpError.js";
 import { publishUserEvent } from "../../lib/realtime.js";
+import { deleteCacheByPattern, getJsonCache, setJsonCache } from "../../lib/cache.js";
+
+const FEED_CACHE_TTL_SECONDS = 20;
+
+const getFeedCacheKey = (currentUserId?: string, cursor?: string, limit = 20) => {
+  return `feed:v1:user:${currentUserId ?? "anon"}:cursor:${cursor ?? "first"}:limit:${limit}`;
+};
+
+export const invalidateFeedCache = async () => {
+  await deleteCacheByPattern("feed:v1:*");
+};
 
 const publishFeedEventToAllUsers = async (
   type: "post.created" | "post.updated",
@@ -13,6 +24,14 @@ const publishFeedEventToAllUsers = async (
 };
 
 export async function getFeed(currentUserId?: string, cursor?: string, limit = 20) {
+  const cacheKey = getFeedCacheKey(currentUserId, cursor, limit);
+  const cached = await getJsonCache<{ data: unknown[]; nextCursor: string | null }>(cacheKey, {
+    endpoint: "GET /feed",
+  });
+  if (cached) {
+    return cached;
+  }
+
   const posts = await prisma.post.findMany({
     where: { status: "visible" },
     orderBy: { createdAt: "desc" },
@@ -34,7 +53,9 @@ export async function getFeed(currentUserId?: string, cursor?: string, limit = 2
     likes: undefined // cleanup the nested array
   }));
 
-  return { data, nextCursor: hasMore ? data[data.length - 1].id : null };
+  const result = { data, nextCursor: hasMore ? data[data.length - 1].id : null };
+  await setJsonCache(cacheKey, result, FEED_CACHE_TTL_SECONDS);
+  return result;
 }
 
 export async function createPost(userId: string, input: { type: string; mediaUrl: string; caption: string; source: string; location: string }) {
@@ -59,6 +80,8 @@ export async function createPost(userId: string, input: { type: string; mediaUrl
     likes: 0,
     comments: 0,
   });
+
+  await invalidateFeedCache();
 
   return post;
 }
@@ -93,6 +116,8 @@ export async function addComment(userId: string, postId: string, text: string) {
     },
   });
 
+  await invalidateFeedCache();
+
   return comment;
 }
 
@@ -115,6 +140,8 @@ export async function likePost(userId: string, postId: string) {
     likedByUserId: userId,
     liked: true,
   });
+
+  await invalidateFeedCache();
 }
 
 export async function unlikePost(userId: string, postId: string) {
@@ -134,6 +161,8 @@ export async function unlikePost(userId: string, postId: string) {
     likedByUserId: userId,
     liked: false,
   });
+
+  await invalidateFeedCache();
 }
 
 export async function getComments(postId: string) {
