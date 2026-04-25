@@ -35,6 +35,11 @@ export async function signup(input: SignupInput) {
         .filter(Boolean);
 
   const passwordHash = await hashPassword(input.password);
+  
+  if (input.role !== "STUDENT") {
+    throw HttpError.badRequest("Public signup is restricted to student accounts only.");
+  }
+
   const user = await prisma.user.create({
     data: {
       name: input.name,

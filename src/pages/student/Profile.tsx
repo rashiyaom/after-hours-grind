@@ -7,7 +7,7 @@ import {
 import ProgressRing from "@/components/ProgressRing";
 import { useAppStore, useStore } from "@/hooks/useStore";
 import { useState, useMemo, useEffect } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useParams, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
 import { LUXURY_TWEEN_MEDIUM } from "@/lib/motionTokens";
@@ -67,6 +67,8 @@ export default function ProfilePage() {
   const users = useAppStore((state) => state.users);
   const [activeTab, setActiveTab] = useState<Tab>("Posts");
   const [isFollowing, setIsFollowing] = useState(false);
+  const createOrGetChatThread = useAppStore((state) => state.createOrGetChatThread);
+  const navigate = useNavigate();
   const [socialLoading, setSocialLoading] = useState(false);
   const [socialOpen, setSocialOpen] = useState<"followers" | "following" | null>(null);
   const [followersList, setFollowersList] = useState<SocialListItem[]>([]);
@@ -292,7 +294,13 @@ export default function ProfilePage() {
                   >
                     {isFollowing ? <><CheckCircle2 className="h-3.5 w-3.5" />Following</> : <><UserPlus className="h-3.5 w-3.5" />Follow</>}
                   </motion.button>
-                  <button className="w-10 h-10 rounded-full bg-[#1D1D1D] border border-white/10 flex items-center justify-center text-white/50 hover:text-[#4DD2FF] hover:border-[#4DD2FF]/30 transition-all">
+                  <button
+                    onClick={() => {
+                      createOrGetChatThread(s.id);
+                      navigate("/student/community");
+                    }}
+                    className="w-10 h-10 rounded-full bg-[#1D1D1D] border border-white/10 flex items-center justify-center text-white/50 hover:text-[#4DD2FF] hover:border-[#4DD2FF]/30 transition-all"
+                  >
                     <MessageCircle className="h-4 w-4" />
                   </button>
                   <button

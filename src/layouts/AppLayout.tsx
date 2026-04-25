@@ -6,7 +6,8 @@ import {
   Bell, Settings, Flame, Menu, X, ChevronLeft,
   ClipboardList, Award, LogOut, Plus, Search, Zap, Activity, Shield
 } from "lucide-react";
-import { useAppStore } from "@/hooks/useStore";
+import { useAppStore, LegacySubmission } from "@/hooks/useStore";
+import { ChatMessage } from "@/types";
 import { LUXURY_SPRING, LUXURY_TWEEN_MEDIUM } from "@/lib/motionTokens";
 import { subscribeRealtimeEvents } from "@/lib/api";
 
@@ -18,6 +19,7 @@ const studentNav = [
   { label: "Daily Plan", path: "/student/daily-plan", icon: Calendar },
   { label: "Progress", path: "/student/progress", icon: BarChart3 },
   { label: "Feed", path: "/student/feed", icon: Rss },
+  { label: "Explore", path: "/student/explore", icon: Search },
   { label: "Community", path: "/student/community", icon: Users },
   { label: "Leaderboard", path: "/student/leaderboard", icon: Trophy },
   { label: "Profile", path: "/student/profile", icon: User },
@@ -26,9 +28,9 @@ const studentNav = [
 
 const mobileStudentBottomNav = [
   { label: "Home", path: "/student/dashboard", icon: LayoutDashboard },
-  { label: "Search", path: "/student/community", icon: Search },
+  { label: "Explore", path: "/student/explore", icon: Search },
   { label: "Upload", path: "/student/upload", icon: Plus, isAction: true },
-  { label: "Tasks", path: "/student/daily-plan", icon: Calendar },
+  { label: "DMs", path: "/student/community", icon: Users },
   { label: "Profile", path: "/student/profile", icon: User },
 ];
 
@@ -122,7 +124,7 @@ export default function AppLayout() {
           const hasExisting = state.system.legacySubmissions.some((submission) => submission.id === submissionId);
           const createdAt = typeof payload.createdAt === "string" ? payload.createdAt : new Date().toISOString();
 
-          const nextSubmissions = hasExisting
+          const nextSubmissions: LegacySubmission[] = hasExisting
             ? state.system.legacySubmissions.map((submission) =>
                 submission.id === submissionId
                   ? {
@@ -141,7 +143,7 @@ export default function AppLayout() {
                     taskName: typeof payload.taskName === "string" ? payload.taskName : "Task",
                     taskType:
                       payload.taskType === "workout" || payload.taskType === "diet" || payload.taskType === "checkin"
-                        ? payload.taskType
+                        ? (payload.taskType as "workout" | "diet" | "checkin")
                         : "workout",
                     taskId: typeof payload.planTaskId === "string" ? payload.planTaskId : undefined,
                     dayNumber: typeof payload.dayNumber === "number" ? payload.dayNumber : undefined,
@@ -244,14 +246,14 @@ export default function AppLayout() {
                 senderId,
                 text: typeof payload.text === "string" ? payload.text : "Message",
                 createdAt,
-                type: payload.type === "voice-note" || payload.type === "reel-share" ? payload.type : "text",
+                type: payload.type === "voice-note" || payload.type === "reel-share" ? (payload.type as "voice-note" | "reel-share") : "text",
                 seenBy: senderId === currentUserId ? [currentUserId] : [senderId],
                 voiceSeconds: typeof payload.voiceSeconds === "number" ? payload.voiceSeconds : undefined,
                 voiceAudioUrl: typeof payload.voiceAudioUrl === "string" ? payload.voiceAudioUrl : undefined,
                 reelPostId: typeof payload.reelPostId === "string" ? payload.reelPostId : undefined,
                 reelPreviewUrl: typeof payload.reelPreviewUrl === "string" ? payload.reelPreviewUrl : undefined,
                 reelCaption: typeof payload.reelCaption === "string" ? payload.reelCaption : undefined,
-              },
+              } as ChatMessage,
             ],
           };
 

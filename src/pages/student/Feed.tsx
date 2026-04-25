@@ -16,6 +16,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { filterPostsByTab } from "@/lib/feedFilters";
 import { LUXURY_TWEEN_MEDIUM } from "@/lib/motionTokens";
 import { createPortal } from "react-dom";
+import SuggestedAthletes from "@/components/SuggestedAthletes";
 import {
   fetchFeedPageFromBackend,
   fetchCommentsAPI,
@@ -656,6 +657,9 @@ export default function FeedPage() {
           </button>
         ))}
       </motion.div>
+
+      {/* ── Suggested athletes (IG-style) ──────────────────── */}
+      <SuggestedAthletes variant="feed" limit={8} />
 
       {/* ── Posts list ───────────────────────────────────── */}
       {filteredPosts.length === 0 ? (

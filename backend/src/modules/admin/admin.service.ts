@@ -1,5 +1,7 @@
 import { prisma } from "../../config/prisma.js";
 import { HttpError } from "../../lib/httpError.js";
+import { hashPassword } from "../../lib/password.js";
+import type { SignupInput } from "../auth/auth.schema.js";
 import { publishUserEvent } from "../../lib/realtime.js";
 import { randomUUID } from "node:crypto";
 import { getSmartPlanExerciseTemplateSeeds } from "../plans/personalizedPlan.js";
@@ -208,6 +210,40 @@ export async function toggleUserBan(userId: string) {
         data: { isBanned: !user.isBanned },
         select: safeUserSelect,
     });
+}
+
+
+export async function createTrainer(input: SignupInput) {
+    const existing = await prisma.user.findUnique({ where: { email: input.email } });
+    if (existing) throw HttpError.conflict("Email already registered");
+
+    const certifications = Array.isArray(input.certifications)
+        ? input.certifications.map((cert) => cert.trim()).filter(Boolean)
+        : (input.certifications ?? "")
+            .split(",")
+            .map((cert) => cert.trim())
+            .filter(Boolean);
+
+    const passwordHash = await hashPassword(input.password);
+    const user = await prisma.user.create({
+        data: {
+            name: input.name,
+            email: input.email,
+            passwordHash,
+            role: "TRAINER",
+            trainerProfile: {
+                create: {
+                    specialization: input.specialization ?? "",
+                    whatsappNumber: input.whatsappNumber ?? null,
+                    experience: input.experience ?? 0,
+                    certifications,
+                    isVerified: true,
+                },
+            },
+        },
+    });
+
+    return user;
 }
 
 export async function changeUserRole(userId: string, newRole: "STUDENT" | "TRAINER" | "ADMIN") {

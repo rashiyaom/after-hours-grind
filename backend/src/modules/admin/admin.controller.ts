@@ -12,6 +12,14 @@ export async function toggleUserBanHandler(req: Request, res: Response) {
     res.json(user);
 }
 
+import { signupSchema } from \"../auth/auth.schema.js\";
+
+export async function createTrainerHandler(req: Request, res: Response) {
+    const payload = signupSchema.parse(req.body);
+    const trainer = await svc.createTrainer(payload);
+    res.status(201).json(trainer);
+}
+
 export async function changeUserRoleHandler(req: Request, res: Response) {
     const { role } = z.object({ role: z.enum(["STUDENT", "TRAINER", "ADMIN"]) }).parse(req.body);
     const user = await svc.changeUserRole(req.params.userId, role);

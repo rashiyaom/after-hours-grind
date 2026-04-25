@@ -552,6 +552,13 @@ export async function assignStudentTrainerAdminAPI(studentId: string, trainerId:
   });
 }
 
+export async function createTrainerAPI(data: ApiRecord): Promise<ApiRecord> {
+  return authedRequest<ApiRecord>("/admin/trainers", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
 export async function fetchFeaturedAthletesAPI(): Promise<ApiRecord[]> {
   return apiRequest<ApiRecord[]>("/athletes", { method: "GET" });
 }
@@ -709,6 +716,13 @@ export async function setAdminPermissionAPI(role: "STUDENT" | "TRAINER" | "ADMIN
 
 export async function resetAdminPermissionsAPI(): Promise<ApiRecord> {
   return authedRequest<ApiRecord>("/admin/permissions/reset", { method: "POST" });
+}
+
+export async function updatePostModerationAPI(postId: string, status: "visible" | "hidden" | "under-review"): Promise<ApiRecord> {
+  return authedRequest<ApiRecord>(`/admin/posts/${postId}/moderation`, {
+    method: "PATCH",
+    body: JSON.stringify({ status }),
+  });
 }
 
 export async function fetchExerciseTemplatesAPI(options?: {

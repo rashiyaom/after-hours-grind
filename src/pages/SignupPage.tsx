@@ -7,7 +7,7 @@ import { toast } from "sonner";
 import { LUXURY_TWEEN_MEDIUM, LUXURY_TWEEN_SLOW } from "@/lib/motionTokens";
 
 export default function SignupPage() {
-  const [role, setRole] = useState<"student" | "trainer" | null>(null);
+  const [role, setRole] = useState<"student" | null>("student");
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
   const { signup } = useAppStore();
@@ -21,10 +21,6 @@ export default function SignupPage() {
     height: "",
     weight: "",
     fitnessGoal: "",
-    specialization: "",
-    whatsappNumber: "",
-    experience: "",
-    certifications: "",
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -42,20 +38,14 @@ export default function SignupPage() {
     if (!form.password) errs.password = "Password is required";
     else if (form.password.length < 8) errs.password = "Min 8 characters";
     
-    if (role === "student") {
-      if (!form.collegeId.trim()) errs.collegeId = "College ID is required";
-    }
-    if (role === "trainer") {
-      if (!form.specialization.trim()) errs.specialization = "Specialization is required";
-      if (!form.whatsappNumber.trim()) errs.whatsappNumber = "WhatsApp number is required";
-    }
+    if (!form.collegeId.trim()) errs.collegeId = "College ID is required";
     
     setErrors(errs);
     return Object.keys(errs).length === 0;
   };
 
   const handleSubmit = async () => {
-    if (!role || !validate()) return;
+    if (!validate()) return;
     
     setLoading(true);
     try {
@@ -63,18 +53,14 @@ export default function SignupPage() {
         name: form.name,
         email: form.email,
         password: form.password,
-        role,
+        role: "student",
         collegeId: form.collegeId || undefined,
         height: form.height ? parseFloat(form.height) : undefined,
         weight: form.weight ? parseFloat(form.weight) : undefined,
         fitnessGoal: form.fitnessGoal || undefined,
-        specialization: form.specialization || undefined,
-        whatsappNumber: form.whatsappNumber || undefined,
-        experience: form.experience ? parseInt(form.experience) : undefined,
-        certifications: form.certifications || undefined,
       });
       toast.success("Account created successfully!");
-      navigate(role === "student" ? "/student/onboarding" : "/trainer/dashboard");
+      navigate("/student/onboarding");
     } catch {
       toast.error("Signup failed. Please try again.");
     } finally {
@@ -99,131 +85,73 @@ export default function SignupPage() {
           <p className="text-xs text-muted-foreground mt-4">Join THE afterhour socials community.</p>
         </div>
 
-        <AnimatePresence mode="wait">
-          {!role ? (
-            <motion.div key="role" initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} transition={LUXURY_TWEEN_MEDIUM} className="space-y-6">
-              <p className="text-center text-xs font-medium uppercase tracking-wider text-muted-foreground mb-8">Choose Your Role</p>
-              {[
-                { value: "student" as const, label: "Student / Athlete", desc: "Track progress & discover routines", icon: User },
-                { value: "trainer" as const, label: "Gym Trainer", desc: "Guide students & assign protocols", icon: Dumbbell },
-              ].map((r) => (
-                <button 
-                  key={r.value} 
-                  onClick={() => setRole(r.value)} 
-                  className="w-full glass-card p-6 text-left flex items-center gap-6 group relative overflow-hidden transition-all hover:bg-white/5 border border-white/5"
-                >
-                  <div className="p-4 rounded-xl bg-background border border-white/10 group-hover:border-primary/40 transition-colors">
-                    <r.icon className="h-6 w-6 text-muted-foreground group-hover:text-primary transition-colors" />
+        <motion.div key="form" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={LUXURY_TWEEN_MEDIUM}>
+          <div className="glass-card p-8 space-y-6 relative overflow-hidden border border-white/5">
+            <h2 className="text-xl font-display font-semibold text-foreground">
+               Student Details
+            </h2>
+            
+            <div className="space-y-4">
+              <div>
+                <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Name</label>
+                <input type="text" value={form.name} onChange={e => updateField("name", e.target.value)} placeholder="Enter your name" className={fieldClass("name")} />
+                {errors.name && <p className="text-xs text-red-400 mt-1">{errors.name}</p>}
+              </div>
+              <div>
+                <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Email</label>
+                <input type="email" value={form.email} onChange={e => updateField("email", e.target.value)} placeholder="Enter your email" className={fieldClass("email")} />
+                {errors.email && <p className="text-xs text-red-400 mt-1">{errors.email}</p>}
+              </div>
+              <div>
+                <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Password</label>
+                <input type="password" value={form.password} onChange={e => updateField("password", e.target.value)} placeholder="Min 8 characters" className={fieldClass("password")} />
+                {errors.password && <p className="text-xs text-red-400 mt-1">{errors.password}</p>}
+              </div>
+              
+              <div>
+                <label className="text-xs font-medium text-muted-foreground mb-1.5 block">College ID</label>
+                <input value={form.collegeId} onChange={e => updateField("collegeId", e.target.value)} placeholder="e.g. COL2024XXX" className={fieldClass("collegeId")} />
+                {errors.collegeId && <p className="text-xs text-red-400 mt-1">{errors.collegeId}</p>}
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Height (cm)</label>
+                  <input type="number" value={form.height} onChange={e => updateField("height", e.target.value)} placeholder="175" className={fieldClass("height")} />
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Weight (kg)</label>
+                  <input type="number" value={form.weight} onChange={e => updateField("weight", e.target.value)} placeholder="70" className={fieldClass("weight")} />
+                </div>
+              </div>
+              <div>
+                <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Fitness Goal</label>
+                <input value={form.fitnessGoal} onChange={e => updateField("fitnessGoal", e.target.value)} placeholder="e.g. Build lean muscle" className={fieldClass("fitnessGoal")} />
+              </div>
+              
+              <button 
+                onClick={handleSubmit}
+                disabled={loading}
+                className="group w-full h-14 bg-foreground text-background rounded-xl font-display font-semibold transition-all flex items-center justify-center shadow-lg active:scale-95 space-x-2 hover:bg-primary hover:text-black overflow-hidden relative disabled:opacity-50"
+              >
+                {loading ? (
+                  <div className="flex items-center gap-2">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Creating account...
                   </div>
-                  <div className="flex-1">
-                    <p className="font-display font-semibold text-lg text-foreground group-hover:text-primary transition-colors">{r.label}</p>
-                    <p className="text-xs text-muted-foreground mt-1">{r.desc}</p>
-                  </div>
-                  <ChevronRight className="h-5 w-5 text-muted-foreground/40 group-hover:text-primary group-hover:translate-x-1 transition-all" />
-                </button>
-              ))}
-              <div className="pt-8 text-center">
+                ) : (
+                  <span className="relative z-10">Create Account</span>
+                )}
+              </button>
+
+              <div className="pt-4 text-center">
                 <p className="text-xs text-muted-foreground">
                   Already have an account?{" "}
                   <Link to="/login" className="text-primary font-medium hover:underline underline-offset-4">Sign In</Link>
                 </p>
               </div>
-            </motion.div>
-          ) : (
-            <motion.div key="form" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }} transition={LUXURY_TWEEN_MEDIUM}>
-              <button 
-                onClick={() => { setRole(null); setErrors({}); }} 
-                className="flex items-center gap-2 text-xs font-medium text-muted-foreground hover:text-primary mb-8 transition-colors group"
-              >
-                <ArrowLeft className="h-4 w-4 group-hover:-translate-x-1 transition-transform" /> Back to Roles
-              </button>
-              
-              <div className="glass-card p-8 space-y-6 relative overflow-hidden border border-white/5">
-                <h2 className="text-xl font-display font-semibold text-foreground">
-                   {role === "student" ? "Student Details" : "Trainer Details"}
-                </h2>
-                
-                <div className="space-y-4">
-                  <div>
-                    <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Name</label>
-                    <input type="text" value={form.name} onChange={e => updateField("name", e.target.value)} placeholder="Enter your name" className={fieldClass("name")} />
-                    {errors.name && <p className="text-xs text-red-400 mt-1">{errors.name}</p>}
-                  </div>
-                  <div>
-                    <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Email</label>
-                    <input type="email" value={form.email} onChange={e => updateField("email", e.target.value)} placeholder="Enter your email" className={fieldClass("email")} />
-                    {errors.email && <p className="text-xs text-red-400 mt-1">{errors.email}</p>}
-                  </div>
-                  <div>
-                    <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Password</label>
-                    <input type="password" value={form.password} onChange={e => updateField("password", e.target.value)} placeholder="Min 8 characters" className={fieldClass("password")} />
-                    {errors.password && <p className="text-xs text-red-400 mt-1">{errors.password}</p>}
-                  </div>
-                  
-                  {role === "student" ? (
-                    <>
-                      <div>
-                        <label className="text-xs font-medium text-muted-foreground mb-1.5 block">College ID</label>
-                        <input value={form.collegeId} onChange={e => updateField("collegeId", e.target.value)} placeholder="e.g. COL2024XXX" className={fieldClass("collegeId")} />
-                        {errors.collegeId && <p className="text-xs text-red-400 mt-1">{errors.collegeId}</p>}
-                      </div>
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Height (cm)</label>
-                          <input type="number" value={form.height} onChange={e => updateField("height", e.target.value)} placeholder="175" className={fieldClass("height")} />
-                        </div>
-                        <div>
-                          <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Weight (kg)</label>
-                          <input type="number" value={form.weight} onChange={e => updateField("weight", e.target.value)} placeholder="70" className={fieldClass("weight")} />
-                        </div>
-                      </div>
-                      <div>
-                        <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Fitness Goal</label>
-                        <input value={form.fitnessGoal} onChange={e => updateField("fitnessGoal", e.target.value)} placeholder="e.g. Build lean muscle" className={fieldClass("fitnessGoal")} />
-                      </div>
-                    </>
-                  ) : (
-                    <>
-                      <div>
-                        <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Specialization</label>
-                        <input value={form.specialization} onChange={e => updateField("specialization", e.target.value)} placeholder="e.g. Strength & Conditioning" className={fieldClass("specialization")} />
-                        {errors.specialization && <p className="text-xs text-red-400 mt-1">{errors.specialization}</p>}
-                      </div>
-                      <div>
-                        <label className="text-xs font-medium text-muted-foreground mb-1.5 block">WhatsApp Number</label>
-                        <input value={form.whatsappNumber} onChange={e => updateField("whatsappNumber", e.target.value)} placeholder="e.g. +919876543210" className={fieldClass("whatsappNumber")} />
-                        {errors.whatsappNumber && <p className="text-xs text-red-400 mt-1">{errors.whatsappNumber}</p>}
-                      </div>
-                      <div>
-                        <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Experience (Yrs)</label>
-                        <input type="number" value={form.experience} onChange={e => updateField("experience", e.target.value)} placeholder="5" className={fieldClass("experience")} />
-                      </div>
-                      <div>
-                        <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Certifications</label>
-                        <input value={form.certifications} onChange={e => updateField("certifications", e.target.value)} placeholder="e.g. NSCA, ACE, NASM" className={fieldClass("certifications")} />
-                      </div>
-                    </>
-                  )}
-                  
-                  <button 
-                    onClick={handleSubmit}
-                    disabled={loading}
-                    className="group w-full h-14 bg-foreground text-background rounded-xl font-display font-semibold transition-all flex items-center justify-center shadow-lg active:scale-95 space-x-2 hover:bg-primary hover:text-black overflow-hidden relative disabled:opacity-50"
-                  >
-                    {loading ? (
-                      <div className="flex items-center gap-2">
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                        Creating account...
-                      </div>
-                    ) : (
-                      <span className="relative z-10">Create Account</span>
-                    )}
-                  </button>
-                </div>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
+            </div>
+          </div>
+        </motion.div>
       </motion.div>
     </div>
   );

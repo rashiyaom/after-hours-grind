@@ -3,7 +3,7 @@ import { Post } from "@/types";
 import { motion, AnimatePresence } from "framer-motion";
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { useStore } from "@/hooks/useStore";
+import { useStore, useAppStore, useCurrentUser } from "@/hooks/useStore";
 import { LUXURY_TWEEN_MEDIUM } from "@/lib/motionTokens";
 import { toast } from "sonner";
 
@@ -46,6 +46,34 @@ export default function FeedPostCard({ post, onClick }: { post: Post; onClick?: 
   const [showComments, setShowComments] = useState(false);
   const [commentText, setCommentText] = useState("");
   const [submittingComment, setSubmittingComment] = useState(false);
+
+  const currentUser = useCurrentUser();
+  const followUser = useAppStore((state) => state.followUser);
+  const unfollowUser = useAppStore((state) => state.unfollowUser);
+  const [isFollowed, setIsFollowed] = useState(false);
+  const [followLoading, setFollowLoading] = useState(false);
+  const isOtherUser = currentUser?.id !== post.userId && post.userRole === "student";
+
+  const handleFollowToggle = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (followLoading) return;
+    setFollowLoading(true);
+    try {
+      if (isFollowed) {
+        await unfollowUser(post.userId);
+        setIsFollowed(false);
+        toast.info(`Unfollowed ${post.userName}`);
+      } else {
+        await followUser(post.userId);
+        setIsFollowed(true);
+        toast.success(`Following ${post.userName}!`);
+      }
+    } catch {
+      toast.error("Could not update follow status");
+    } finally {
+      setFollowLoading(false);
+    }
+  };
 
   const colorIdx = post.id.charCodeAt(post.id.length - 1) % MEDIA_PALETTES.length;
   const palette = MEDIA_PALETTES[colorIdx];
@@ -94,7 +122,18 @@ export default function FeedPostCard({ post, onClick }: { post: Post; onClick?: 
             </div>
           </div>
           <div>
-            <p className="text-sm font-semibold text-white leading-tight">{post.userName}</p>
+            <div className="flex items-center gap-2">
+              <p className="text-sm font-semibold text-white leading-tight">{post.userName}</p>
+              {isOtherUser && !isFollowed && (
+                <button
+                  onClick={handleFollowToggle}
+                  disabled={followLoading}
+                  className="text-[11px] font-bold text-[#4DD2FF] hover:text-[#6ee0ff] transition-colors disabled:opacity-50"
+                >
+                  · Follow
+                </button>
+              )}
+            </div>
             <p className="text-[10px] text-white/35 mt-0.5">{post.location} · {timeAgo(post.timestamp)}</p>
           </div>
         </Link>

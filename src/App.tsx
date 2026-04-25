@@ -30,6 +30,7 @@ const Settings = lazy(() => import("@/pages/student/Settings"));
 const Achievements = lazy(() => import("@/pages/student/Achievements"));
 const FitnessOnboardingPage = lazy(() => import("@/pages/student/FitnessOnboarding"));
 const PlanApprovalStatusPage = lazy(() => import("@/pages/student/PlanApprovalStatus"));
+const Explore = lazy(() => import("@/pages/student/Explore"));
 
 const TrainerDashboard = lazy(() => import("@/pages/trainer/Dashboard"));
 const PlanBuilder = lazy(() => import("@/pages/trainer/PlanBuilder"));
@@ -106,6 +107,7 @@ const App = () => {
               <Route path="notifications" element={<Notifications />} />
               <Route path="settings" element={<Settings />} />
               <Route path="achievements" element={<Achievements />} />
+              <Route path="explore" element={<Explore />} />
             </Route>
           </Route>
 
