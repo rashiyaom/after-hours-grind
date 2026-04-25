@@ -22,6 +22,7 @@ import {
   NotificationItem,
   LeaderboardEntry,
 } from '@/types';
+import { toast } from 'sonner';
 import { generateAutoPlan } from '@/lib/planGeneration';
 import { 
   loginBackend, 

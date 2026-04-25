@@ -58,18 +58,6 @@ export async function signup(input: SignupInput) {
             },
           }
         : {}),
-      ...(input.role === "TRAINER"
-        ? {
-            trainerProfile: {
-              create: {
-                specialization: input.specialization ?? "",
-                whatsappNumber: input.whatsappNumber ?? null,
-                experience: input.experience ?? 0,
-                certifications,
-              },
-            },
-          }
-        : {}),
     },
   });
 

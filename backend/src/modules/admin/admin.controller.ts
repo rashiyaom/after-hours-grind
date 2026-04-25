@@ -12,7 +12,7 @@ export async function toggleUserBanHandler(req: Request, res: Response) {
     res.json(user);
 }
 
-import { signupSchema } from \"../auth/auth.schema.js\";
+import { signupSchema } from "../auth/auth.schema.js";
 
 export async function createTrainerHandler(req: Request, res: Response) {
     const payload = signupSchema.parse(req.body);
