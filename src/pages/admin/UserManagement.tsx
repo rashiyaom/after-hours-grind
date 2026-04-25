@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Search, ShieldCheck, UserX, Trash2, CheckSquare, Square } from "lucide-react";
+import { Search, ShieldCheck, UserX, Trash2, CheckSquare, Square, Plus, X, Loader2 } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import Badge from "@/components/ui/badge";
 import Button from "@/components/ui/button";
@@ -7,19 +7,52 @@ import { Input } from "@/components/ui/input";
 import { useAppStore, useUsers } from "@/hooks/useStore";
 import { toast } from "sonner";
 import { Student } from "@/types";
+import { motion, AnimatePresence } from "framer-motion";
 
 const UserManagement = () => {
   const [query, setQuery] = useState("");
   const [roleFilter, setRoleFilter] = useState<"all" | "student" | "trainer" | "admin">("all");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [isCreating, setIsCreating] = useState(false);
+  const [newTrainer, setNewTrainer] = useState({
+    name: "",
+    email: "",
+    password: "",
+    specialization: "",
+    whatsappNumber: "",
+  });
   
   const users = useUsers();
   const banUser = useAppStore((state) => state.banUser);
   const verifyTrainer = useAppStore((state) => state.verifyTrainer);
   const assignTrainer = useAppStore((state) => state.assignTrainer);
   const bulkDeleteUsers = useAppStore((state) => state.bulkDeleteUsers);
+  const createTrainer = useAppStore((state) => state.createTrainer);
   const currentUser = useAppStore((state) => state.session.currentUser);
   
+  const handleCreateTrainer = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newTrainer.name || !newTrainer.email || !newTrainer.password || !newTrainer.whatsappNumber) {
+      toast.error("Please fill in all required fields");
+      return;
+    }
+    
+    setIsCreating(true);
+    try {
+      await createTrainer({
+        ...newTrainer,
+        role: "TRAINER",
+      });
+      setShowCreateModal(false);
+      setNewTrainer({ name: "", email: "", password: "", specialization: "", whatsappNumber: "" });
+    } catch (err) {
+      // toast handled in store
+    } finally {
+      setIsCreating(false);
+    }
+  };
+
   const userList = Object.values(users);
   const trainers = userList.filter(user => user.role === "trainer");
 
@@ -102,17 +135,110 @@ const UserManagement = () => {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
         <h1 className="text-3xl font-bold">User Management</h1>
         
-        {selectedIds.size > 0 && (
-          <Button 
-            variant="destructive" 
-            className="w-fit animate-in fade-in slide-in-from-right-4"
-            onClick={handleBulkDelete}
-          >
-            <Trash2 className="h-4 w-4 mr-2" />
-            Delete {selectedIds.size} Selected
+        <div className="flex items-center gap-3">
+          {selectedIds.size > 0 && (
+            <Button 
+              variant="destructive" 
+              className="w-fit animate-in fade-in slide-in-from-right-4"
+              onClick={handleBulkDelete}
+            >
+              <Trash2 className="h-4 w-4 mr-2" />
+              Delete {selectedIds.size}
+            </Button>
+          )}
+          
+          <Button onClick={() => setShowCreateModal(true)}>
+            <Plus className="h-4 w-4 mr-2" />
+            Add Trainer
           </Button>
-        )}
+        </div>
       </div>
+
+      <AnimatePresence>
+        {showCreateModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 backdrop-blur-sm">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="w-full max-w-lg glass-card border border-white/10 shadow-2xl p-6 overflow-hidden bg-background rounded-xl"
+            >
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-xl font-bold">Create New Trainer</h2>
+                <button onClick={() => setShowCreateModal(false)} className="p-2 hover:bg-white/5 rounded-full transition-colors">
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+
+              <form onSubmit={handleCreateTrainer} className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-xs font-medium text-muted-foreground">Name *</label>
+                    <Input 
+                      value={newTrainer.name}
+                      onChange={e => setNewTrainer(prev => ({ ...prev, name: e.target.value }))}
+                      placeholder="Trainer Name"
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-xs font-medium text-muted-foreground">Email *</label>
+                    <Input 
+                      type="email"
+                      value={newTrainer.email}
+                      onChange={e => setNewTrainer(prev => ({ ...prev, email: e.target.value }))}
+                      placeholder="trainer@example.com"
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-xs font-medium text-muted-foreground">Password *</label>
+                  <Input 
+                    type="password"
+                    value={newTrainer.password}
+                    onChange={e => setNewTrainer(prev => ({ ...prev, password: e.target.value }))}
+                    placeholder="Min 8 characters"
+                    required
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-xs font-medium text-muted-foreground">Specialization</label>
+                  <Input 
+                    value={newTrainer.specialization}
+                    onChange={e => setNewTrainer(prev => ({ ...prev, specialization: e.target.value }))}
+                    placeholder="e.g. Strength & Conditioning"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-xs font-medium text-muted-foreground">WhatsApp Number *</label>
+                  <Input 
+                    value={newTrainer.whatsappNumber}
+                    onChange={e => setNewTrainer(prev => ({ ...prev, whatsappNumber: e.target.value }))}
+                    placeholder="+91 98765 43210"
+                    required
+                  />
+                </div>
+
+                <div className="flex justify-end gap-3 pt-4 border-t border-white/5">
+                  <Button type="button" variant="ghost" onClick={() => setShowCreateModal(false)}>Cancel</Button>
+                  <Button type="submit" disabled={isCreating}>
+                    {isCreating ? (
+                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                    ) : (
+                      <Plus className="h-4 w-4 mr-2" />
+                    )}
+                    Create Trainer
+                  </Button>
+                </div>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
 
       <Card>
         <CardHeader className="border-b">
