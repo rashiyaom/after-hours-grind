@@ -53,6 +53,7 @@ const adminNav = [
   { label: "Dashboard", path: "/admin/dashboard", icon: LayoutDashboard },
   { label: "Users", path: "/admin/users", icon: Users },
   { label: "Templates", path: "/admin/templates", icon: ClipboardList },
+  { label: "Achievements", path: "/admin/achievements", icon: Award },
   { label: "Events", path: "/admin/events", icon: Calendar },
   { label: "Content", path: "/admin/content", icon: Rss },
   { label: "Permissions", path: "/admin/permissions", icon: Shield },
@@ -71,6 +72,14 @@ export default function AppLayout() {
     logout,
     refreshData,
   } = useAppStore();
+
+  const closeMobileMenu = () => {
+    setMobileOpen(false);
+  };
+
+  useEffect(() => {
+    setMobileOpen(false);
+  }, [location.pathname]);
 
   useEffect(() => {
     if (!isAuthenticated) return;
@@ -468,7 +477,7 @@ export default function AppLayout() {
               )}
             </Link>
           )}
-          <button onClick={() => setMobileOpen(true)} className="text-foreground active:scale-90 transition-all">
+          <button type="button" onClick={() => setMobileOpen(true)} className="text-foreground active:scale-90 transition-all">
             <Menu className="h-6 w-6" />
           </button>
         </div>
@@ -478,11 +487,36 @@ export default function AppLayout() {
       <AnimatePresence>
         {mobileOpen && (
           <>
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={LUXURY_TWEEN_MEDIUM} className="lg:hidden fixed inset-0 bg-background/90 backdrop-blur-md z-[100]" onClick={() => setMobileOpen(false)} />
-            <motion.div initial={{ x: "100%" }} animate={{ x: 0 }} exit={{ x: "100%" }} transition={LUXURY_SPRING} className="lg:hidden fixed top-0 right-0 h-full w-full max-w-[280px] bg-card border-l border-white/10 z-[101] flex flex-col shadow-[-20px_0_50px_rgba(0,0,0,0.5)]">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={LUXURY_TWEEN_MEDIUM}
+              className="lg:hidden fixed inset-0 bg-background/90 backdrop-blur-md z-[100]"
+              onClick={closeMobileMenu}
+              onPointerUp={closeMobileMenu}
+              onTouchEnd={closeMobileMenu}
+            />
+            <motion.div
+              initial={{ x: "100%" }}
+              animate={{ x: 0 }}
+              exit={{ x: "100%" }}
+              transition={LUXURY_SPRING}
+              className="lg:hidden fixed top-0 right-0 h-full w-full max-w-[280px] bg-card border-l border-white/10 z-[101] flex flex-col shadow-[-20px_0_50px_rgba(0,0,0,0.5)] pointer-events-auto"
+              onClick={(event) => event.stopPropagation()}
+            >
                <div className="p-6 border-b border-white/5 flex items-center justify-between">
                   <h3 className="font-display font-semibold text-lg text-foreground tracking-tight">Menu</h3>
-                  <button onClick={() => setMobileOpen(false)} className="p-2 rounded-lg bg-white/5 hover:bg-white/10 transition-all"><X className="h-5 w-5" /></button>
+                  <button
+                    type="button"
+                    onClick={closeMobileMenu}
+                    onPointerUp={closeMobileMenu}
+                    onTouchEnd={closeMobileMenu}
+                    className="p-2 rounded-lg bg-white/5 hover:bg-white/10 transition-all"
+                    aria-label="Close menu"
+                  >
+                    <X className="h-5 w-5" />
+                  </button>
                </div>
                <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
                   {nav.map((item) => {
@@ -491,7 +525,9 @@ export default function AppLayout() {
                       <Link 
                         key={item.path} 
                         to={item.path} 
-                        onClick={() => setMobileOpen(false)} 
+                        onClick={closeMobileMenu}
+                        onPointerUp={closeMobileMenu}
+                        onTouchEnd={closeMobileMenu}
                         className={`flex items-center justify-between p-4 rounded-xl text-sm font-medium transition-all border ${active ? "bg-[#C9F85A]/8 border-[#C9F85A]/20 text-white" : "bg-transparent border-transparent text-white/40 hover:text-white"}`}
                       >
                         <div className="flex items-center gap-4">
@@ -509,7 +545,7 @@ export default function AppLayout() {
                         <Activity className="h-3 w-3" /> Online
                      </p>
                   </div>
-                  <button onClick={handleLogout} className="w-full flex items-center justify-center gap-2 py-4 rounded-xl text-sm font-semibold bg-destructive/10 text-destructive hover:bg-destructive hover:text-black transition-all">
+                  <button type="button" onClick={handleLogout} className="w-full flex items-center justify-center gap-2 py-4 rounded-xl text-sm font-semibold bg-destructive/10 text-destructive hover:bg-destructive hover:text-black transition-all">
                     <LogOut className="h-4 w-4" /> Sign Out
                   </button>
                </div>

@@ -43,6 +43,7 @@ const ContentModeration = lazy(() => import("@/pages/admin/ContentModeration"));
 const Permissions = lazy(() => import("@/pages/admin/Permissions"));
 const AdminEventsManager = lazy(() => import("@/pages/admin/EventsManager"));
 const AdminTemplates = lazy(() => import("@/pages/admin/Templates"));
+const AdminAchievementsManager = lazy(() => import("@/pages/admin/AchievementsManager"));
 
 const EventsPage = lazy(() => import("@/pages/EventsPage"));
 const AthletesPage = lazy(() => import("@/pages/AthletesPage"));
@@ -137,6 +138,7 @@ const App = () => {
                 <Route path="content" element={<ContentModeration />} />
               </Route>
               <Route path="events" element={<AdminEventsManager />} />
+              <Route path="achievements" element={<AdminAchievementsManager />} />
             </Route>
           </Route>
 

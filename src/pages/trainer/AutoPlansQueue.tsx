@@ -72,7 +72,7 @@ export default function AutoPlansQueuePage() {
         },
         {
           type: "habit",
-          title: "Trainer Edited: 8k steps + hydration tracker",
+          title: "Trainer Edited: 8k steps + sleep tracker",
           points: 30,
         },
       ],

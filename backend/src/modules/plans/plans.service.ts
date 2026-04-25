@@ -8,7 +8,7 @@ import { deleteCacheByPattern, getJsonCache, setJsonCache } from "../../lib/cach
 import { invalidateLeaderboardCache } from "../leaderboard/leaderboard.service.js";
 import { invalidateNotificationsCacheForUser } from "../notifications/notifications.service.js";
 
-const COMPLETE_STATUSES = new Set(["PENDING", "APPROVED"] as const);
+const LATE_SUBMISSION_POINTS_MULTIPLIER = 0.7;
 const TODAY_PLAN_CACHE_TTL_MS = 15_000;
 const TODAY_PLAN_LITE_CACHE_TTL_MS = 8_000;
 const TODAY_PLAN_CACHE_TTL_SECONDS = Math.ceil(TODAY_PLAN_CACHE_TTL_MS / 1000);
@@ -215,15 +215,20 @@ const withReadRetry = async <T>(operation: string, userId: string, work: () => P
   throw new HttpError(503, "Data is temporarily unavailable. Please retry.");
 };
 
-const computeCalendarDay = (createdAt: Date, totalDays: number): number => {
+const computeRelativeDay = (createdAt: Date, referenceDate = new Date()): number => {
   const startOfDay = (d: Date) => Date.UTC(d.getFullYear(), d.getMonth(), d.getDate());
   const msPerDay = 24 * 60 * 60 * 1000;
-  
+
   const createdDate = startOfDay(createdAt);
-  const currentDate = startOfDay(new Date());
-  
+  const currentDate = startOfDay(referenceDate);
+
   const elapsedDays = Math.floor((currentDate - createdDate) / msPerDay);
-  return Math.max(1, Math.min(totalDays, elapsedDays + 1));
+  return Math.max(1, elapsedDays + 1);
+};
+
+const computeCalendarDay = (createdAt: Date, totalDays: number): number => {
+  const relativeDay = computeRelativeDay(createdAt, new Date());
+  return Math.max(1, Math.min(totalDays, relativeDay));
 };
 
 /**
@@ -262,26 +267,6 @@ async function calculateStreak(userId: string, createdAt: Date): Promise<number>
 
   return streak;
 }
-
-
-const resolveUnlockedDay = (
-  planDays: Array<{ day: number; tasks: Array<{ id: string }> }>,
-  latestByTask: Map<string, { status: string }>,
-  calendarDay: number,
-): number => {
-  const sortedDays = [...planDays].sort((a, b) => a.day - b.day);
-  const firstIncompleteDay =
-    sortedDays.find((day) => {
-      if (day.tasks.length === 0) return false;
-      return day.tasks.some((task) => {
-        const latestSubmission = latestByTask.get(task.id);
-        return !latestSubmission || !COMPLETE_STATUSES.has(latestSubmission.status as "PENDING" | "APPROVED");
-      });
-    })?.day ?? sortedDays[sortedDays.length - 1]?.day ?? 1;
-
-  return Math.max(1, Math.min(calendarDay, firstIncompleteDay));
-};
-
 const todayPlanCache = new Map<string, { expiresAt: number; value: unknown }>();
 const todayPlanLiteCache = new Map<string, { expiresAt: number; value: unknown }>();
 
@@ -397,7 +382,7 @@ export async function getTodayPlan(userId: string) {
     if (!plan) return null;
 
     const totalDays = Math.max(plan.days.length, 1);
-    const currentDay = computeCalendarDay(profile.user.createdAt, totalDays);
+    const currentDay = computeCalendarDay(plan.createdAt, totalDays);
     
     // Sync streak on every direct fetch
     const calculatedStreak = await calculateStreak(userId, profile.user.createdAt);
@@ -511,9 +496,7 @@ export async function getTodayPlanLite(userId: string) {
     if (!plan) return null;
 
     const totalDays = Math.max(plan._count.days, 1);
-    
-    // Calculate currentDay purely based on account creation date
-    const currentDay = computeCalendarDay(profile.user.createdAt, totalDays);
+    const currentDay = computeCalendarDay(plan.createdAt, totalDays);
 
     const allTaskIds = planDays.flatMap((day) => day.tasks.map((task) => task.id));
     const latestTaskSubmissions =
@@ -668,13 +651,8 @@ export async function createSubmission(studentId: string, input: { planTaskId: s
 
   const totalDays = Math.max(plan.days.length, 1);
   const calendarDay = computeCalendarDay(plan.createdAt, totalDays);
-  const unlockedDay = resolveUnlockedDay(plan.days, latestByTask, calendarDay);
-
-  if (task.planDay.day !== unlockedDay) {
-    if (task.planDay.day > unlockedDay) {
-      throw HttpError.forbidden("Complete the current day first. Next day unlocks only on the following day.");
-    }
-    throw HttpError.forbidden("You can only submit tasks for your currently unlocked day.");
+  if (task.planDay.day > calendarDay) {
+    throw HttpError.forbidden("Complete the current day first. Next day unlocks only on the following day.");
   }
 
   const latestForTarget = latestByTask.get(task.id);
@@ -833,13 +811,35 @@ export async function approveSubmission(
     // Award points
     if (sub.planTaskId) {
       const fetchTaskStartedAt = performance.now();
-      const task = await tx.planTask.findUnique({ where: { id: sub.planTaskId } });
+      const task = await tx.planTask.findUnique({
+        where: { id: sub.planTaskId },
+        include: {
+          planDay: {
+            select: {
+              day: true,
+              plan: { select: { createdAt: true } },
+            },
+          },
+        },
+      });
       timings.fetchTaskMs = elapsedMs(fetchTaskStartedAt);
       if (task) {
-        const resolvedPoints = typeof awardedPoints === "number" ? awardedPoints : task.points;
+        let resolvedPoints = typeof awardedPoints === "number" ? awardedPoints : task.points;
         if (resolvedPoints > task.points) {
           throw HttpError.badRequest(`Custom marks cannot exceed ${task.points} for this task`);
         }
+
+        const submissionDay = computeRelativeDay(task.planDay.plan.createdAt, sub.createdAt);
+        const isLateSubmission = task.planDay.day < submissionDay;
+
+        if (isLateSubmission) {
+          const lateCap = Math.max(1, Math.floor(task.points * LATE_SUBMISSION_POINTS_MULTIPLIER));
+          if (typeof awardedPoints === "number" && awardedPoints > lateCap) {
+            throw HttpError.badRequest(`Late submissions can award up to ${lateCap} points for this task`);
+          }
+          resolvedPoints = Math.min(resolvedPoints, lateCap);
+        }
+
         const incrementPointsStartedAt = performance.now();
         await tx.studentProfile.update({
           where: { userId: sub.studentId },

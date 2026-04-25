@@ -96,4 +96,76 @@ test.describe.serial("critical smoke flows", () => {
     });
     expect([201, 400]).toContain(submitResponse.status());
   });
+
+  test("student strava connect and sync flow", async ({ page }) => {
+    await login(page, STUDENT_EMAIL, STUDENT_PASSWORD);
+
+    let connected = false;
+    let statusCalls = 0;
+
+    await page.route("**/api/strava/status", async (route) => {
+      statusCalls += 1;
+      const payload = connected
+        ? {
+            connected: true,
+            athleteDisplayName: "Om Rashiya",
+            athleteUsername: "rashiyao",
+            lastSyncAt: new Date().toISOString(),
+          }
+        : {
+            connected: false,
+            athleteDisplayName: null,
+            athleteUsername: null,
+            lastSyncAt: null,
+          };
+
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify(payload),
+      });
+    });
+
+    await page.route("**/api/strava/exchange", async (route) => {
+      connected = true;
+      await route.fulfill({
+        status: 201,
+        contentType: "application/json",
+        body: JSON.stringify({
+          connected: true,
+          importedCount: 2,
+          fetchedCount: 2,
+          lastSyncAt: new Date().toISOString(),
+        }),
+      });
+    });
+
+    await page.route("**/api/strava/sync", async (route) => {
+      connected = true;
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          connected: true,
+          importedCount: 1,
+          fetchedCount: 4,
+          lastSyncAt: new Date().toISOString(),
+        }),
+      });
+    });
+
+    await page.goto(APP_URL ? `${APP_URL}/student/feed` : "/student/feed");
+    await expect(page.getByRole("button", { name: /Connect Strava/i })).toBeVisible();
+
+    await page.goto(APP_URL ? `${APP_URL}/student/feed?code=test-code&state=test-state` : "/student/feed?code=test-code&state=test-state");
+
+    await expect(page.getByRole("button", { name: /Sync Now/i })).toBeVisible();
+    await expect(page.getByRole("button", { name: /Disconnect/i })).toBeVisible();
+
+    const syncButton = page.getByRole("button", { name: /Sync Now/i });
+    await syncButton.click();
+
+    await expect(page.getByText(/Strava Integration/i)).toBeVisible();
+    expect(statusCalls).toBeGreaterThan(0);
+  });
 });

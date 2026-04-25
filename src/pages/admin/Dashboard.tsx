@@ -208,6 +208,9 @@ const AdminDashboard = () => {
                 <Link to="/admin/permissions">Permissions Matrix</Link>
               </Button>
             )}
+            <Button asChild className="w-full justify-start" variant="outline">
+              <Link to="/admin/achievements">🏆 Achievement Manager</Link>
+            </Button>
             {!canManageUsers && !canModerateContent && (
               <p className="text-xs text-muted-foreground">No admin actions available for current permissions.</p>
             )}

@@ -26,8 +26,8 @@ export async function checkAndAwardAchievements(userId: string) {
   const [profile, submissionCount, postCount, likesReceived] = await Promise.all([
     prisma.studentProfile.findUnique({ where: { userId } }),
     prisma.submission.count({ where: { studentId: userId, status: "APPROVED" } }),
-    prisma.post.count({ where: { userId } }),
-    prisma.like.count({ where: { post: { userId } } }),
+    prisma.post.count({ where: { userId, source: { not: "strava" } } }),
+    prisma.like.count({ where: { post: { userId, source: { not: "strava" } } } }),
   ]);
 
   const awarded: string[] = [];

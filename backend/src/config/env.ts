@@ -34,6 +34,10 @@ const envSchema = z.object({
   CLOUDINARY_API_KEY: z.string().optional(),
   CLOUDINARY_API_SECRET: z.string().optional(),
   DEFAULT_TRAINER_WHATSAPP_NUMBER: z.string().optional(),
+  STRAVA_CLIENT_ID: z.string().optional(),
+  STRAVA_CLIENT_SECRET: z.string().optional(),
+  STRAVA_REDIRECT_URI: z.string().url().optional(),
+  STRAVA_SYNC_PER_PAGE: z.coerce.number().int().min(1).max(50).default(20),
 });
 
 const parsed = envSchema.safeParse(process.env);

@@ -874,7 +874,7 @@ export default function StudentDetail() {
                   <textarea
                     value={editForm.habit}
                     onChange={(e) => setEditForm({ ...editForm, habit: e.target.value })}
-                    placeholder="e.g. 10k steps + 3.5L water"
+                    placeholder="e.g. 10k steps + 7h sleep"
                     rows={2}
                     className="w-full bg-[#1A1A1A] border border-white/8 rounded-xl px-4 py-3 text-sm text-white placeholder:text-white/25 focus:outline-none focus:border-[#A78BFA]/30 resize-none transition-all"
                   />

@@ -16,7 +16,7 @@ type BackendFeedResponse = {
     type: "image" | "video" | "reel";
     mediaUrl: string;
     caption: string;
-    source: "general" | "task-proof";
+    source: "general" | "task-proof" | "strava";
     location: string;
     status: "visible" | "hidden" | "under-review";
     createdAt: string;
@@ -37,6 +37,20 @@ type BackendFeedResponse = {
 type FeedPageResponse = {
   data: Post[];
   nextCursor: string | null;
+};
+
+export type StravaStatusResponse = {
+  connected: boolean;
+  athleteDisplayName: string | null;
+  athleteUsername: string | null;
+  lastSyncAt: string | null;
+};
+
+export type StravaSyncResponse = {
+  connected: boolean;
+  importedCount: number;
+  fetchedCount: number;
+  lastSyncAt: string;
 };
 
 type BackendNotificationsResponse = {
@@ -143,7 +157,7 @@ const toFrontendPost = (item: BackendFeedResponse["data"][number]): Post => ({
   status: item.status,
 });
 
-class ApiError extends Error {
+export class ApiError extends Error {
   status: number;
 
   constructor(message: string, status: number) {
@@ -168,6 +182,11 @@ const isSafeHttpMethod = (method: string | undefined): boolean => {
   const normalized = (method ?? "GET").toUpperCase();
   return normalized === "GET" || normalized === "HEAD" || normalized === "OPTIONS";
 };
+
+const wait = (ms: number): Promise<void> =>
+  new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
 
 const setAccessToken = (token: string): void => {
   inMemoryAccessToken = token;
@@ -198,6 +217,38 @@ async function apiRequest<T>(path: string, init: RequestInit = {}, token?: strin
   });
 
   if (!response.ok) {
+    if (response.status === 503 && isSafeHttpMethod(init.method)) {
+      const retryCount = 2;
+      for (let attempt = 1; attempt <= retryCount; attempt += 1) {
+        await wait(180 * attempt);
+        const retryResponse = await fetch(`${API_BASE_URL}${path}`, {
+          ...init,
+          headers,
+          credentials: "include",
+        });
+        if (retryResponse.ok) {
+          return (await retryResponse.json()) as T;
+        }
+        if (retryResponse.status !== 503) {
+          let retryMessage = `Request failed: ${retryResponse.status}`;
+          try {
+            const raw = await retryResponse.text();
+            if (raw) {
+              try {
+                const parsed = JSON.parse(raw) as { error?: string; message?: string };
+                retryMessage = parsed.error || parsed.message || raw;
+              } catch {
+                retryMessage = raw;
+              }
+            }
+          } catch {
+            // Keep default message when response body cannot be read.
+          }
+          throw new ApiError(retryMessage, retryResponse.status);
+        }
+      }
+    }
+
     let message = `Request failed: ${response.status}`;
     try {
       const raw = await response.text();
@@ -302,7 +353,11 @@ export function subscribeRealtimeEvents(
   onEvent: (event: RealtimeEventPayload) => void,
   onError?: (error: Event) => void
 ): () => void {
-  const stream = new EventSource(`${API_BASE_URL}/stream/events`, { withCredentials: true });
+  const token = getAccessToken();
+  const streamUrl = token
+    ? `${API_BASE_URL}/stream/events?accessToken=${encodeURIComponent(token)}`
+    : `${API_BASE_URL}/stream/events`;
+  const stream = new EventSource(streamUrl, { withCredentials: true });
 
   const forward = (type: RealtimeEventPayload["type"]) => (event: MessageEvent<string>) => {
     try {
@@ -509,7 +564,7 @@ export async function createPostAPI(payload: {
   type: "image" | "video" | "reel";
   mediaUrl: string;
   caption: string;
-  source?: "general" | "task-proof";
+  source?: "general" | "task-proof" | "strava";
   location?: string;
 }): Promise<ApiRecord> {
   return authedRequest<ApiRecord>("/posts", {
@@ -520,6 +575,29 @@ export async function createPostAPI(payload: {
       ...payload,
     }),
   });
+}
+
+export async function fetchStravaStatusAPI(): Promise<StravaStatusResponse> {
+  return authedRequest<StravaStatusResponse>("/strava/status", { method: "GET" });
+}
+
+export async function fetchStravaConnectUrlAPI(): Promise<{ connectUrl: string }> {
+  return authedRequest<{ connectUrl: string }>("/strava/connect-url", { method: "GET" });
+}
+
+export async function exchangeStravaCodeAPI(payload: { code: string; state: string }): Promise<StravaSyncResponse> {
+  return authedRequest<StravaSyncResponse>("/strava/exchange", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function syncStravaActivitiesAPI(): Promise<StravaSyncResponse> {
+  return authedRequest<StravaSyncResponse>("/strava/sync", { method: "POST" });
+}
+
+export async function disconnectStravaAPI(): Promise<{ connected: boolean }> {
+  return authedRequest<{ connected: boolean }>("/strava/connection", { method: "DELETE" });
 }
 
 export async function addCommentAPI(postId: string, text: string): Promise<ApiComment> {

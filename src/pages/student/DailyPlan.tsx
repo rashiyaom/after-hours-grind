@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  Check, Flame, Dumbbell, Utensils, Footprints, Droplets,
+  Check, Flame, Dumbbell, Utensils, Footprints,
   Upload,
   ChevronRight, ChevronLeft, ChevronRight as ChevRight,
   Play, Info, Clock, X, Activity, Zap, ArrowUpRight, Target,
@@ -233,8 +233,8 @@ export default function DailyPlanPage() {
   );
 
   const openProofModal = (taskId: string, taskType: "workout" | "diet", taskName: string) => {
-    if (!isToday) {
-      toast.info("Proof can only be submitted for today's tasks.");
+    if (isFuture) {
+      toast.info("Future day tasks are view-only. You can submit on that day.");
       return;
     }
     setProofModal({ taskId, taskType, taskName });
@@ -313,8 +313,8 @@ export default function DailyPlanPage() {
   };
 
   const resendExistingCheckin = async (taskId: string, taskType: "workout" | "diet", taskName: string) => {
-    if (!isToday) {
-      toast.info("Resend is only available for today's pending check-ins.");
+    if (isFuture) {
+      toast.info("Future day tasks are view-only. You can resend only on or after that day.");
       return;
     }
     setResendingTaskId(taskId);
@@ -355,6 +355,7 @@ export default function DailyPlanPage() {
   const dayType = dayTypes[(selectedDay - 1) % 7];
   const isToday = selectedDay === backendCurrentDay;
   const isPast = selectedDay < backendCurrentDay;
+  const isFuture = selectedDay > backendCurrentDay;
 
   if (!canStartCurrentPlan) {
     return (
@@ -612,8 +613,8 @@ export default function DailyPlanPage() {
               <ChevronLeft className="h-4 w-4" />
             </button>
             <button
-              onClick={() => setSelectedDay((d) => Math.min(backendCurrentDay, d + 1))}
-              disabled={selectedDay >= backendCurrentDay}
+              onClick={() => setSelectedDay((d) => Math.min(totalDays, d + 1))}
+              disabled={selectedDay >= totalDays}
               className="p-2.5 rounded-full bg-[#1D1D1D] border border-white/10 text-white/60 hover:text-white hover:bg-[#282828] disabled:opacity-25 transition-all"
             >
               <ChevronRight className="h-4 w-4" />
@@ -677,8 +678,8 @@ export default function DailyPlanPage() {
             </button>
             <span className="text-xs text-white/40 font-medium px-1">Week {Math.ceil(selectedDay / 7)}</span>
             <button
-              onClick={() => setSelectedDay((d) => Math.min(backendCurrentDay, d + 7))}
-              disabled={selectedDay > Math.min(totalDays, backendCurrentDay) - 7}
+              onClick={() => setSelectedDay((d) => Math.min(totalDays, d + 7))}
+              disabled={selectedDay > totalDays - 7}
               className="p-1.5 rounded-lg bg-[#1D1D1D] hover:bg-[#282828] text-white/60 hover:text-white disabled:opacity-25 transition-all"
             >
               <ChevronRight className="h-4 w-4" />
@@ -695,10 +696,9 @@ export default function DailyPlanPage() {
             return (
               <motion.button
                 key={day}
-                whileTap={{ scale: day <= backendCurrentDay ? 0.92 : 1 }}
-                onClick={() => day <= backendCurrentDay && setSelectedDay(day)}
-                disabled={day > backendCurrentDay}
-                title={day > backendCurrentDay ? "Unlocks on this day" : ""}
+                whileTap={{ scale: 0.92 }}
+                onClick={() => setSelectedDay(day)}
+                title={day > backendCurrentDay ? "View only for now. Submission unlocks on that day." : ""}
                 className={`aspect-square rounded-xl flex flex-col items-center justify-center relative transition-all text-xs font-bold border ${
                   isSelected
                     ? "bg-[#C9F85A] border-[#C9F85A] text-black shadow-[0_4px_20px_rgba(201,248,90,0.3)]"
@@ -793,7 +793,7 @@ export default function DailyPlanPage() {
                   {/* complete toggle */}
                   <motion.button
                     whileTap={{ scale: 0.88 }}
-                    onClick={() => isToday && toggleWorkout(w.id)}
+                    onClick={() => !isFuture && toggleWorkout(w.id)}
                     className={`w-8 h-8 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-all ${
                       w.completed
                         ? "bg-[#C9F85A] border-[#C9F85A]"
@@ -847,7 +847,7 @@ export default function DailyPlanPage() {
                   {!w.completed && pendingTaskIds.has(w.id) && (
                     <button
                       onClick={() => void resendExistingCheckin(w.id, "workout", w.name)}
-                      disabled={resendingTaskId === w.id}
+                      disabled={resendingTaskId === w.id || isFuture}
                       className="rounded-full border border-[#4DD2FF]/35 bg-[#4DD2FF]/10 px-3 py-1 text-[10px] font-semibold text-[#4DD2FF] hover:bg-[#4DD2FF]/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       {resendingTaskId === w.id ? "Resending..." : "Resend WhatsApp"}
@@ -923,7 +923,7 @@ export default function DailyPlanPage() {
                     {/* check */}
                     <motion.button
                       whileTap={{ scale: 0.88 }}
-                      onClick={() => isToday && toggleMeal(m.id)}
+                      onClick={() => !isFuture && toggleMeal(m.id)}
                       className={`w-8 h-8 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-all ${
                         m.completed
                           ? "bg-emerald-500 border-emerald-500"
@@ -971,7 +971,7 @@ export default function DailyPlanPage() {
                     {!m.completed && pendingTaskIds.has(m.id) && (
                       <button
                         onClick={() => void resendExistingCheckin(m.id, "diet", m.meal)}
-                        disabled={resendingTaskId === m.id}
+                        disabled={resendingTaskId === m.id || isFuture}
                         className="rounded-full border border-[#4DD2FF]/35 bg-[#4DD2FF]/10 px-3 py-1 text-[10px] font-semibold text-[#4DD2FF] hover:bg-[#4DD2FF]/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         {resendingTaskId === m.id ? "Resending..." : "Resend WhatsApp"}
@@ -1112,32 +1112,6 @@ export default function DailyPlanPage() {
           </div>
         </div>
 
-        {/* Hydration */}
-        <div className="rounded-[24px] bg-[#121212] border border-white/8 p-6 relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-32 h-32 rounded-full bg-[#4DD2FF]/4 translate-x-8 -translate-y-8 blur-xl" />
-          <div className="relative z-10">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-xl bg-[#4DD2FF]/10 border border-[#4DD2FF]/20 flex items-center justify-center">
-                  <Droplets className="h-4 w-4 text-[#4DD2FF]" />
-                </div>
-                <span className="text-sm font-semibold text-white">Hydration</span>
-              </div>
-              <span className="text-[10px] font-semibold text-white/30 uppercase tracking-wider">Daily Goal</span>
-            </div>
-            <p className="text-4xl font-bold text-white tracking-tight">2.4<span className="text-2xl text-white/40 font-medium">L</span></p>
-            <p className="text-xs text-white/40 mt-1">Goal: {todayTask.hydrationGoal}</p>
-            <div className="mt-4 h-1.5 bg-[#1D1D1D] rounded-full overflow-hidden border border-white/5">
-              <motion.div
-                initial={{ width: 0 }}
-                animate={{ width: "65%" }}
-                transition={LUXURY_TWEEN_SLOW}
-                className="h-full bg-[#4DD2FF] rounded-full"
-              />
-            </div>
-            <p className="text-[10px] text-[#4DD2FF] font-bold mt-2">65% of goal</p>
-          </div>
-        </div>
       </motion.div>
 
       {/* ── Daily Check-In CTA ────────────────────────────── */}

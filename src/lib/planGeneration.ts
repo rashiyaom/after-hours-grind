@@ -100,9 +100,9 @@ function applyScheduleRules(weeks: PlanWeek[], daysPerWeek: number): PlanWeek[] 
             {
               type: "habit",
               title: "Active recovery day",
-              description: "Light walk + mobility + hydration and sleep consistency.",
+              description: "Light walk + mobility + sleep consistency.",
               points: 35,
-              meta: { recovery: true, stepsGoal: 6000, sleepHours: 8, waterLiters: 3 },
+              meta: { recovery: true, stepsGoal: 6000, sleepHours: 8 },
             },
           ],
         };

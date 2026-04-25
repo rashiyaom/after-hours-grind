@@ -2960,7 +2960,7 @@ export const useStore = () => {
       { id: 'm-b1', name: 'Consistency Machine', icon: 'flame', date: '2026-04-10', description: '14-day streak', earned: true },
       { id: 'm-b2', name: 'Proof Master', icon: 'trophy', date: '2026-04-11', description: '50 verified uploads', earned: true },
       { id: 'm-b3', name: '10K Club', icon: 'footprints', date: '2026-04-12', description: '10k+ steps for 10 days', earned: true },
-      { id: 'm-b4', name: 'Hydration Hero', icon: 'star', date: '', description: 'Hit water goal for 21 days', earned: false },
+      { id: 'm-b4', name: 'Sleep Discipline', icon: 'star', date: '', description: 'Hit sleep goal for 21 days', earned: false },
     ],
   };
 

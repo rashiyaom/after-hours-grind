@@ -214,7 +214,7 @@ const nutritionTemplates: Record<Goal, Record<DietType, { training: string[]; re
   maintenance: {
     veg: {
       training: ["Balanced vegetarian plate with protein, complex carbs, and healthy fats."],
-      recovery: ["Maintenance day: moderate calories, high micronutrients, consistent hydration."],
+      recovery: ["Maintenance day: moderate calories, high micronutrients, and consistent sleep."],
     },
     non_veg: {
       training: ["Balanced non-veg plate with lean protein, whole grains, and vegetables."],
@@ -228,13 +228,13 @@ const nutritionTemplates: Record<Goal, Record<DietType, { training: string[]; re
     },
     non_veg: {
       training: ["Endurance performance nutrition with carb timing and lean protein support."],
-      recovery: ["Recovery day with hydration salts, moderate carbs, and anti-inflammatory foods."],
+      recovery: ["Recovery day with electrolytes, moderate carbs, and anti-inflammatory foods."],
     },
   },
 };
 
 const habitPool = [
-  "Hydration checkpoint and sodium balance review.",
+  "Morning sunlight and posture reset checkpoint.",
   "Sleep hygiene protocol: wind-down + fixed bedtime.",
   "10-minute mobility reset and posture alignment.",
   "Daily step consistency target completion.",

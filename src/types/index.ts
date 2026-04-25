@@ -221,7 +221,7 @@ export interface Post {
   userName: string;
   userAvatar: string;
   userRole: UserRole;
-  source?: "general" | "task-proof";
+  source?: "general" | "task-proof" | "strava";
   type: "image" | "video" | "reel";
   mediaUrl: string;
   caption: string;

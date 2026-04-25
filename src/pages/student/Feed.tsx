@@ -3,20 +3,30 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   Search, Plus, X, Heart, MessageCircle, Share2, Send,
   Play, Image as ImageIcon, Filter, Bookmark, ArrowUpRight,
-  Flame, TrendingUp, Loader2,
+  Flame, TrendingUp, Loader2, Bike, RefreshCw, Link2, Unplug,
 } from "lucide-react";
 import FeedPostCard from "@/components/FeedPostCard";
 import { useStore } from "@/hooks/useStore";
 import { useAppStore } from "@/hooks/useStore";
 import { useCurrentUser, usePermissions } from "@/hooks/useStore";
 import { Post } from "@/types";
-import { Link } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
 import { filterPostsByTab } from "@/lib/feedFilters";
 import { LUXURY_TWEEN_MEDIUM } from "@/lib/motionTokens";
 import { createPortal } from "react-dom";
-import { fetchFeedPageFromBackend, fetchCommentsAPI } from "@/lib/api";
+import {
+  fetchFeedPageFromBackend,
+  fetchCommentsAPI,
+  fetchStravaStatusAPI,
+  fetchStravaConnectUrlAPI,
+  exchangeStravaCodeAPI,
+  syncStravaActivitiesAPI,
+  disconnectStravaAPI,
+  ApiError,
+  type StravaStatusResponse,
+} from "@/lib/api";
 
 type FeedComment = {
   id: string;
@@ -59,9 +69,18 @@ export default function FeedPage() {
   const [hasMore, setHasMore] = useState<boolean>(false);
   const [isLoadingMore, setIsLoadingMore] = useState<boolean>(false);
   const [initialLoadAttempted, setInitialLoadAttempted] = useState<boolean>(false);
+  const [stravaStatus, setStravaStatus] = useState<StravaStatusResponse | null>(null);
+  const [isConnectingStrava, setIsConnectingStrava] = useState(false);
+  const [isSyncingStrava, setIsSyncingStrava] = useState(false);
+  const [isDisconnectingStrava, setIsDisconnectingStrava] = useState(false);
+  const callbackHandledRef = useRef(false);
+  const location = useLocation();
+  const navigate = useNavigate();
   const loadMoreRef = useRef<HTMLDivElement | null>(null);
 
   const activePost = selectedPost ? postMap[selectedPost.id] ?? null : null;
+  const hasRenderableActiveMedia = Boolean(activePost && /^https?:\/\//i.test(activePost.mediaUrl));
+  const isActiveVideo = Boolean(activePost && (activePost.type === "video" || activePost.type === "reel"));
 
   const mergeRemotePosts = useCallback((remotePosts: Post[]) => {
     if (remotePosts.length === 0) return;
@@ -94,6 +113,23 @@ export default function FeedPage() {
       setIsLoadingMore(false);
     }
   }, [hasMore, isLoadingMore, mergeRemotePosts, nextCursor]);
+
+  const refreshFeedFirstPage = useCallback(async () => {
+    const response = await fetchFeedPageFromBackend(undefined, FEED_PAGE_SIZE);
+    mergeRemotePosts(response.data);
+    setFeedOrderIds(response.data.map((post) => post.id));
+    setNextCursor(response.nextCursor);
+    setHasMore(Boolean(response.nextCursor));
+  }, [mergeRemotePosts]);
+
+  const loadStravaStatus = useCallback(async () => {
+    try {
+      const status = await fetchStravaStatusAPI();
+      setStravaStatus(status);
+    } catch {
+      setStravaStatus(null);
+    }
+  }, []);
 
   useEffect(() => {
     if (selectedPost) {
@@ -144,6 +180,81 @@ export default function FeedPage() {
       isMounted = false;
     };
   }, [mergeRemotePosts, setLoading]);
+
+  useEffect(() => {
+    void loadStravaStatus();
+  }, [loadStravaStatus]);
+
+  useEffect(() => {
+    if (callbackHandledRef.current) return;
+
+    const params = new URLSearchParams(location.search);
+    const code = params.get("code");
+    const state = params.get("state");
+    const error = params.get("error");
+
+    if (error) {
+      callbackHandledRef.current = true;
+      toast.error("Strava authorization was cancelled or failed.");
+      navigate(location.pathname, { replace: true });
+      return;
+    }
+
+    if (!code || !state) return;
+
+    callbackHandledRef.current = true;
+    setIsConnectingStrava(true);
+
+    void (async () => {
+      try {
+        const result = await exchangeStravaCodeAPI({ code, state });
+        toast.success(`Strava connected. Imported ${result.importedCount} activities.`);
+        await Promise.all([loadStravaStatus(), refreshFeedFirstPage()]);
+      } catch (error) {
+        toast.error(error instanceof ApiError ? error.message : "Could not connect Strava right now.");
+      } finally {
+        setIsConnectingStrava(false);
+        navigate(location.pathname, { replace: true });
+      }
+    })();
+  }, [loadStravaStatus, location.pathname, location.search, navigate, refreshFeedFirstPage]);
+
+  const handleConnectStrava = async () => {
+    setIsConnectingStrava(true);
+    try {
+      const { connectUrl } = await fetchStravaConnectUrlAPI();
+      window.location.href = connectUrl;
+    } catch (error) {
+      setIsConnectingStrava(false);
+      toast.error(error instanceof ApiError ? error.message : "Could not start Strava connection.");
+    }
+  };
+
+  const handleSyncStrava = async () => {
+    setIsSyncingStrava(true);
+    try {
+      const result = await syncStravaActivitiesAPI();
+      toast.success(`Synced Strava. Imported ${result.importedCount} new activities.`);
+      await Promise.all([loadStravaStatus(), refreshFeedFirstPage()]);
+    } catch (error) {
+      toast.error(error instanceof ApiError ? error.message : "Could not sync Strava activities.");
+    } finally {
+      setIsSyncingStrava(false);
+    }
+  };
+
+  const handleDisconnectStrava = async () => {
+    setIsDisconnectingStrava(true);
+    try {
+      await disconnectStravaAPI();
+      toast.success("Strava disconnected.");
+      await loadStravaStatus();
+    } catch (error) {
+      toast.error(error instanceof ApiError ? error.message : "Could not disconnect Strava right now.");
+    } finally {
+      setIsDisconnectingStrava(false);
+    }
+  };
 
 
   useEffect(() => {
@@ -239,23 +350,44 @@ export default function FeedPage() {
                 />
                 <div className="absolute inset-0 bg-gradient-to-br from-[#C9F85A]/4 via-transparent to-[#4DD2FF]/4" />
 
-                {/* watermark */}
-                <span className="text-[18rem] font-black select-none pointer-events-none text-white/[0.025] group-hover:text-white/[0.04] transition-opacity duration-1000">
-                  TAH
-                </span>
+                {activePost.source !== "strava" && hasRenderableActiveMedia ? (
+                  isActiveVideo ? (
+                    <video
+                      src={activePost.mediaUrl}
+                      className="relative z-10 h-full w-full object-contain bg-black"
+                      controls
+                      preload="metadata"
+                      playsInline
+                    />
+                  ) : (
+                    <img
+                      src={activePost.mediaUrl}
+                      alt={`${activePost.userName} post`}
+                      className="relative z-10 h-full w-full object-contain bg-black"
+                      loading="lazy"
+                    />
+                  )
+                ) : (
+                  <>
+                    {/* watermark */}
+                    <span className="text-[18rem] font-black select-none pointer-events-none text-white/[0.025] group-hover:text-white/[0.04] transition-opacity duration-1000">
+                      TAH
+                    </span>
 
-                {/* media icon center */}
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <motion.div
-                    whileHover={{ scale: 1.08 }}
-                    className="w-20 h-20 rounded-full bg-[#C9F85A]/10 border border-[#C9F85A]/25 flex items-center justify-center"
-                  >
-                    {activePost.type === "reel"
-                      ? <Play className="h-9 w-9 text-[#C9F85A] fill-[#C9F85A]/20 ml-1" />
-                      : <ImageIcon className="h-9 w-9 text-[#C9F85A]" />
-                    }
-                  </motion.div>
-                </div>
+                    {/* media icon center */}
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <motion.div
+                        whileHover={{ scale: 1.08 }}
+                        className="w-20 h-20 rounded-full bg-[#C9F85A]/10 border border-[#C9F85A]/25 flex items-center justify-center"
+                      >
+                        {activePost.type === "reel"
+                          ? <Play className="h-9 w-9 text-[#C9F85A] fill-[#C9F85A]/20 ml-1" />
+                          : <ImageIcon className="h-9 w-9 text-[#C9F85A]" />
+                        }
+                      </motion.div>
+                    </div>
+                  </>
+                )}
 
                 {/* close + type badge */}
                 <div className="absolute top-5 left-5 flex items-center gap-3 z-10">
@@ -434,6 +566,70 @@ export default function FeedPage() {
               <span className="text-[10px] text-white/30 uppercase tracking-wider">{k.label}</span>
             </div>
           ))}
+        </div>
+      </motion.div>
+
+      <motion.div
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ ...LUXURY_TWEEN_MEDIUM, delay: 0.06 }}
+        className="rounded-[28px] border border-white/10 bg-[#111111] p-5 sm:p-6"
+      >
+        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          <div>
+            <div className="inline-flex items-center gap-2 rounded-full bg-[#FC4C02]/15 border border-[#FC4C02]/30 px-3 py-1.5 mb-3">
+              <Bike className="h-3.5 w-3.5 text-[#FC4C02]" />
+              <span className="text-xs font-bold text-[#FC4C02] uppercase tracking-wider">Strava Integration</span>
+            </div>
+            <h2 className="text-xl font-bold text-white">Auto-import your Strava activities</h2>
+            <p className="text-sm text-white/45 mt-1">
+              Activities are posted to your feed, but they do not add leaderboard points.
+            </p>
+            {stravaStatus?.connected && (
+              <p className="text-xs text-white/35 mt-2">
+                Connected as {stravaStatus.athleteUsername ? `@${stravaStatus.athleteUsername}` : (stravaStatus.athleteDisplayName ?? "Strava athlete")}
+                {stravaStatus.lastSyncAt ? ` · Last sync ${timeAgo(stravaStatus.lastSyncAt)}` : ""}
+              </p>
+            )}
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            {!stravaStatus?.connected ? (
+              <button
+                onClick={() => {
+                  void handleConnectStrava();
+                }}
+                disabled={isConnectingStrava}
+                className="inline-flex items-center gap-2 rounded-full bg-[#FC4C02] px-4 py-2.5 text-xs font-bold uppercase tracking-wider text-white disabled:opacity-60"
+              >
+                {isConnectingStrava ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Link2 className="h-3.5 w-3.5" />}
+                Connect Strava
+              </button>
+            ) : (
+              <>
+                <button
+                  onClick={() => {
+                    void handleSyncStrava();
+                  }}
+                  disabled={isSyncingStrava}
+                  className="inline-flex items-center gap-2 rounded-full bg-[#FC4C02] px-4 py-2.5 text-xs font-bold uppercase tracking-wider text-white disabled:opacity-60"
+                >
+                  {isSyncingStrava ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
+                  Sync Now
+                </button>
+                <button
+                  onClick={() => {
+                    void handleDisconnectStrava();
+                  }}
+                  disabled={isDisconnectingStrava}
+                  className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-transparent px-4 py-2.5 text-xs font-bold uppercase tracking-wider text-white/70 hover:text-white disabled:opacity-60"
+                >
+                  {isDisconnectingStrava ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Unplug className="h-3.5 w-3.5" />}
+                  Disconnect
+                </button>
+              </>
+            )}
+          </div>
         </div>
       </motion.div>
 

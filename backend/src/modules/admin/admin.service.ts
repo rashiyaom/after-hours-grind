@@ -20,7 +20,7 @@ const NUTRITION_TEMPLATE_SEEDS = [
     },
     {
         name: "Lean Lunch Plate",
-        description: "Lean protein + complex carbs + salad + hydration check.",
+        description: "Lean protein + complex carbs + salad + portion check.",
         category: "nutrition",
         durationMinutes: 20,
         difficulty: "low",

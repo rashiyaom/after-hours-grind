@@ -135,11 +135,10 @@ function buildTaskBundle(poolKey: PlanTemplateKey, daySeed: number): PlanTaskIte
     },
     {
       type: "habit",
-      title: "Hydration, steps, and sleep target",
-      description: "Complete 8k-10k steps, water goal, and 7h+ sleep.",
+      title: "Steps and sleep consistency target",
+      description: "Complete 8k-10k steps and 7h+ sleep.",
       points: 30,
       meta: {
-        waterLiters: 3,
         stepsGoal: 9000,
         sleepHours: 7,
       },

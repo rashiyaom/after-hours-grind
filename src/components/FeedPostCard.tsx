@@ -1,4 +1,4 @@
-import { Heart, MessageCircle, Share2, Bookmark, MoreHorizontal, Play, Image as ImageIcon, ArrowUpRight } from "lucide-react";
+import { Heart, MessageCircle, Share2, Bookmark, MoreHorizontal, Play, Image as ImageIcon, ArrowUpRight, Bike } from "lucide-react";
 import { Post } from "@/types";
 import { motion, AnimatePresence } from "framer-motion";
 import { useState } from "react";
@@ -50,6 +50,8 @@ export default function FeedPostCard({ post, onClick }: { post: Post; onClick?: 
   const colorIdx = post.id.charCodeAt(post.id.length - 1) % MEDIA_PALETTES.length;
   const palette = MEDIA_PALETTES[colorIdx];
   const gradIdx = post.userId.charCodeAt(0) % AVATAR_GRADIENTS.length;
+  const hasRenderableMedia = /^https?:\/\//i.test(post.mediaUrl);
+  const isVideoPost = post.type === "video" || post.type === "reel";
 
   const handleLike = (e: React.MouseEvent) => { e.stopPropagation(); likePost(post.id); };
   const stop = (e: React.MouseEvent) => e.stopPropagation();
@@ -98,6 +100,11 @@ export default function FeedPostCard({ post, onClick }: { post: Post; onClick?: 
         </Link>
 
         <div className="flex items-center gap-2" onClick={stop}>
+          {post.source === "strava" && (
+            <span className="text-[10px] px-2.5 py-1 rounded-full bg-[#FC4C02]/10 text-[#FC4C02] border border-[#FC4C02]/25 font-semibold uppercase tracking-wider">
+              Strava
+            </span>
+          )}
           {post.source === "task-proof" && (
             <span
               className={`text-[10px] px-2.5 py-1 rounded-full border font-semibold uppercase tracking-wider ${
@@ -123,55 +130,109 @@ export default function FeedPostCard({ post, onClick }: { post: Post; onClick?: 
       </div>
 
       {/* ── Media block ─────────────────────────────────── */}
-      <div
-        className={`relative aspect-square bg-gradient-to-br ${palette.bg} flex items-center justify-center overflow-hidden`}
-        style={{ backgroundSize: "cover" }}
-      >
-        {/* grid overlay */}
-        <div className="absolute inset-0 opacity-30"
-          style={{ backgroundImage: "linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px)", backgroundSize: "28px 28px" }}
-        />
+      {post.source === "strava" ? (
+        <div className="relative aspect-square overflow-hidden bg-[radial-gradient(circle_at_20%_0%,rgba(252,76,2,0.35),transparent_55%),linear-gradient(135deg,#1a120e_0%,#141414_100%)]">
+          <div className="absolute inset-0 opacity-20" style={{ backgroundImage: "linear-gradient(rgba(252,76,2,0.12) 1px, transparent 1px), linear-gradient(90deg, rgba(252,76,2,0.12) 1px, transparent 1px)", backgroundSize: "28px 28px" }} />
+          <div className="relative z-10 h-full w-full flex flex-col items-center justify-center gap-4 text-center px-8">
+            <div className="h-16 w-16 rounded-2xl bg-[#FC4C02]/20 border border-[#FC4C02]/40 flex items-center justify-center">
+              <Bike className="h-8 w-8 text-[#FC4C02]" />
+            </div>
+            <p className="text-sm font-semibold text-white max-w-[26ch] leading-relaxed">
+              Imported from Strava activity feed
+            </p>
+            {post.mediaUrl.startsWith("http") && (
+              <a
+                href={post.mediaUrl}
+                target="_blank"
+                rel="noreferrer"
+                onClick={stop}
+                className="inline-flex items-center gap-1.5 rounded-full border border-[#FC4C02]/40 bg-[#FC4C02]/12 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-[#FC4C02] hover:bg-[#FC4C02]/18"
+              >
+                View on Strava
+                <ArrowUpRight className="h-3.5 w-3.5" />
+              </a>
+            )}
+          </div>
+        </div>
+      ) : hasRenderableMedia ? (
+        <div className="relative aspect-square overflow-hidden bg-[#090909]">
+          {isVideoPost ? (
+            <video
+              src={post.mediaUrl}
+              className="h-full w-full object-cover"
+              controls
+              preload="metadata"
+              playsInline
+              onClick={stop}
+            />
+          ) : (
+            <img
+              src={post.mediaUrl}
+              alt={`${post.userName} post`}
+              className="h-full w-full object-cover"
+              loading="lazy"
+              onClick={stop}
+            />
+          )}
 
-        {/* TAH watermark */}
-        <span
-          className="text-[11rem] font-black select-none pointer-events-none opacity-[0.025] group-hover:opacity-[0.05] transition-opacity duration-700"
-          style={{ color: palette.accent }}
+          <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/25 via-transparent to-transparent" />
+          {isVideoPost && (
+            <div className="pointer-events-none absolute bottom-3 right-3 w-8 h-8 rounded-full bg-black/55 backdrop-blur-sm border border-white/10 flex items-center justify-center">
+              <Play className="h-4 w-4 text-white/80 ml-0.5" />
+            </div>
+          )}
+        </div>
+      ) : (
+        <div
+          className={`relative aspect-square bg-gradient-to-br ${palette.bg} flex items-center justify-center overflow-hidden`}
+          style={{ backgroundSize: "cover" }}
         >
-          TAH
-        </span>
+          {/* grid overlay */}
+          <div className="absolute inset-0 opacity-30"
+            style={{ backgroundImage: "linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px)", backgroundSize: "28px 28px" }}
+          />
 
-        {/* Day badge */}
-        {post.caption.includes("Day") && (
-          <div className="absolute top-3 left-3 flex items-center gap-2 bg-black/70 backdrop-blur-md px-3 py-1.5 rounded-full border border-white/10 z-10">
-            <div className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: palette.accent }} />
-            <span className="text-[11px] font-semibold text-white">
-              {post.caption.match(/Day \d+ of \d+/)?.[0] || post.caption.match(/Day \d+/)?.[0] || ""}
-            </span>
-          </div>
-        )}
+          {/* TAH watermark */}
+          <span
+            className="text-[11rem] font-black select-none pointer-events-none opacity-[0.025] group-hover:opacity-[0.05] transition-opacity duration-700"
+            style={{ color: palette.accent }}
+          >
+            TAH
+          </span>
 
-        {/* type indicator */}
-        {post.type === "reel" ? (
-          <div className="absolute inset-0 flex items-center justify-center">
-            <motion.div
-              whileHover={{ scale: 1.1 }}
-              className="w-14 h-14 rounded-full border-2 flex items-center justify-center bg-black/40 backdrop-blur-sm"
-              style={{ borderColor: `${palette.accent}60` }}
-            >
-              <Play className="h-6 w-6 ml-0.5" style={{ color: palette.accent, fill: `${palette.accent}30` }} />
-            </motion.div>
-          </div>
-        ) : (
-          <div className="absolute bottom-3 right-3 w-7 h-7 rounded-full bg-black/50 backdrop-blur-sm flex items-center justify-center border border-white/10">
-            <ImageIcon className="h-3.5 w-3.5 text-white/60" />
-          </div>
-        )}
+          {/* Day badge */}
+          {post.caption.includes("Day") && (
+            <div className="absolute top-3 left-3 flex items-center gap-2 bg-black/70 backdrop-blur-md px-3 py-1.5 rounded-full border border-white/10 z-10">
+              <div className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: palette.accent }} />
+              <span className="text-[11px] font-semibold text-white">
+                {post.caption.match(/Day \d+ of \d+/)?.[0] || post.caption.match(/Day \d+/)?.[0] || ""}
+              </span>
+            </div>
+          )}
 
-        {/* hover overlay */}
-        <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500"
-          style={{ background: `linear-gradient(to top, ${palette.accent}18, transparent 50%)` }}
-        />
-      </div>
+          {/* type indicator */}
+          {post.type === "reel" ? (
+            <div className="absolute inset-0 flex items-center justify-center">
+              <motion.div
+                whileHover={{ scale: 1.1 }}
+                className="w-14 h-14 rounded-full border-2 flex items-center justify-center bg-black/40 backdrop-blur-sm"
+                style={{ borderColor: `${palette.accent}60` }}
+              >
+                <Play className="h-6 w-6 ml-0.5" style={{ color: palette.accent, fill: `${palette.accent}30` }} />
+              </motion.div>
+            </div>
+          ) : (
+            <div className="absolute bottom-3 right-3 w-7 h-7 rounded-full bg-black/50 backdrop-blur-sm flex items-center justify-center border border-white/10">
+              <ImageIcon className="h-3.5 w-3.5 text-white/60" />
+            </div>
+          )}
+
+          {/* hover overlay */}
+          <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500"
+            style={{ background: `linear-gradient(to top, ${palette.accent}18, transparent 50%)` }}
+          />
+        </div>
+      )}
 
       {/* ── Actions & content ────────────────────────────── */}
       <div className="px-5 pb-5 pt-4 space-y-4">
@@ -224,6 +285,12 @@ export default function FeedPostCard({ post, onClick }: { post: Post; onClick?: 
           </Link>{" "}
           {post.caption}
         </p>
+
+        {post.source === "strava" && (
+          <p className="text-[11px] font-medium text-[#FC4C02]/80">
+            Strava activity posts are informational and do not add points.
+          </p>
+        )}
 
         {/* view comments toggle */}
         <button

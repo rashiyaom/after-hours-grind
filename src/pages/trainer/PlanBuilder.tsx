@@ -245,7 +245,7 @@ export default function PlanBuilder() {
                       <textarea
                         value={dayForms[day]?.activity ?? ""}
                         onChange={(e) => updateDayForm(day, "activity", e.target.value)}
-                        placeholder="10k steps, 3.5L water"
+                        placeholder="10k steps + 7h sleep"
                         rows={2}
                         className="w-full bg-[#1A1A1A] border border-white/8 rounded-xl px-4 py-3 text-sm text-white placeholder:text-white/20 focus:outline-none focus:border-[#A78BFA]/30 transition-all resize-none font-mono text-xs"
                       />
