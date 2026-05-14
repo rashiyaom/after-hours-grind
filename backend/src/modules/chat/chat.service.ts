@@ -82,6 +82,7 @@ export async function getThreads(userId: string) {
   return prisma.chatThread.findMany({
     where: { participants: { some: { userId } } },
     orderBy: { updatedAt: "desc" },
+    take: 50,
     include: threadSummaryInclude,
   });
 }
@@ -118,12 +119,14 @@ export async function getMessages(userId: string, threadId: string, limit = 50) 
   // Update lastRead
   await prisma.threadParticipant.update({ where: { id: participant.id }, data: { lastRead: new Date() } });
 
-  return prisma.chatMessage.findMany({
+  const messages = await prisma.chatMessage.findMany({
     where: { threadId },
-    orderBy: { createdAt: "asc" },
+    orderBy: { createdAt: "desc" },
     take: limit,
     include: { sender: { select: { id: true, name: true, avatar: true } } },
   });
+
+  return messages.reverse();
 }
 
 export async function sendMessage(userId: string, threadId: string, input: SendMessageInput) {

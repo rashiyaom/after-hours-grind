@@ -100,7 +100,8 @@ export default function UploadPage() {
         source: "general",
         type: mediaType,
         mediaUrl,
-        caption: `${caption}${validSteps ? `\n\nSteps: ${validSteps.toLocaleString()}` : ""}\n\n${Array.from(activeTags).join(" ")}`,
+        caption: `${caption}\n\n${Array.from(activeTags).join(" ")}`,
+        steps: validSteps,
         location: location || "College Gym",
       });
 

@@ -225,6 +225,7 @@ export interface Post {
   type: "image" | "video" | "reel";
   mediaUrl: string;
   caption: string;
+  steps?: number | null;
   relatedTaskId?: string;
   relatedTaskType?: "workout" | "diet";
   relatedDayNumber?: number;

@@ -6,6 +6,7 @@ export const createPostSchema = z.object({
   caption: z.string().max(2000).default(""),
   source: z.enum(["general", "task-proof"]).default("general"),
   location: z.string().max(200).default(""),
+  steps: z.coerce.number().int().positive().optional(),
 });
 
 export const createCommentSchema = z.object({

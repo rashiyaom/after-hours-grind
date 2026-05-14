@@ -87,7 +87,7 @@ export default function AppLayout() {
     if (!isAuthenticated) return;
 
     const liveScope = currentUser?.role === "student"
-      ? "student"
+      ? location.pathname === "/student/dashboard" ? "student-dashboard" : "student"
       : currentUser?.role === "trainer"
         ? "trainer"
         : currentUser?.role === "admin"

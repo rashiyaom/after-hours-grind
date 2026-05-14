@@ -689,6 +689,7 @@ const PERMISSIONS_STORAGE_KEY = 'ah_permissions_v1';
 const USERS_STORAGE_KEY = 'ah_users_v1';
 const SESSION_STORAGE_KEY = 'ah_session_v1';
 const CHAT_STORAGE_KEY = 'ah_chats_v1';
+const DASHBOARD_STORAGE_KEY = 'ah_dashboard_v1';
 const MAX_CHAT_THREADS = 120;
 const MAX_MESSAGES_PER_THREAD = 80;
 const MAX_VOICE_DATA_URL_LENGTH = 1_200_000;
@@ -1172,10 +1173,49 @@ const readPersistedUsers = (baseUsers: Record<string, User>): Record<string, Use
 const persistUsers = (_users: Record<string, User>) => {};
 
 const readPersistedSession = (_users: Record<string, User>): AppState['session'] => {
+  try {
+    const storage = getLocalStorage();
+    if (storage) {
+      const stored = storage.getItem(SESSION_STORAGE_KEY);
+      if (stored) return JSON.parse(stored);
+    }
+  } catch (e) {}
   return { currentUser: null, isAuthenticated: false };
 };
 
-const persistSession = (_session: AppState['session']) => {};
+const persistSession = (session: AppState['session']) => {
+  try {
+    const storage = getLocalStorage();
+    if (storage) storage.setItem(SESSION_STORAGE_KEY, JSON.stringify(session));
+  } catch (e) {}
+};
+
+const readPersistedDashboardData = (): Partial<AppState['system']> => {
+  try {
+    const storage = getLocalStorage();
+    if (storage) {
+      const stored = storage.getItem(DASHBOARD_STORAGE_KEY);
+      if (stored) return JSON.parse(stored);
+    }
+  } catch (e) {}
+  return {};
+};
+
+const persistDashboardData = (system: AppState['system']) => {
+  try {
+    const storage = getLocalStorage();
+    if (storage) {
+      storage.setItem(DASHBOARD_STORAGE_KEY, JSON.stringify({
+        progressOverview: system.progressOverview,
+        progressWeekly: system.progressWeekly,
+        progressMonthly: system.progressMonthly,
+        progressHeatmap: system.progressHeatmap,
+        leaderboardEntries: system.leaderboardEntries,
+        studentTodayPlan: system.studentTodayPlan,
+      }));
+    }
+  } catch (e) {}
+};
 
 const clearPersistedSecurityState = () => {
   const storage = getLocalStorage();
@@ -1185,6 +1225,7 @@ const clearPersistedSecurityState = () => {
     storage.removeItem(USERS_STORAGE_KEY);
     storage.removeItem(CHAT_STORAGE_KEY);
     storage.removeItem(PERMISSIONS_STORAGE_KEY);
+    storage.removeItem(DASHBOARD_STORAGE_KEY);
   } catch (error) {
     reportStorageIssue('clearPersistedSecurityState', error);
   }
@@ -1193,6 +1234,7 @@ const clearPersistedSecurityState = () => {
 const initialUsers = readPersistedUsers({});
 
 const initialSession = readPersistedSession(initialUsers);
+const initialDashboardData = readPersistedDashboardData();
 
 // ========= INITIAL STATE =========
 const initialState: AppState = {
@@ -1215,13 +1257,13 @@ const initialState: AppState = {
     planUpdateNotifications: [],
     chatThreads: readPersistedChats(initialUsers, []),
     events: [],
-    progressOverview: null,
-    progressWeekly: [],
-    progressMonthly: [],
-    progressHeatmap: [],
-    leaderboardEntries: [],
+    progressOverview: initialDashboardData.progressOverview ?? null,
+    progressWeekly: initialDashboardData.progressWeekly ?? [],
+    progressMonthly: initialDashboardData.progressMonthly ?? [],
+    progressHeatmap: initialDashboardData.progressHeatmap ?? [],
+    leaderboardEntries: initialDashboardData.leaderboardEntries ?? [],
     progressLoading: false,
-    studentTodayPlan: null,
+    studentTodayPlan: initialDashboardData.studentTodayPlan ?? null,
     planLoading: false,
   },
   session: initialSession,
@@ -2721,6 +2763,7 @@ useAppStore.subscribe((state) => {
   persistUsers(state.users);
   persistSession(state.session);
   persistChats(state.system.chatThreads);
+  persistDashboardData(state.system);
 });
 
 if (typeof window !== 'undefined') {
@@ -3506,6 +3549,7 @@ export const useStore = () => {
         likes: 0,
         comments: 0,
         location: post.location ?? 'Campus',
+        steps: typeof post.steps === 'number' ? (post.steps as number) : undefined,
         timestamp: new Date().toISOString(),
         liked: false,
         status: 'visible',
@@ -3526,6 +3570,7 @@ export const useStore = () => {
           caption: optimisticPost.caption,
           source: optimisticPost.source,
           location: optimisticPost.location,
+          steps: optimisticPost.steps ?? null,
         });
         void useAppStore.getState().refreshData({ background: true, scope: getRefreshScopeForRole(useAppStore.getState().session.currentUser?.role) });
       } catch (error) {

@@ -573,6 +573,7 @@ export async function createPostAPI(payload: {
   caption: string;
   source?: "general" | "task-proof" | "strava";
   location?: string;
+  steps?: number | null;
 }): Promise<ApiRecord> {
   return authedRequest<ApiRecord>("/posts", {
     method: "POST",

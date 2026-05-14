@@ -1267,6 +1267,7 @@ export async function getSubmissions(userId: string, role: string) {
         }
       },
       orderBy: { createdAt: "desc" },
+      take: 100,
     });
   }
   
@@ -1287,6 +1288,7 @@ export async function getSubmissions(userId: string, role: string) {
       }
     },
     orderBy: { createdAt: "desc" },
+    take: 100,
   });
 }
 

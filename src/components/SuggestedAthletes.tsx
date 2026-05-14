@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   UserPlus, CheckCircle2, MessageCircle, X, Sparkles,
@@ -8,6 +8,7 @@ import { useStore, useAppStore } from "@/hooks/useStore";
 import { Link, useNavigate } from "react-router-dom";
 import { LUXURY_TWEEN_MEDIUM } from "@/lib/motionTokens";
 import { toast } from "sonner";
+import { fetchFollowingAPI } from "@/lib/api";
 
 const AVATAR_GRADIENTS = [
   "from-[#C9F85A] to-[#4DD2FF]",
@@ -48,6 +49,19 @@ export default function SuggestedAthletes({
       .filter((u) => u.id !== student.id && !dismissedIds.has(u.id))
       .slice(0, limit);
   }, [suggestedUsers, student.id, dismissedIds, limit]);
+
+  useEffect(() => {
+    const loadFollowing = async () => {
+      try {
+        const following = await fetchFollowingAPI(student.id);
+        const ids = new Set((following as any[]).map(f => (f.following as any).id));
+        setFollowingIds(ids);
+      } catch (e) {
+        console.error("Failed to load following", e);
+      }
+    };
+    void loadFollowing();
+  }, [student.id]);
 
   const handleFollow = async (userId: string) => {
     if (loadingIds.has(userId)) return;

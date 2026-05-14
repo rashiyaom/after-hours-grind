@@ -284,7 +284,7 @@ export default function StudentDashboard() {
   ];
 
   useEffect(() => {
-    void refreshData({ background: true, scope: "student" });
+    void refreshData({ background: true, scope: "student-dashboard" });
   }, [refreshData]);
 
   useEffect(() => {

@@ -73,6 +73,7 @@ export default function ProfilePage() {
   const [socialOpen, setSocialOpen] = useState<"followers" | "following" | null>(null);
   const [followersList, setFollowersList] = useState<SocialListItem[]>([]);
   const [followingList, setFollowingList] = useState<SocialListItem[]>([]);
+  const [fetchedProfile, setFetchedProfile] = useState<Record<string, any> | null>(null);
 
   const isMe = !userId || userId === me.id;
 
@@ -82,11 +83,9 @@ export default function ProfilePage() {
     const loadSocial = async () => {
       const targetId = isMe ? me.id : userId;
       if (!targetId) {
-        setLoading(false);
         return;
       }
 
-      setLoading(true);
       setSocialLoading(true);
       try {
         const [profile, followers, following] = await Promise.all([
@@ -96,6 +95,7 @@ export default function ProfilePage() {
         ]);
 
         if (!isMounted) return;
+        setFetchedProfile(profile);
         setFollowersList(normalizeSocialList(followers as Array<Record<string, unknown>>, "followers"));
         setFollowingList(normalizeSocialList(following as Array<Record<string, unknown>>, "following"));
         setIsFollowing(Boolean(profile.isFollowing));
@@ -106,7 +106,6 @@ export default function ProfilePage() {
       } finally {
         if (isMounted) {
           setSocialLoading(false);
-          setLoading(false);
         }
       }
     };
@@ -115,10 +114,25 @@ export default function ProfilePage() {
     return () => {
       isMounted = false;
     };
-  }, [isMe, me.id, setLoading, userId]);
+  }, [isMe, me.id, userId]);
 
   const s = useMemo(() => {
     if (isMe) return me;
+
+    if (fetchedProfile) {
+      return {
+        ...me,
+        id: fetchedProfile.id || userId,
+        name: fetchedProfile.name || "User",
+        avatar: fetchedProfile.avatar || "",
+        streak: fetchedProfile.studentProfile?.streak ?? 0,
+        rank: fetchedProfile.studentProfile?.rank ?? 0,
+        completionPercentage: fetchedProfile.studentProfile?.completionPercentage ?? 0,
+        followers: fetchedProfile.followersCount ?? 0,
+        following: fetchedProfile.followingCount ?? 0,
+        collegeId: fetchedProfile.studentProfile?.collegeId,
+      };
+    }
 
     if (userId) {
       const selected = users[userId];
@@ -142,7 +156,7 @@ export default function ProfilePage() {
     return found
       ? { ...me, id: found.userId, name: found.name, streak: found.streak, rank: found.rank, completionPercentage: found.completionPercentage, followers: 124, following: 89 }
       : me;
-  }, [userId, isMe, me, students, users]);
+  }, [userId, isMe, me, students, users, fetchedProfile]);
 
   const gradIdx = s.id.charCodeAt(0) % AVATAR_GRADIENTS.length;
   const userPosts = useMemo(

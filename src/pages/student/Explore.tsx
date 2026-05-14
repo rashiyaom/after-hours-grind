@@ -1,14 +1,14 @@
 import { useState, useMemo } from "react";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import {
   Search, Compass, Users, TrendingUp, Flame, Trophy,
-  Sparkles, ArrowUpRight, Filter,
+  Sparkles, ArrowUpRight, Filter, ShieldCheck,
 } from "lucide-react";
 import { useStore, useAppStore } from "@/hooks/useStore";
 import { Link } from "react-router-dom";
 import { LUXURY_TWEEN_MEDIUM } from "@/lib/motionTokens";
 import SuggestedAthletes from "@/components/SuggestedAthletes";
-import { Student as StudentType } from "@/types";
+import { User, Student, Trainer } from "@/types";
 
 const AVATAR_GRADIENTS = [
   "from-[#C9F85A] to-[#4DD2FF]",
@@ -31,43 +31,47 @@ export default function ExplorePage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [sortBy, setSortBy] = useState<SortKey>("trending");
 
-  const allAthletes = useMemo<StudentType[]>(() => {
+  const allUsers = useMemo<User[]>(() => {
     return Object.values(users).filter(
-      (u): u is StudentType => u.role === "student" && u.id !== me.id
+      (u) => u.id !== me.id && u.role !== "admin"
     );
   }, [users, me.id]);
 
-  const sortedAthletes = useMemo(() => {
-    let list = [...allAthletes];
+  const sortedUsers = useMemo(() => {
+    let list = [...allUsers];
 
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
       list = list.filter(
         (a) =>
           a.name.toLowerCase().includes(q) ||
-          (a.collegeId && a.collegeId.toLowerCase().includes(q))
+          (a.role === "student" && (a as Student).collegeId && (a as Student).collegeId.toLowerCase().includes(q))
       );
     }
 
     switch (sortBy) {
       case "streak":
-        list.sort((a, b) => b.streak - a.streak);
+        list.sort((a, b) => (b.role === "student" ? (b as Student).streak : 0) - (a.role === "student" ? (a as Student).streak : 0));
         break;
       case "rank":
-        list.sort((a, b) => a.rank - b.rank);
+        list.sort((a, b) => (a.role === "student" ? (a as Student).rank : 9999) - (b.role === "student" ? (b as Student).rank : 9999));
         break;
       case "followers":
-        list.sort((a, b) => b.followers - a.followers);
+        list.sort((a, b) => ((b as any).followers || 0) - ((a as any).followers || 0));
         break;
-      default: // trending = combo score
-        list.sort((a, b) => (b.streak + b.completionPercentage + b.followers) - (a.streak + a.completionPercentage + a.followers));
+      default: // trending
+        list.sort((a, b) => {
+          const scoreA = (a.role === "student" ? (a as Student).streak + (a as Student).completionPercentage : 50) + ((a as any).followers || 0);
+          const scoreB = (b.role === "student" ? (b as Student).streak + (b as Student).completionPercentage : 50) + ((b as any).followers || 0);
+          return scoreB - scoreA;
+        });
     }
 
     return list;
-  }, [allAthletes, searchQuery, sortBy]);
+  }, [allUsers, searchQuery, sortBy]);
 
-  const topAthletes = sortedAthletes.slice(0, 3);
-  const restAthletes = sortedAthletes.slice(3);
+  const topUsers = sortedUsers.slice(0, 3);
+  const restUsers = sortedUsers.slice(3);
 
   return (
     <div className="mx-auto max-w-4xl space-y-6 p-4 sm:p-6 lg:p-8 pb-24">
@@ -85,11 +89,11 @@ export default function ExplorePage() {
         <div className="relative z-10">
           <div className="inline-flex items-center gap-2 rounded-full bg-[#4DD2FF]/10 border border-[#4DD2FF]/20 px-3 py-1.5 mb-3">
             <Compass className="h-3.5 w-3.5 text-[#4DD2FF]" />
-            <span className="text-[11px] font-bold text-[#4DD2FF] uppercase tracking-[0.15em]">Explore</span>
+            <span className="text-[11px] font-bold text-[#4DD2FF] uppercase tracking-[0.15em]">Explore Profiles</span>
           </div>
-          <h1 className="text-4xl sm:text-5xl font-bold text-white tracking-tight leading-none">Discover Athletes</h1>
+          <h1 className="text-4xl sm:text-5xl font-bold text-white tracking-tight leading-none">Discover Community</h1>
           <p className="text-sm text-white/35 mt-2">
-            Find and follow athletes in the community · <span className="text-white/50 font-semibold">{allAthletes.length}</span> athletes
+            Find and follow athletes and elite trainers · <span className="text-white/50 font-semibold">{allUsers.length}</span> profiles
           </p>
         </div>
       </motion.div>
@@ -106,11 +110,11 @@ export default function ExplorePage() {
           <input
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search athletes by name..."
+            placeholder="Search community by name..."
             className="w-full h-12 rounded-2xl border border-white/10 bg-[#121212] pl-11 pr-4 text-sm text-white placeholder:text-white/25 focus:border-[#4DD2FF]/40 focus:outline-none transition-colors"
           />
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 overflow-x-auto pb-1 sm:pb-0 scrollbar-hide">
           {(
             [
               { key: "trending", icon: TrendingUp, label: "Trending" },
@@ -146,15 +150,15 @@ export default function ExplorePage() {
             <Sparkles className="h-3.5 w-3.5 text-[#C9F85A]" />
           </div>
           <div>
-            <p className="text-sm font-semibold text-white">People you may know</p>
+            <p className="text-sm font-semibold text-white">Suggested For You</p>
             <p className="text-[10px] text-white/30">Based on mutual connections and activity</p>
           </div>
         </div>
         <SuggestedAthletes variant="explore" limit={8} showViewAll={false} />
       </motion.div>
 
-      {/* ── Top performing athletes ───────────────────── */}
-      {topAthletes.length > 0 && (
+      {/* ── Top performing users ───────────────────── */}
+      {topUsers.length > 0 && (
         <motion.div
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
@@ -168,28 +172,32 @@ export default function ExplorePage() {
               <Trophy className="h-3.5 w-3.5 text-[#FFD36E]" />
             </div>
             <div>
-              <p className="text-sm font-semibold text-white">Top Athletes</p>
+              <p className="text-sm font-semibold text-white">Top Profiles</p>
               <p className="text-[10px] text-white/30">Highest performers right now</p>
             </div>
           </div>
 
           <div className="grid sm:grid-cols-3 gap-3 relative z-10">
-            {topAthletes.map((athlete, i) => {
-              const gradIdx = athlete.id.charCodeAt(0) % AVATAR_GRADIENTS.length;
+            {topUsers.map((user, i) => {
+              const gradIdx = user.id.charCodeAt(0) % AVATAR_GRADIENTS.length;
               const medals = ["🥇", "🥈", "🥉"];
               const medalColors = ["#FFD36E", "#C0C0C0", "#CD7F32"];
 
               return (
                 <Link
-                  key={athlete.id}
-                  to={`/student/profile/${athlete.id}`}
+                  key={user.id}
+                  to={`/student/profile/${user.id}`}
                   className="rounded-[20px] border border-white/8 bg-[#0D0D0D] p-5 flex flex-col items-center gap-3 hover:border-white/20 transition-all group"
                 >
                   {/* Medal + Avatar */}
                   <div className="relative">
                     <div className={`w-16 h-16 rounded-2xl bg-gradient-to-br ${AVATAR_GRADIENTS[gradIdx]} p-[2px]`}>
-                      <div className="w-full h-full rounded-[14px] bg-[#1A1A1A] flex items-center justify-center text-lg font-bold text-white">
-                        {getInitials(athlete.name)}
+                      <div className="w-full h-full rounded-[14px] bg-[#1A1A1A] flex items-center justify-center text-lg font-bold text-white overflow-hidden relative">
+                         {user.avatar ? (
+                           <img src={user.avatar} className="w-full h-full object-cover" alt="" />
+                         ) : (
+                           getInitials(user.name)
+                         )}
                       </div>
                     </div>
                     <div
@@ -202,17 +210,27 @@ export default function ExplorePage() {
 
                   {/* Info */}
                   <div className="text-center">
-                    <p className="text-sm font-semibold text-white truncate group-hover:text-[#C9F85A] transition-colors">{athlete.name}</p>
-                    <div className="flex items-center justify-center gap-2 mt-1 text-[10px] text-white/30">
-                      <span className="flex items-center gap-0.5">
-                        <Flame className="h-2.5 w-2.5 text-[#FF4D00]" />
-                        {athlete.streak}d
-                      </span>
-                      <span>·</span>
-                      <span>{athlete.completionPercentage}%</span>
-                      <span>·</span>
-                      <span>{athlete.followers} followers</span>
+                    <div className="flex items-center justify-center gap-1">
+                      <p className="text-sm font-semibold text-white truncate group-hover:text-[#C9F85A] transition-colors">{user.name}</p>
+                      {user.role === "trainer" && <ShieldCheck className="h-3 w-3 text-[#4DD2FF]" />}
                     </div>
+                    
+                    {user.role === "trainer" ? (
+                      <div className="mt-1 flex items-center justify-center">
+                        <span className="text-[10px] font-bold text-[#4DD2FF] bg-[#4DD2FF]/10 px-2 py-0.5 rounded-full border border-[#4DD2FF]/20 uppercase">Pro Trainer</span>
+                      </div>
+                    ) : (
+                      <div className="flex items-center justify-center gap-2 mt-1 text-[10px] text-white/30">
+                        <span className="flex items-center gap-0.5">
+                          <Flame className="h-2.5 w-2.5 text-[#FF4D00]" />
+                          {(user as Student).streak}d
+                        </span>
+                        <span>·</span>
+                        <span>{(user as Student).completionPercentage}%</span>
+                        <span>·</span>
+                        <span>{(user as any).followers || 0} followers</span>
+                      </div>
+                    )}
                   </div>
 
                   {/* View profile */}
@@ -226,8 +244,8 @@ export default function ExplorePage() {
         </motion.div>
       )}
 
-      {/* ── All athletes list ────────────────────────── */}
-      {restAthletes.length > 0 && (
+      {/* ── All users list ────────────────────────── */}
+      {restUsers.length > 0 && (
         <motion.div
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
@@ -238,44 +256,58 @@ export default function ExplorePage() {
             <div className="p-1.5 rounded-lg bg-white/5 border border-white/10">
               <Filter className="h-3.5 w-3.5 text-white/40" />
             </div>
-            <p className="text-sm font-semibold text-white">All Athletes</p>
-            <span className="text-[10px] text-white/25 ml-1">({restAthletes.length})</span>
+            <p className="text-sm font-semibold text-white">Community</p>
+            <span className="text-[10px] text-white/25 ml-1">({restUsers.length})</span>
           </div>
 
           <div className="space-y-1">
-            {restAthletes.map((athlete, i) => {
-              const gradIdx = athlete.id.charCodeAt(0) % AVATAR_GRADIENTS.length;
+            {restUsers.map((user) => {
+              const gradIdx = user.id.charCodeAt(0) % AVATAR_GRADIENTS.length;
 
               return (
                 <Link
-                  key={athlete.id}
-                  to={`/student/profile/${athlete.id}`}
+                  key={user.id}
+                  to={`/student/profile/${user.id}`}
                   className="flex items-center gap-4 px-4 py-3.5 rounded-2xl hover:bg-white/[0.03] transition-all group border border-transparent hover:border-white/8"
                 >
                   {/* Avatar */}
-                  <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${AVATAR_GRADIENTS[gradIdx]} p-[1.5px] flex-shrink-0`}>
-                    <div className="w-full h-full rounded-[10px] bg-[#1A1A1A] flex items-center justify-center text-[11px] font-bold text-white">
-                      {getInitials(athlete.name)}
+                  <div className={`w-11 h-11 rounded-full bg-gradient-to-br ${AVATAR_GRADIENTS[gradIdx]} p-[1.5px] flex-shrink-0`}>
+                    <div className="w-full h-full rounded-full bg-[#1A1A1A] flex items-center justify-center text-[12px] font-bold text-white overflow-hidden relative">
+                      {user.avatar ? (
+                         <img src={user.avatar} className="w-full h-full object-cover" alt="" />
+                      ) : (
+                         getInitials(user.name)
+                      )}
                     </div>
                   </div>
 
                   {/* Info */}
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-white truncate group-hover:text-[#C9F85A] transition-colors">
-                      {athlete.name}
-                    </p>
-                    <div className="flex items-center gap-2 mt-0.5 text-[10px] text-white/25">
-                      <Flame className="h-2.5 w-2.5 text-[#FF4D00]" />
-                      <span>{athlete.streak}d streak</span>
-                      <span>·</span>
-                      <span>Rank #{athlete.rank}</span>
+                    <div className="flex items-center gap-1.5">
+                      <p className="text-sm font-semibold text-white truncate group-hover:text-[#C9F85A] transition-colors">
+                        {user.name}
+                      </p>
+                      {user.role === "trainer" && <ShieldCheck className="h-3 w-3 text-[#4DD2FF]" />}
                     </div>
+                    
+                    {user.role === "trainer" ? (
+                      <div className="mt-1">
+                        <span className="text-[9px] font-bold text-[#4DD2FF] bg-[#4DD2FF]/10 px-2 py-0.5 rounded-full border border-[#4DD2FF]/20 uppercase">Pro Trainer</span>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2 mt-0.5 text-[10px] text-white/25">
+                        <Flame className="h-2.5 w-2.5 text-[#FF4D00]" />
+                        <span>{(user as Student).streak}d streak</span>
+                        <span>·</span>
+                        <span>Rank #{(user as Student).rank}</span>
+                      </div>
+                    )}
                   </div>
 
-                  {/* Stats */}
-                  <div className="text-right flex-shrink-0">
-                    <p className="text-xs font-bold text-white/50">{athlete.followers}</p>
-                    <p className="text-[10px] text-white/20">followers</p>
+                  {/* Stats / Action */}
+                  <div className="text-right flex-shrink-0 mr-2">
+                    <p className="text-xs font-bold text-white/80">{(user as any).followers || 0}</p>
+                    <p className="text-[9px] text-white/30 uppercase tracking-wider">followers</p>
                   </div>
 
                   <ArrowUpRight className="h-4 w-4 text-white/15 group-hover:text-[#4DD2FF] transition-colors flex-shrink-0" />
@@ -286,9 +318,9 @@ export default function ExplorePage() {
         </motion.div>
       )}
 
-      {sortedAthletes.length === 0 && (
+      {sortedUsers.length === 0 && (
         <div className="text-center py-16 text-white/25 text-sm">
-          {searchQuery ? "No athletes match your search." : "No athletes to discover yet."}
+          {searchQuery ? "No profiles match your search." : "No profiles to discover yet."}
         </div>
       )}
     </div>

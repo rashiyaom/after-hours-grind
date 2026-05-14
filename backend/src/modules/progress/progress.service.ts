@@ -337,29 +337,17 @@ export async function getProgressDashboard(userId: string, planId?: string) {
     const since6 = daysAgo(6);
     const since27 = daysAgo(27);
 
-    // Fire all independent reads in parallel.
-    const [profile, recentEntries30, recentEntries6, approvedCount30, approvedByDay6, heatmapEntries, planData] =
+    // Fire reduced independent reads in parallel to avoid connection starvation.
+    const [profile, recentEntries30, recentSubmissions30, planData] =
       await Promise.all([
         prismaRead.studentProfile.findUnique({ where: { userId } }),
         prismaRead.progressEntry.findMany({
           where: { userId, date: { gte: since30 } },
           orderBy: { date: "asc" },
         }),
-        prismaRead.progressEntry.findMany({
-          where: { userId, date: { gte: since6 } },
-          orderBy: { date: "asc" },
-        }),
-        prismaRead.submission.count({
+        prismaRead.submission.findMany({
           where: { studentId: userId, status: "APPROVED", createdAt: { gte: since30 } },
-        }),
-        prismaRead.submission.groupBy({
-          by: ["createdAt"],
-          where: { studentId: userId, status: "APPROVED", createdAt: { gte: since6 } },
-          _count: { id: true },
-        }),
-        prismaRead.progressEntry.findMany({
-          where: { userId, date: { gte: since27 } },
-          orderBy: { date: "asc" },
+          select: { createdAt: true },
         }),
         planId
           ? prismaRead.plan.findUnique({
@@ -368,6 +356,17 @@ export async function getProgressDashboard(userId: string, planId?: string) {
             })
           : Promise.resolve(null),
       ]);
+
+    const recentEntries6 = recentEntries30.filter((e) => e.date >= since6);
+    const heatmapEntries = recentEntries30.filter((e) => e.date >= since27);
+
+    const approvedCount30 = recentSubmissions30.length;
+    const recentSubmissions6 = recentSubmissions30.filter((s) => s.createdAt >= since6);
+    const approvedByDay6 = recentSubmissions6.reduce<Map<string, number>>((acc, row) => {
+      const key = toIsoDate(row.createdAt);
+      acc.set(key, (acc.get(key) ?? 0) + 1);
+      return acc;
+    }, new Map());
 
     // ── Overall ──────────────────────────────────────────────────────────────
     const totalWorkoutMinutes = recentEntries30.reduce((sum, e) => sum + (e.workoutMinutes ?? 0), 0);
@@ -387,17 +386,12 @@ export async function getProgressDashboard(userId: string, planId?: string) {
 
     // ── Weekly breakdown ─────────────────────────────────────────────────────
     const entriesMap6 = new Map(recentEntries6.map((e) => [toIsoDate(e.date), e]));
-    const submissionsMap6 = approvedByDay6.reduce<Map<string, number>>((acc, row) => {
-      const key = toIsoDate(row.createdAt);
-      acc.set(key, (acc.get(key) ?? 0) + row._count.id);
-      return acc;
-    }, new Map());
     const labels = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
     const weeklyData = Array.from({ length: 7 }, (_, index) => {
       const d = daysAgo(6 - index);
       const key = toIsoDate(d);
       const entry = entriesMap6.get(key);
-      const completedTasks = submissionsMap6.get(key) ?? 0;
+      const completedTasks = approvedByDay6.get(key) ?? 0;
       return {
         date: key,
         day: labels[d.getDay()],

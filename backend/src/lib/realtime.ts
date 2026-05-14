@@ -120,7 +120,7 @@ export const subscribeUserEvents = (
   void bootstrapRedisBridge();
 
   const wrapped = (event: RealtimeEvent) => {
-    if (event.userId !== userId) return;
+    if (event.userId !== userId && event.userId !== "*") return;
     listener(event);
   };
 

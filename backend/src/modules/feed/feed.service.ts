@@ -17,10 +17,7 @@ const publishFeedEventToAllUsers = async (
   type: "post.created" | "post.updated",
   payload: Record<string, unknown>
 ) => {
-  const users = await prisma.user.findMany({ select: { id: true } });
-  for (const user of users) {
-    publishUserEvent(user.id, type, payload);
-  }
+  publishUserEvent("*", type, payload);
 };
 
 export async function getFeed(currentUserId?: string, cursor?: string, limit = 20) {
@@ -58,7 +55,7 @@ export async function getFeed(currentUserId?: string, cursor?: string, limit = 2
   return result;
 }
 
-export async function createPost(userId: string, input: { type: string; mediaUrl: string; caption: string; source: string; location: string }) {
+export async function createPost(userId: string, input: { type: string; mediaUrl: string; caption: string; source: string; location: string; steps?: number }) {
   const post = await prisma.post.create({
     data: { userId, ...input },
     include: { user: { select: { id: true, name: true, avatar: true, role: true } } },
@@ -74,6 +71,7 @@ export async function createPost(userId: string, input: { type: string; mediaUrl
     type: post.type,
     mediaUrl: post.mediaUrl,
     caption: post.caption,
+    steps: (post as any).steps ?? null,
     location: post.location,
     status: post.status,
     createdAt: post.createdAt.toISOString(),
