@@ -1,9 +1,12 @@
 import { test, expect, type APIRequestContext } from "@playwright/test";
 
-const STUDENT_EMAIL = process.env.SMOKE_STUDENT_EMAIL ?? "student1@ahg.com";
-const STUDENT_PASSWORD = process.env.SMOKE_STUDENT_PASSWORD ?? "password123";
-const TRAINER_EMAIL = process.env.SMOKE_TRAINER_EMAIL ?? "trainer@ahg.com";
-const TRAINER_PASSWORD = process.env.SMOKE_TRAINER_PASSWORD ?? "password123";
+if (!process.env.SMOKE_STUDENT_EMAIL || !process.env.SMOKE_STUDENT_PASSWORD || !process.env.SMOKE_TRAINER_EMAIL || !process.env.SMOKE_TRAINER_PASSWORD) {
+  throw new Error('Missing smoke test credentials. Set SMOKE_STUDENT_EMAIL, SMOKE_STUDENT_PASSWORD, SMOKE_TRAINER_EMAIL, SMOKE_TRAINER_PASSWORD in the environment to run runtime smoke tests.');
+}
+const STUDENT_EMAIL = process.env.SMOKE_STUDENT_EMAIL;
+const STUDENT_PASSWORD = process.env.SMOKE_STUDENT_PASSWORD;
+const TRAINER_EMAIL = process.env.SMOKE_TRAINER_EMAIL;
+const TRAINER_PASSWORD = process.env.SMOKE_TRAINER_PASSWORD;
 
 async function loginToken(request: APIRequestContext, email: string, password: string): Promise<string> {
   const response = await request.post("http://localhost:4000/api/auth/login", {

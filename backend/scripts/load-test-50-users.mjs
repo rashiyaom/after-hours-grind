@@ -13,13 +13,19 @@ const THINK_TIME_MIN_MS = Number(process.env.LOAD_THINK_MIN_MS || 250);
 const THINK_TIME_MAX_MS = Number(process.env.LOAD_THINK_MAX_MS || 900);
 const TRAINER_APPROVE_BATCH = Number(process.env.LOAD_TRAINER_APPROVE_BATCH || 10);
 const STUDENT_PLAN_PATH = process.env.LOAD_STUDENT_PLAN_PATH || "/student/plan/today";
+const STUDENT_PASSWORD = process.env.LOAD_STUDENT_PASSWORD;
+const TRAINER_PASSWORD = process.env.LOAD_TRAINER_PASSWORD;
+
+if (!STUDENT_PASSWORD || !TRAINER_PASSWORD) {
+  throw new Error("Missing load test credentials. Set LOAD_STUDENT_PASSWORD and LOAD_TRAINER_PASSWORD.");
+}
 
 const STUDENT_CREDENTIALS = Array.from({ length: VIRTUAL_USERS }, (_, i) => {
   const num = String(i + 1).padStart(2, "0");
-  return { email: `load.student${num}@ahg.com`, password: "password123" };
+  return { email: `load.student${num}@ahg.com`, password: STUDENT_PASSWORD };
 });
 
-const TRAINER_CREDENTIALS = { email: "trainer@ahg.com", password: "password123" };
+const TRAINER_CREDENTIALS = { email: "trainer@ahg.com", password: TRAINER_PASSWORD };
 
 const METRICS = new Map();
 

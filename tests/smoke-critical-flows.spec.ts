@@ -1,10 +1,16 @@
 import { test, expect } from "@playwright/test";
 
 const APP_URL = process.env.SMOKE_BASE_URL;
-const ADMIN_EMAIL = process.env.SMOKE_ADMIN_EMAIL ?? "rashiyaom@gmail.com";
-const ADMIN_PASSWORD = process.env.SMOKE_ADMIN_PASSWORD ?? "Romashiya@123";
-const STUDENT_EMAIL = process.env.SMOKE_STUDENT_EMAIL ?? "student1@ahg.com";
-const STUDENT_PASSWORD = process.env.SMOKE_STUDENT_PASSWORD ?? "password123";
+if (!process.env.SMOKE_ADMIN_EMAIL || !process.env.SMOKE_ADMIN_PASSWORD || !process.env.SMOKE_STUDENT_EMAIL || !process.env.SMOKE_STUDENT_PASSWORD) {
+  throw new Error(
+    "Missing smoke test credentials. Set SMOKE_ADMIN_EMAIL, SMOKE_ADMIN_PASSWORD, SMOKE_STUDENT_EMAIL, and SMOKE_STUDENT_PASSWORD before running this test.",
+  );
+}
+
+const ADMIN_EMAIL = process.env.SMOKE_ADMIN_EMAIL;
+const ADMIN_PASSWORD = process.env.SMOKE_ADMIN_PASSWORD;
+const STUDENT_EMAIL = process.env.SMOKE_STUDENT_EMAIL;
+const STUDENT_PASSWORD = process.env.SMOKE_STUDENT_PASSWORD;
 
 async function login(page: Parameters<typeof test>[0]["page"], email: string, password: string) {
   await page.goto(APP_URL ? `${APP_URL}/login` : "/login");

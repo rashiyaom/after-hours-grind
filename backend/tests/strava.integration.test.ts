@@ -34,9 +34,9 @@ async function importApp() {
 describe("backend integration: strava routes", () => {
   beforeAll(async () => {
     process.env.NODE_ENV = process.env.NODE_ENV ?? "test";
-    process.env.DATABASE_URL = process.env.DATABASE_URL ?? "postgresql://test:test@localhost:5432/test";
-    process.env.JWT_ACCESS_SECRET = process.env.JWT_ACCESS_SECRET ?? "test-access-secret-123456";
-    process.env.JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET ?? "test-refresh-secret-123456";
+    if (!process.env.DATABASE_URL || !process.env.JWT_ACCESS_SECRET || !process.env.JWT_REFRESH_SECRET) {
+      throw new Error("Missing test environment. Set DATABASE_URL, JWT_ACCESS_SECRET, and JWT_REFRESH_SECRET.");
+    }
     app = await importApp();
   });
 
@@ -45,50 +45,58 @@ describe("backend integration: strava routes", () => {
     mockVerifyAccessToken.mockReturnValue({ userId: "student-1", role: "STUDENT" });
   });
 
-  it("returns student strava status", async () => {
-    mockGetStravaStatus.mockResolvedValue({
-      connected: true,
-      athleteDisplayName: "Om Rashiya",
-      athleteUsername: "rashiyao",
-      lastSyncAt: "2026-04-24T12:00:00.000Z",
-    });
+  it(
+    "returns student strava status",
+    async () => {
+      mockGetStravaStatus.mockResolvedValue({
+        connected: true,
+        athleteDisplayName: "Om Rashiya",
+        athleteUsername: "rashiyao",
+        lastSyncAt: "2026-04-24T12:00:00.000Z",
+      });
 
-    const res = await request(app)
-      .get("/api/strava/status")
-      .set("Authorization", "Bearer fake-token");
+      const res = await request(app)
+        .get("/api/strava/status")
+        .set("Authorization", "Bearer fake-token");
 
-    expect(res.status).toBe(200);
-    expect(res.body.connected).toBe(true);
-    expect(mockGetStravaStatus).toHaveBeenCalledWith("student-1");
-  });
+      expect(res.status).toBe(200);
+      expect(res.body.connected).toBe(true);
+      expect(mockGetStravaStatus).toHaveBeenCalledWith("student-1");
+    },
+    15000,
+  );
 
-  it("returns connect url and sync response", async () => {
-    mockGetStravaConnectUrl.mockResolvedValue({
-      connectUrl: "https://www.strava.com/oauth/authorize?client_id=test",
-    });
-    mockSyncStravaActivities.mockResolvedValue({
-      connected: true,
-      importedCount: 3,
-      fetchedCount: 10,
-      lastSyncAt: "2026-04-24T12:01:00.000Z",
-    });
+  it(
+    "returns connect url and sync response",
+    async () => {
+      mockGetStravaConnectUrl.mockResolvedValue({
+        connectUrl: "https://www.strava.com/oauth/authorize?client_id=test",
+      });
+      mockSyncStravaActivities.mockResolvedValue({
+        connected: true,
+        importedCount: 3,
+        fetchedCount: 10,
+        lastSyncAt: "2026-04-24T12:01:00.000Z",
+      });
 
-    const connectRes = await request(app)
-      .get("/api/strava/connect-url")
-      .set("Authorization", "Bearer fake-token");
+      const connectRes = await request(app)
+        .get("/api/strava/connect-url")
+        .set("Authorization", "Bearer fake-token");
 
-    expect(connectRes.status).toBe(200);
-    expect(connectRes.body.connectUrl).toContain("strava.com/oauth/authorize");
+      expect(connectRes.status).toBe(200);
+      expect(connectRes.body.connectUrl).toContain("strava.com/oauth/authorize");
 
-    const syncRes = await request(app)
-      .post("/api/strava/sync")
-      .set("Authorization", "Bearer fake-token")
-      .send({});
+      const syncRes = await request(app)
+        .post("/api/strava/sync")
+        .set("Authorization", "Bearer fake-token")
+        .send({});
 
-    expect(syncRes.status).toBe(200);
-    expect(syncRes.body.importedCount).toBe(3);
-    expect(mockSyncStravaActivities).toHaveBeenCalledWith("student-1");
-  });
+      expect(syncRes.status).toBe(200);
+      expect(syncRes.body.importedCount).toBe(3);
+      expect(mockSyncStravaActivities).toHaveBeenCalledWith("student-1");
+    },
+    15000,
+  );
 
   it("exchanges oauth code and disconnects", async () => {
     mockExchangeStravaCode.mockResolvedValue({

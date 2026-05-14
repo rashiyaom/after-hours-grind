@@ -30,6 +30,14 @@ function parseSeedAdminEmail(): string {
   return (nodeProcess?.env.SEED_ADMIN_EMAIL ?? "admin@ahg.com").trim().toLowerCase();
 }
 
+function parseSeedUserPassword(): string {
+  const password = nodeProcess?.env.SEED_USER_PASSWORD;
+  if (!password) {
+    throw new Error("SEED_USER_PASSWORD is required for seeded trainer and student accounts.");
+  }
+  return password;
+}
+
 function parseLoadStudentCount(): number {
   const raw = nodeProcess?.env.SEED_LOAD_STUDENT_COUNT;
   const parsed = Number(raw ?? 50);
@@ -126,8 +134,9 @@ async function seedDedicatedLoadDataset(trainerId: string, defaultHash: string):
 async function main() {
   const adminEmail = parseSeedAdminEmail();
   const adminPassword = parseSeedAdminPassword();
+  const defaultUserPassword = parseSeedUserPassword();
   const adminHash = await bcrypt.hash(adminPassword, 12);
-  const defaultHash = await bcrypt.hash("password123", 12);
+  const defaultHash = await bcrypt.hash(defaultUserPassword, 12);
 
   // Admin
   const admin = await prisma.user.upsert({

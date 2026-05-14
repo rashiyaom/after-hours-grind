@@ -1,3 +1,4 @@
+import { randomUUID } from "crypto";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mockPublishUserEvent = vi.fn();
@@ -139,6 +140,7 @@ describe("whatsapp flow smoke", () => {
 
   it("trainer can approve or reject while keeping proof context", async () => {
     const { approveSubmission, rejectSubmission } = await import("../src/modules/plans/plans.service.js");
+    const planCreatedAt = new Date();
 
     const pendingSubmission = {
       id: "submission-1",
@@ -161,7 +163,17 @@ describe("whatsapp flow smoke", () => {
         })),
       },
       planTask: {
-        findUnique: vi.fn(async () => ({ id: "task-1", points: 15 })),
+        findUnique: vi.fn(async () => ({
+          id: "task-1",
+          points: 15,
+          planDay: {
+            day: 1,
+            plan: {
+              id: "plan-1",
+              createdAt: planCreatedAt,
+            },
+          },
+        })),
       },
       studentProfile: {
         update: vi.fn(async () => ({})),
@@ -211,12 +223,13 @@ describe("whatsapp flow smoke", () => {
 
   it("trainer signup requires and persists WhatsApp number", async () => {
     const { signupSchema } = await import("../src/modules/auth/auth.schema.js");
-    const { signup } = await import("../src/modules/auth/auth.service.js");
+    const { createTrainer } = await import("../src/modules/admin/admin.service.js");
+    const testPassword = `test-${randomUUID()}`;
 
     const withoutWhatsapp = signupSchema.safeParse({
       name: "Coach",
       email: "coach@example.com",
-      password: "password123",
+      password: testPassword,
       role: "TRAINER",
       specialization: "Strength",
     });
@@ -224,12 +237,11 @@ describe("whatsapp flow smoke", () => {
 
     mockPrisma.user.findUnique.mockResolvedValue(null);
     mockPrisma.user.create.mockResolvedValue({ id: "trainer-1", role: "TRAINER" });
-    mockPrisma.refreshToken.create.mockResolvedValue({ id: "rt-1" });
 
-    await signup({
+    await createTrainer({
       name: "Coach",
       email: "coach@example.com",
-      password: "password123",
+      password: testPassword,
       role: "TRAINER",
       specialization: "Strength",
       whatsappNumber: "+919812345678",
