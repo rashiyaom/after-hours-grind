@@ -1,10 +1,12 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Route, Routes, Navigate } from "react-router-dom";
 import { Suspense, lazy, useEffect, useState } from "react";
+import * as Sentry from "@sentry/react";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { useAppStore } from "@/hooks/useStore";
+import { AlertCircle, RefreshCw } from "lucide-react";
 
 import ProtectedRoute from "@/components/ProtectedRoute";
 
@@ -48,11 +50,35 @@ const AdminAchievementsManager = lazy(() => import("@/pages/admin/AchievementsMa
 
 const EventsPage = lazy(() => import("@/pages/EventsPage"));
 const AthletesPage = lazy(() => import("@/pages/AthletesPage"));
+const SentryTestPage = lazy(() => import("@/pages/SentryTestPage"));
 
 const queryClient = new QueryClient();
 
 const AppRouteFallback = () => (
   <div className="min-h-screen bg-background" aria-busy="true" />
+);
+
+// Error boundary fallback component
+const ErrorFallback = () => (
+  <div className="min-h-screen bg-gradient-to-br from-red-50 to-red-100 flex items-center justify-center px-4">
+    <div className="max-w-md w-full bg-white rounded-xl shadow-lg p-8 text-center">
+      <AlertCircle className="h-16 w-16 text-red-500 mx-auto mb-4" />
+      <h1 className="text-2xl font-bold text-gray-900 mb-2">Something went wrong</h1>
+      <p className="text-gray-600 mb-6">
+        We've logged this error and will look into it. Please try refreshing the page.
+      </p>
+      <button
+        onClick={() => window.location.reload()}
+        className="inline-flex items-center gap-2 bg-red-500 hover:bg-red-600 text-white font-semibold py-2 px-6 rounded-lg transition-colors"
+      >
+        <RefreshCw className="h-5 w-5" />
+        Refresh Page
+      </button>
+      <p className="text-xs text-gray-500 mt-6">
+        If the problem persists, please contact support.
+      </p>
+    </div>
+  </div>
 );
 
 const App = () => {
@@ -74,9 +100,10 @@ const App = () => {
       <TooltipProvider>
         <Toaster />
         <Sonner />
-        <BrowserRouter>
-          <Suspense fallback={<AppRouteFallback />}>
-            <Routes>
+        <Sentry.ErrorBoundary fallback={<ErrorFallback />} showDialog>
+          <BrowserRouter>
+            <Suspense fallback={<AppRouteFallback />}>
+              <Routes>
           {/* Public Routes */}
           <Route element={<PublicLayout />}>
             <Route path="/" element={<LandingPage />} />
@@ -86,6 +113,7 @@ const App = () => {
           <Route path="/login" element={<LoginPage />} />
           <Route path="/signup" element={<SignupPage />} />
           <Route path="/unauthorized" element={<UnauthorizedPage />} />
+          <Route path="/sentry-test" element={<SentryTestPage />} />
 
           {/* Student Routes */}
           <Route element={<ProtectedRoute allowedRoles={["student"]} requiredPermission="view_dashboard" />}>
@@ -146,9 +174,10 @@ const App = () => {
 
           {/* Not Found */}
           <Route path="*" element={<NotFound />} />
-            </Routes>
-          </Suspense>
-        </BrowserRouter>
+              </Routes>
+            </Suspense>
+          </BrowserRouter>
+        </Sentry.ErrorBoundary>
       </TooltipProvider>
     </QueryClientProvider>
   );

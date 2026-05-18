@@ -1,6 +1,28 @@
 import { AHGEvent, Post, User, UserRole } from "@/types";
+import * as Sentry from "@sentry/react";
 
-const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL as string | undefined)?.replace(/\/$/, "") || "http://localhost:4000/api";
+// Validate API URL - must be set in production
+const getApiBaseUrl = (): string => {
+  const envUrl = (import.meta.env.VITE_API_BASE_URL as string | undefined)?.replace(/\/$/, "");
+  if (envUrl) {
+    return envUrl;
+  }
+  
+  // Production safety: must have explicit API URL
+  if (import.meta.env.PROD) {
+    const error = new Error(
+      "VITE_API_BASE_URL environment variable is required in production. " +
+      "Without it, all API calls fail. Set it to your backend URL (e.g., https://api.yourdomain.com/api)"
+    );
+    Sentry.captureException(error);
+    throw error;
+  }
+  
+  // Development: safe to use localhost
+  return "http://localhost:4000/api";
+};
+
+const API_BASE_URL = getApiBaseUrl();
 let inMemoryAccessToken: string | null = null;
 
 type BackendAuthResponse = {
@@ -275,12 +297,22 @@ const isUnauthorizedError = (error: unknown): boolean =>
 const isCsrfError = (error: unknown): boolean =>
   error instanceof ApiError && error.status === 403 && error.message.includes("CSRF token invalid or missing");
 
-async function refreshBackendAccessToken(): Promise<string> {
-  const response = await apiRequest<BackendAuthResponse>("/auth/refresh", {
-    method: "POST",
-  });
-  setAccessToken(response.accessToken);
-  return response.accessToken;
+async function refreshBackendAccessToken(): Promise<string | null> {
+  try {
+    const response = await apiRequest<BackendAuthResponse>("/auth/refresh", {
+      method: "POST",
+    });
+    setAccessToken(response.accessToken);
+    return response.accessToken;
+  } catch (error) {
+    // Token refresh failed - session is invalid
+    Sentry.captureException(error, { 
+      tags: { context: "token_refresh_failed" },
+      level: "warning"
+    });
+    clearAccessToken();
+    return null;
+  }
 }
 
 async function authedRequest<T>(path: string, init: RequestInit = {}): Promise<T> {
@@ -292,7 +324,15 @@ async function authedRequest<T>(path: string, init: RequestInit = {}): Promise<T
     }
   }
 
+  // Try to refresh token
   const refreshedToken = await refreshBackendAccessToken();
+  if (!refreshedToken) {
+    // Refresh failed - redirect to login
+    Sentry.captureMessage("Session expired - redirecting to login", "warning");
+    window.location.href = "/login";
+    throw new ApiError("Session expired. Please log in again.", 401);
+  }
+
   return apiRequest<T>(path, init, refreshedToken);
 }
 

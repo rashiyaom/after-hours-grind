@@ -11,6 +11,7 @@ import { useCurrentUser, usePermissions, useStore } from "@/hooks/useStore";
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
 import { LUXURY_TWEEN_MEDIUM, LUXURY_TWEEN_SLOW } from "@/lib/motionTokens";
+import { DailyPlanWeekSkeleton } from "@/components/Skeletons";
 
 type MealFood = {
   item: string;
@@ -113,7 +114,7 @@ const removeVideoMeta = (input: string) =>
     .trim();
 
 export default function DailyPlanPage() {
-  const { student: s, getDayTask, submitTaskProof, resendTaskProof, canStartCurrentPlan, currentStudentPlan, backendTodayPlan } = useStore();
+  const { student: s, getDayTask, submitTaskProof, resendTaskProof, canStartCurrentPlan, currentStudentPlan, backendTodayPlan, loading, planLoading } = useStore();
   const currentUser = useCurrentUser();
   const permissions = usePermissions();
   const canPostFeed = Boolean(currentUser && permissions[currentUser.role].post_feed);
@@ -378,6 +379,14 @@ export default function DailyPlanPage() {
             <ChevRight className="h-4 w-4" />
           </Link>
         </div>
+      </div>
+    );
+  }
+
+  if (loading || planLoading) {
+    return (
+      <div className="mx-auto max-w-7xl space-y-6 p-4 sm:p-6 lg:p-8">
+        <DailyPlanWeekSkeleton />
       </div>
     );
   }

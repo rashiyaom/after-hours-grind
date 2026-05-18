@@ -349,7 +349,7 @@ export default function AppLayout() {
       }
       unsubscribe();
     };
-  }, [isAuthenticated, refreshData, currentUser?.role]);
+  }, [isAuthenticated, refreshData, currentUser?.role, location.pathname]);
 
 
   const rolePermissions = currentUser ? permissions[currentUser.role] : undefined;

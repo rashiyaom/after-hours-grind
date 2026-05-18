@@ -78,7 +78,9 @@ export default function SettingsPage() {
           showStreak: Boolean(settings.showStreak ?? prev.showStreak),
         }));
       } catch (error) {
-        console.error("Failed to load settings", error);
+        import("@sentry/react").then(({ default: Sentry }) => {
+          Sentry.captureException(error, { tags: { action: "load_settings" } });
+        });
       }
     };
 

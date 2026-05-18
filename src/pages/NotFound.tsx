@@ -1,12 +1,13 @@
 import { useLocation } from "react-router-dom";
 import { useEffect } from "react";
+import * as Sentry from "@sentry/react";
 
 const NotFound = () => {
   const location = useLocation();
 
   useEffect(() => {
     if (import.meta.env.DEV) {
-      console.warn("404: Route not found:", location.pathname);
+      Sentry.captureMessage(`404: Route not found: ${location.pathname}`, "info");
     }
   }, [location.pathname]);
 

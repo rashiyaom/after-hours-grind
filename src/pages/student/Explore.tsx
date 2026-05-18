@@ -57,12 +57,12 @@ export default function ExplorePage() {
         list.sort((a, b) => (a.role === "student" ? (a as Student).rank : 9999) - (b.role === "student" ? (b as Student).rank : 9999));
         break;
       case "followers":
-        list.sort((a, b) => ((b as any).followers || 0) - ((a as any).followers || 0));
+        list.sort((a, b) => ((b.followers ?? 0) - (a.followers ?? 0)));
         break;
       default: // trending
         list.sort((a, b) => {
-          const scoreA = (a.role === "student" ? (a as Student).streak + (a as Student).completionPercentage : 50) + ((a as any).followers || 0);
-          const scoreB = (b.role === "student" ? (b as Student).streak + (b as Student).completionPercentage : 50) + ((b as any).followers || 0);
+          const scoreA = (a.role === "student" ? (a as Student).streak + (a as Student).completionPercentage : 50) + (a.followers ?? 0);
+          const scoreB = (b.role === "student" ? (b as Student).streak + (b as Student).completionPercentage : 50) + (b.followers ?? 0);
           return scoreB - scoreA;
         });
     }
@@ -228,7 +228,7 @@ export default function ExplorePage() {
                         <span>·</span>
                         <span>{(user as Student).completionPercentage}%</span>
                         <span>·</span>
-                        <span>{(user as any).followers || 0} followers</span>
+                          <span>{user.followers ?? 0} followers</span>
                       </div>
                     )}
                   </div>
@@ -306,7 +306,7 @@ export default function ExplorePage() {
 
                   {/* Stats / Action */}
                   <div className="text-right flex-shrink-0 mr-2">
-                    <p className="text-xs font-bold text-white/80">{(user as any).followers || 0}</p>
+                      <p className="text-xs font-bold text-white/80">{user.followers ?? 0}</p>
                     <p className="text-[9px] text-white/30 uppercase tracking-wider">followers</p>
                   </div>
 

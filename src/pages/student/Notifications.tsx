@@ -3,6 +3,7 @@ import NotificationRow from "@/components/NotificationRow";
 import { CheckCheck, Bell } from "lucide-react";
 import { useStore } from "@/hooks/useStore";
 import { LUXURY_TWEEN_MEDIUM } from "@/lib/motionTokens";
+import { NotificationListSkeleton } from "@/components/Skeletons";
 
 export default function NotificationsPage() {
   const { notifications: items, markNotificationRead, markAllNotificationsRead } = useStore();

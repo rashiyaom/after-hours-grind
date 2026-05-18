@@ -13,7 +13,25 @@ const envSchema = z.object({
   ACCESS_TOKEN_TTL: z.string().default("15m"),
   REFRESH_TOKEN_TTL: z.string().default("7d"),
   REDIS_URL: z.string().optional(),
-  CORS_ORIGINS: z.string().default("http://localhost:5173"),
+  CORS_ORIGINS: z.string()
+    .default(() => {
+      // In production, CORS_ORIGINS MUST be explicitly configured
+      if (process.env.NODE_ENV === "production") {
+        throw new Error(
+          "CORS_ORIGINS environment variable is required and must not point to localhost in production"
+        );
+      }
+      return "http://localhost:5173";
+    })
+    .refine(
+      (val) => {
+        if (process.env.NODE_ENV === "production") {
+          return !val.includes("localhost") && !val.includes("127.0.0.1");
+        }
+        return true;
+      },
+      "CORS_ORIGINS cannot point to localhost in production"
+    ),
   TRUST_PROXY: z.coerce.boolean().default(false),
   AUTH_COOKIE_SAME_SITE: z.enum(["lax", "strict", "none"]).default("lax"),
   AUTH_COOKIE_DOMAIN: z.string().optional(),

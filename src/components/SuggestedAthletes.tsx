@@ -54,10 +54,12 @@ export default function SuggestedAthletes({
     const loadFollowing = async () => {
       try {
         const following = await fetchFollowingAPI(student.id);
-        const ids = new Set((following as any[]).map(f => (f.following as any).id));
+        const ids = new Set((following as Array<{ following: { id: string } }>).map(f => f.following.id));
         setFollowingIds(ids);
       } catch (e) {
-        console.error("Failed to load following", e);
+        import("@sentry/react").then(({ default: Sentry }) => {
+          Sentry.captureException(e, { tags: { component: "SuggestedAthletes", action: "fetch_following" } });
+        });
       }
     };
     void loadFollowing();

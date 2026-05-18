@@ -104,7 +104,9 @@ const UserManagement = () => {
       setSelectedIds(new Set());
     } catch (error) {
       toast.error("Failed to delete users. Please try again.");
-      console.error(error);
+      import("@sentry/react").then(({ default: Sentry }) => {
+        Sentry.captureException(error, { tags: { action: "delete_users_bulk" } });
+      });
     }
   };
 

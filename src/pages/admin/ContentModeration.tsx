@@ -50,7 +50,9 @@ const ContentModeration = () => {
         });
         setModerationPosts(merged);
       } catch (error) {
-        console.error("Failed to load moderation posts:", error);
+        import("@sentry/react").then(({ default: Sentry }) => {
+          Sentry.captureException(error, { tags: { action: "load_moderation_posts" } });
+        });
         setModerationPosts(postList);
       }
     };

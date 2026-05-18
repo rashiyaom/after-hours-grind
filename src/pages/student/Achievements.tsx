@@ -10,6 +10,7 @@ import { useStore } from "@/hooks/useStore";
 import { Badge } from "@/types";
 import { LUXURY_TWEEN_MEDIUM, LUXURY_TWEEN_SLOW } from "@/lib/motionTokens";
 import { Link } from "react-router-dom";
+import { AchievementGridSkeleton, HeaderSkeleton } from "@/components/Skeletons";
 
 const iconMap: Record<string, React.ElementType> = {
   flame: Flame,
@@ -48,7 +49,7 @@ const BADGE_PALETTES = [
 type TabFilter = "All" | "Earned" | "Locked";
 
 export default function AchievementsPage() {
-  const { student: s } = useStore();
+  const { student: s, loading } = useStore();
   const [activeTab, setActiveTab] = useState<TabFilter>("All");
   const [hoveredBadge, setHoveredBadge] = useState<string | null>(null);
 
@@ -73,6 +74,15 @@ export default function AchievementsPage() {
     { label: "50 Check-Ins", current: 30, target: 50, done: false, color: "#A78BFA" },
     { label: "Plan Mastery", current: s.completionPercentage, target: 100, done: s.completionPercentage >= 100, color: "#FF4D00" },
   ], [s.streak, s.completionPercentage]);
+
+  if (loading) {
+    return (
+      <div className="mx-auto max-w-4xl space-y-6 p-4 sm:p-6 lg:p-8 pb-10">
+        <HeaderSkeleton />
+        <AchievementGridSkeleton count={16} />
+      </div>
+    );
+  }
 
   const earned = allBadges.filter((b) => b.earned);
   const locked = allBadges.filter((b) => !b.earned);

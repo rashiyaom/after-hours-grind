@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import * as Sentry from "@sentry/react";
 import {
   Admin,
   AHGEvent,
@@ -711,7 +712,7 @@ const createId = (prefix: string): string => {
 const reportStorageIssue = (scope: string, error?: unknown) => {
   if (storageWarningTracker.has(scope)) return;
   storageWarningTracker.add(scope);
-  console.warn(`[storage] ${scope} failed; app will continue with in-memory fallback.`, error);
+  Sentry.captureMessage(`Storage issue in ${scope} - using in-memory fallback`, "warning");
 };
 
 const getLocalStorage = (): Storage | null => {
@@ -1179,7 +1180,9 @@ const readPersistedSession = (_users: Record<string, User>): AppState['session']
       const stored = storage.getItem(SESSION_STORAGE_KEY);
       if (stored) return JSON.parse(stored);
     }
-  } catch (e) {}
+  } catch (e) {
+    // Silently fail - storage unavailable, will use in-memory state
+  }
   return { currentUser: null, isAuthenticated: false };
 };
 
@@ -1187,7 +1190,9 @@ const persistSession = (session: AppState['session']) => {
   try {
     const storage = getLocalStorage();
     if (storage) storage.setItem(SESSION_STORAGE_KEY, JSON.stringify(session));
-  } catch (e) {}
+  } catch (e) {
+    // Silently fail - storage unavailable
+  }
 };
 
 const readPersistedDashboardData = (): Partial<AppState['system']> => {
@@ -1197,7 +1202,9 @@ const readPersistedDashboardData = (): Partial<AppState['system']> => {
       const stored = storage.getItem(DASHBOARD_STORAGE_KEY);
       if (stored) return JSON.parse(stored);
     }
-  } catch (e) {}
+  } catch (e) {
+    // Silently fail - storage unavailable
+  }
   return {};
 };
 
@@ -1214,7 +1221,9 @@ const persistDashboardData = (system: AppState['system']) => {
         studentTodayPlan: system.studentTodayPlan,
       }));
     }
-  } catch (e) {}
+  } catch (e) {
+    // Silently fail - storage unavailable
+  }
 };
 
 const clearPersistedSecurityState = () => {
@@ -1318,7 +1327,10 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
       });
       return true;
     } catch (error) {
-      console.error("Login failed:", error);
+      Sentry.captureException(error, {
+        tags: { feature: "auth-login" },
+        extra: { email },
+      });
       set((state) => ({ system: { ...state.system, isLoading: false } }));
       return false;
     }
@@ -1327,7 +1339,7 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
     try {
       await logoutBackend();
     } catch (error) {
-      console.warn('Backend logout failed, clearing local session anyway.', error);
+      Sentry.captureMessage('Backend logout failed - clearing local session anyway', "warning");
     } finally {
       clearBackendAccessToken();
       set((state) => {
@@ -1415,7 +1427,10 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
         scope: getRefreshScopeForRole(normalizedUser.role),
       });
     } catch (error) {
-      console.error("Signup failed:", error);
+      Sentry.captureException(error, {
+        tags: { feature: "auth-signup" },
+        extra: { email: userData.email },
+      });
       set((state) => ({ system: { ...state.system, isLoading: false } }));
       throw error;
     }
@@ -1449,8 +1464,9 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
         await unlikePostAPI(postId);
       }
     } catch (error) {
+      Sentry.captureException(error, { tags: { action: "like_post" } });
       if (import.meta.env.MODE !== "test") {
-        console.error("Like failed, rolling back:", error);
+        toast.error("Failed to like post");
       }
       set((state) => ({
         posts: {
@@ -1474,7 +1490,8 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
       await updatePostModerationAPI(postId, status);
       await get().refreshData();
     } catch (error) {
-      console.error("Status update failed:", error);
+      Sentry.captureException(error, { tags: { action: "update_post_status" } });
+      toast.error("Failed to update status");
       set((state) => ({
         posts: {
           ...state.posts,
@@ -1491,7 +1508,9 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
       await updateProfileAPI(payload);
       await get().refreshData();
     } catch (error) {
-      console.error("Profile update failed:", error);
+      Sentry.captureException(error, {
+        tags: { feature: "profile-update" },
+      });
     }
   },
 
@@ -1515,7 +1534,8 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
       await toggleUserBanAPI(userId);
       await get().refreshData();
     } catch (error) {
-      console.error("Ban user failed:", error);
+      Sentry.captureException(error, { tags: { action: "ban_user" }, extra: { userId } });
+      toast.error("Failed to toggle user ban");
     }
   },
 
@@ -1551,7 +1571,8 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
 
       await get().refreshData();
     } catch (error) {
-      console.error("Bulk delete users failed:", error);
+      Sentry.captureException(error, { tags: { action: "bulk_delete_users" }, extra: { count: userIds.length } });
+      toast.error("Failed to delete users");
       throw error;
     }
   },
@@ -1562,7 +1583,8 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
       await verifyTrainerAPI(trainerId);
       await get().refreshData();
     } catch (error) {
-      console.error("Verify trainer failed:", error);
+      Sentry.captureException(error, { tags: { action: "verify_trainer" }, extra: { userId } });
+      toast.error("Failed to verify trainer");
     }
   },
   
@@ -1591,7 +1613,10 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
         return { ...state, users: nextUsers, session: nextSession };
       });
     } catch (error) {
-      console.error("Follow failed:", error);
+      Sentry.captureException(error, {
+        tags: { feature: "follow" },
+        extra: { targetUserId },
+      });
     }
   },
 
@@ -1620,7 +1645,10 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
         return { ...state, users: nextUsers, session: nextSession };
       });
     } catch (error) {
-      console.error("Unfollow failed:", error);
+      Sentry.captureException(error, {
+        tags: { feature: "unfollow" },
+        extra: { targetUserId },
+      });
     }
   },
 
@@ -1631,7 +1659,9 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
       await get().refreshData({ background: true });
       set((state) => ({ system: { ...state.system, isLoading: false } }));
     } catch (error) {
-      console.error("Plan creation failed:", error);
+      Sentry.captureException(error, {
+        tags: { feature: "plan-creation" },
+      });
       set((state) => ({ system: { ...state.system, isLoading: false } }));
       throw error;
     }
@@ -1659,7 +1689,8 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
         };
       });
     } catch (error) {
-       console.error("Draft save failed:", error);
+      Sentry.captureException(error, { tags: { action: "save_draft" } });
+      toast.error("Failed to save draft");
     }
   },
 
@@ -1699,7 +1730,8 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
       await get().refreshData();
       set((state) => ({ system: { ...state.system, isLoading: false } }));
     } catch (error) {
-      console.error("Onboarding completion failed:", error);
+      Sentry.captureException(error, { tags: { action: "complete_onboarding" } });
+      toast.error("Failed to complete onboarding");
       set((state) => ({ system: { ...state.system, isLoading: false } }));
       throw error;
     }
@@ -1876,7 +1908,8 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
         }));
       }
       toast.error('Failed to assign trainer');
-      console.error('[store] assignTrainer failed:', err);
+      Sentry.captureException(err, { tags: { action: "assign_trainer" } });
+      toast.error("Failed to assign trainer");
     }
   },
 
@@ -1900,7 +1933,8 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
     } catch (err) {
       set((state) => ({ ...state, system: { ...state.system, isLoading: false } }));
       toast.error('Failed to create trainer');
-      console.error('[store] createTrainer failed:', err);
+      Sentry.captureException(err, { tags: { action: "create_trainer" } });
+      toast.error("Failed to create trainer");
       throw err;
     }
   },
@@ -1933,7 +1967,8 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
         await get().fetchSubmissions();
         return;
       }
-      console.error("Approval failed:", error);
+      Sentry.captureException(error, { tags: { action: "approve_submission" } });
+      toast.error("Failed to approve submission");
       set((state) => ({
         ...state,
         system: {
@@ -1972,7 +2007,8 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
         await get().fetchSubmissions();
         return;
       }
-      console.error("Rejection failed:", error);
+      Sentry.captureException(error, { tags: { action: "reject_submission" } });
+      toast.error("Failed to reject submission");
       set((state) => ({
         ...state,
         system: {
@@ -2032,7 +2068,8 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
           typeof created.supersededPendingCount === 'number' ? created.supersededPendingCount : undefined,
       };
     } catch (error) {
-      console.error("Submission failed:", error);
+      Sentry.captureException(error, { tags: { action: "submit_task" } });
+      toast.error("Failed to submit task");
       set((state) => ({
         ...state,
         system: {
@@ -2160,7 +2197,8 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
         }
       }));
     } catch (error) {
-      console.error("Fetch submissions failed:", error);
+      Sentry.captureException(error, { tags: { action: "fetch_submissions" } });
+      toast.error("Failed to load submissions");
     }
   },
 
@@ -2245,7 +2283,8 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
         }));
       })
       .catch((error) => {
-        console.error('Failed to create chat thread:', error);
+        Sentry.captureException(error, { tags: { action: "create_chat_thread" } });
+        toast.error("Failed to create chat thread");
       });
 
     return null;
@@ -2350,7 +2389,8 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
 
       void get().refreshData({ background: true, scope: getRefreshScopeForRole(get().session.currentUser?.role) });
     } catch (error) {
-      console.error("Failed to send message:", error);
+      Sentry.captureException(error, { tags: { action: "send_chat_message" } });
+      toast.error("Failed to send message");
       void get().refreshData({ background: true, scope: getRefreshScopeForRole(get().session.currentUser?.role) });
     }
   },
@@ -2383,7 +2423,8 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
     try {
       await get().refreshData({ background: true, scope: getRefreshScopeForRole(get().session.currentUser?.role) });
     } catch (error) {
-      console.error("Failed to mark read:", error);
+      Sentry.captureException(error, { tags: { action: "mark_message_read" } });
+      toast.error("Failed to mark message as read");
     }
   },
 
@@ -2476,7 +2517,8 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
       await createEventAPI(eventData);
       await get().refreshData();
     } catch (error) {
-       console.error("Event creation failed:", error);
+      Sentry.captureException(error, { tags: { action: "create_event" } });
+      toast.error("Failed to create event");
     }
   },
 
@@ -2485,7 +2527,8 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
       await updateEventAPI(eventId, updates);
       await get().refreshData();
     } catch (error) {
-       console.error("Event update failed:", error);
+      Sentry.captureException(error, { tags: { action: "update_event" } });
+      toast.error("Failed to update event");
     }
   },
 
@@ -2494,7 +2537,8 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
       await deleteEventAPI(eventId);
       await get().refreshData();
     } catch (error) {
-       console.error("Event deletion failed:", error);
+      Sentry.captureException(error, { tags: { action: "delete_event" } });
+      toast.error("Failed to delete event");
     }
   },
 
@@ -2504,7 +2548,8 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
       await registerForEventAPI(eventId);
       await get().refreshData();
     } catch (error) {
-      console.error("Event registration failed:", error);
+      Sentry.captureException(error, { tags: { action: "register_event" } });
+      toast.error("Failed to register for event");
     }
   },
 
@@ -2514,7 +2559,8 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
       await registerForEventAPI(eventId, responses);
       await get().refreshData();
     } catch (error) {
-      console.error("Event registration failed:", error);
+      Sentry.captureException(error, { tags: { action: "submit_event_entry" } });
+      toast.error("Failed to submit event entry");
     }
   },
 
@@ -2746,7 +2792,10 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
         };
       });
     } catch (error) {
-      console.error("Data refresh failed:", error);
+      Sentry.captureException(error, { tags: { action: "refresh_data" } });
+      if (import.meta.env.MODE !== "test") {
+        toast.error("Failed to refresh data");
+      }
       set((state) => ({
         system: {
           ...state.system,
@@ -3606,7 +3655,8 @@ export const useStore = () => {
     },
     markNotificationRead: (notificationId: string) => {
       void markNotificationReadAPI(notificationId).catch((error) => {
-        console.error("Failed to mark notification read on backend:", error);
+        Sentry.captureException(error, { tags: { action: "mark_notification_read" } });
+        toast.error("Failed to mark notification as read");
       });
 
       useAppStore.setState((prev) => ({
@@ -3630,7 +3680,8 @@ export const useStore = () => {
 
       if (unreadIds.length > 0) {
         void Promise.allSettled(unreadIds.map((id) => markNotificationReadAPI(id))).catch((error) => {
-          console.error("Failed to mark all notifications read on backend:", error);
+          Sentry.captureException(error, { tags: { action: "mark_all_notifications_read" } });
+          toast.error("Failed to mark notifications as read");
         });
       }
 

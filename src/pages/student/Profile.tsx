@@ -9,7 +9,7 @@ import { useAppStore, useStore } from "@/hooks/useStore";
 import { useState, useMemo, useEffect } from "react";
 import { Link, useParams, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
-import { Skeleton } from "@/components/ui/skeleton";
+import { ProfileCardSkeleton } from "@/components/Skeletons";
 import { LUXURY_TWEEN_MEDIUM } from "@/lib/motionTokens";
 import { fetchFollowersAPI, fetchFollowingAPI, fetchUserProfileAPI } from "@/lib/api";
 
@@ -73,7 +73,7 @@ export default function ProfilePage() {
   const [socialOpen, setSocialOpen] = useState<"followers" | "following" | null>(null);
   const [followersList, setFollowersList] = useState<SocialListItem[]>([]);
   const [followingList, setFollowingList] = useState<SocialListItem[]>([]);
-  const [fetchedProfile, setFetchedProfile] = useState<Record<string, any> | null>(null);
+  const [fetchedProfile, setFetchedProfile] = useState<Record<string, unknown> | null>(null);
 
   const isMe = !userId || userId === me.id;
 
@@ -191,14 +191,7 @@ export default function ProfilePage() {
   if (loading) {
     return (
       <div className="mx-auto max-w-3xl space-y-6 p-4 sm:p-6 lg:p-8">
-        <Skeleton className="h-48 w-full rounded-[32px]" />
-        <div className="grid grid-cols-3 gap-3">
-          {[1, 2, 3].map((i) => <Skeleton key={i} className="h-28 rounded-[24px]" />)}
-        </div>
-        <Skeleton className="h-12 w-full rounded-full" />
-        <div className="grid grid-cols-3 gap-2">
-          {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((i) => <Skeleton key={i} className="aspect-square rounded-2xl" />)}
-        </div>
+        <ProfileCardSkeleton />
       </div>
     );
   }

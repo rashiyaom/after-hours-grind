@@ -384,15 +384,6 @@ export async function getTodayPlan(userId: string) {
     const totalDays = Math.max(plan.days.length, 1);
     const currentDay = computeCalendarDay(plan.createdAt, totalDays);
     
-    // Sync streak on every direct fetch
-    const calculatedStreak = await calculateStreak(userId, profile.user.createdAt);
-    if (calculatedStreak !== (profile as { streak?: number }).streak) {
-      await prisma.studentProfile.update({
-        where: { userId },
-        data: { streak: calculatedStreak }
-      });
-    }
-
     const allTaskIds = plan.days.flatMap((day) => day.tasks.map((task) => task.id));
     const latestTaskSubmissions =
       allTaskIds.length === 0

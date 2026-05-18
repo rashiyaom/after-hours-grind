@@ -199,7 +199,11 @@ const safeUserSelect = {
 } as const;
 
 export async function getAllUsersAdmin() {
-    return prisma.user.findMany({ select: safeUserSelect, orderBy: { createdAt: "desc" } });
+    return prisma.user.findMany({ 
+        select: safeUserSelect, 
+        orderBy: { createdAt: "desc" },
+        take: 200,  // Limit to 200 most recent users to prevent memory exhaustion
+    });
 }
 
 export async function toggleUserBan(userId: string) {
@@ -322,6 +326,7 @@ export async function getFlaggedContent() {
                 _count: { select: { comments: true, likes: true } },
             },
             orderBy: { createdAt: "desc" },
+            take: 100,  // Limit to 100 most recent flagged posts to prevent loading thousands
         }),
         prisma.submission.findMany({
             where: { status: "PENDING" },
@@ -988,42 +993,59 @@ export async function assignExerciseTemplate(payload: {
         throw HttpError.notFound("Active exercise template not found");
     }
 
+    // OPTIMIZATION: Batch operations instead of per-student loops to avoid N+1 queries
     const summary: Array<{ studentId: string; appliedToPlan: boolean; sortOrder: number }> = [];
 
-    for (const studentId of payload.studentIds) {
-        const student = await prisma.user.findUnique({ where: { id: studentId }, select: { id: true, role: true, name: true } });
-        if (!student || student.role !== "STUDENT") {
-            continue;
-        }
+    // Step 1: Validate all students in one query (not per-student)
+    const students = await prisma.user.findMany({
+        where: {
+            id: { in: payload.studentIds },
+            role: "STUDENT",
+        },
+        select: { id: true },
+    });
 
+    const validStudentIds = students.map(s => s.id);
+    if (validStudentIds.length === 0) {
+        return { summary: [] };
+    }
+
+    // Step 2: Bulk delete in ONE query (not per-student)
+    await prisma.$executeRawUnsafe(
+        `
+            DELETE FROM exercise_template_assignment
+            WHERE student_id = ANY($1::uuid[])
+              AND day_number = $2
+              AND template_id = $3
+        `,
+        validStudentIds,
+        payload.dayNumber,
+        payload.templateId,
+    );
+
+    // Step 3: If a fixed sortOrder is provided, shift existing orders for all students in one batch
+    const providedSortOrder = payload.sortOrder && payload.sortOrder > 0 ? Math.floor(payload.sortOrder) : null;
+    if (providedSortOrder) {
         await prisma.$executeRawUnsafe(
             `
-                DELETE FROM exercise_template_assignment
-                WHERE student_id = $1
+                UPDATE exercise_template_assignment
+                SET sort_order = sort_order + 1,
+                    updated_at = NOW()
+                WHERE student_id = ANY($1::uuid[])
                   AND day_number = $2
-                  AND template_id = $3
+                  AND sort_order >= $3
             `,
-            studentId,
+            validStudentIds,
             payload.dayNumber,
-            payload.templateId,
+            providedSortOrder,
         );
+    }
 
-        let resolvedSortOrder = payload.sortOrder && payload.sortOrder > 0 ? Math.floor(payload.sortOrder) : null;
-        if (resolvedSortOrder) {
-            await prisma.$executeRawUnsafe(
-                `
-                    UPDATE exercise_template_assignment
-                    SET sort_order = sort_order + 1,
-                        updated_at = NOW()
-                    WHERE student_id = $1
-                      AND day_number = $2
-                      AND sort_order >= $3
-                `,
-                studentId,
-                payload.dayNumber,
-                resolvedSortOrder,
-            );
-        } else {
+    // Step 4: Insert assignment rows per student (compute sort order per student if needed)
+    for (const studentId of validStudentIds) {
+        let resolvedSortOrder = providedSortOrder;
+
+        if (resolvedSortOrder === null) {
             const [maxRow] = await prisma.$queryRawUnsafe<Array<{ max_order: number | null }>>(
                 `
                     SELECT MAX(sort_order) AS max_order
@@ -1133,35 +1155,68 @@ export async function assignExerciseTemplateBulk(payload: {
         throw HttpError.badRequest("No valid students found for assignment");
     }
 
+    // OPTIMIZATION: Bulk operations instead of nested loops to avoid N+1 queries
     let totalRows = 0;
     let appliedToPlanCount = 0;
 
+    const validStudentIds = validStudents.map(s => s.id);
+
+    // Step 1: Bulk delete all old assignments for all students/days in ONE query
+    if (validStudentIds.length > 0 && normalizedDayPlans.length > 0) {
+        const dayNumbers = normalizedDayPlans.map(dp => dp.dayNumber);
+        await prisma.$executeRawUnsafe(
+            `
+                DELETE FROM exercise_template_assignment
+                WHERE student_id = ANY($1::uuid[])
+                  AND day_number = ANY($2::int[])
+            `,
+            validStudentIds,
+            dayNumbers,
+        );
+    }
+
+    // Step 2: Prepare all assignments for bulk insert
+    const assignmentsToCreate: Array<{
+        id: string;
+        student_id: string;
+        template_id: string;
+        day_number: number;
+        sort_order: number;
+    }> = [];
+
     for (const student of validStudents) {
         for (const dayPlan of normalizedDayPlans) {
-            await prisma.$executeRawUnsafe(
-                `
-                    DELETE FROM exercise_template_assignment
-                    WHERE student_id = $1
-                      AND day_number = $2
-                `,
-                student.id,
-                dayPlan.dayNumber,
-            );
-
             for (let index = 0; index < dayPlan.templateIds.length; index += 1) {
-                await prisma.$executeRawUnsafe(
-                    `
-                        INSERT INTO exercise_template_assignment (id, student_id, template_id, day_number, sort_order)
-                        VALUES ($1, $2, $3, $4, $5)
-                    `,
-                    randomUUID(),
-                    student.id,
-                    dayPlan.templateIds[index],
-                    dayPlan.dayNumber,
-                    index + 1,
-                );
+                assignmentsToCreate.push({
+                    id: randomUUID(),
+                    student_id: student.id,
+                    template_id: dayPlan.templateIds[index],
+                    day_number: dayPlan.dayNumber,
+                    sort_order: index + 1,
+                });
                 totalRows += 1;
             }
+        }
+    }
+
+    // Step 3: Bulk insert in ONE query (not per-template per-student per-day)
+    if (assignmentsToCreate.length > 0) {
+        const placeholders = assignmentsToCreate
+            .map((_, i) => `($${i * 5 + 1}, $${i * 5 + 2}, $${i * 5 + 3}, $${i * 5 + 4}, $${i * 5 + 5})`)
+            .join(', ');
+
+        await prisma.$executeRawUnsafe(
+            `
+                INSERT INTO exercise_template_assignment (id, student_id, template_id, day_number, sort_order)
+                VALUES ${placeholders}
+            `,
+            ...assignmentsToCreate.flatMap(a => [a.id, a.student_id, a.template_id, a.day_number, a.sort_order])
+        );
+    }
+
+    // Step 4: Sync tasks for all students (can be parallel)
+    for (const student of validStudents) {
+        for (const dayPlan of normalizedDayPlans) {
 
             const applied = await syncPlanDayTasksFromAssignments(student.id, dayPlan.dayNumber);
             if (applied) {

@@ -12,7 +12,7 @@ import { useCurrentUser, usePermissions } from "@/hooks/useStore";
 import { Post } from "@/types";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
-import { Skeleton } from "@/components/ui/skeleton";
+import { FeedGridSkeleton } from "@/components/Skeletons";
 import { filterPostsByTab } from "@/lib/feedFilters";
 import { LUXURY_TWEEN_MEDIUM } from "@/lib/motionTokens";
 import { createPortal } from "react-dom";
@@ -308,17 +308,8 @@ export default function FeedPage() {
 
   if (loading) {
     return (
-      <div className="mx-auto max-w-2xl space-y-6 p-4 sm:p-6 lg:p-8">
-        <div className="flex justify-between items-center">
-          <Skeleton className="h-10 w-44 rounded-2xl" />
-          <Skeleton className="h-11 w-11 rounded-full" />
-        </div>
-        <div className="flex gap-2">
-          {[1, 2, 3].map((i) => <Skeleton key={i} className="h-10 w-24 rounded-full" />)}
-        </div>
-        <div className="space-y-6">
-          {[1, 2].map((i) => <Skeleton key={i} className="h-[440px] w-full rounded-[28px]" />)}
-        </div>
+      <div className="mx-auto max-w-2xl p-4 sm:p-6 lg:p-8">
+        <FeedGridSkeleton count={2} />
       </div>
     );
   }

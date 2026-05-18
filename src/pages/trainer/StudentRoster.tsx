@@ -5,6 +5,7 @@ import { Link } from "react-router-dom";
 import { useAppStore, useCurrentUser } from "@/hooks/useStore";
 import { Student, Trainer } from "@/types";
 import { LUXURY_TWEEN_MEDIUM } from "@/lib/motionTokens";
+import { RosterSkeleton } from "@/components/Skeletons";
 
 export default function StudentRoster() {
   const currentUser = useCurrentUser();
@@ -25,6 +26,7 @@ export default function StudentRoster() {
 
   const [search, setSearch] = useState("");
   const [sortBy, setSortBy] = useState<"name" | "progress" | "streak">("progress");
+  const { loading } = useAppStore((s) => ({ loading: s.loading ?? false }));
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();

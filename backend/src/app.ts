@@ -4,12 +4,16 @@ import helmet from "helmet";
 import cookieParser from "cookie-parser";
 import path from "node:path";
 import { corsOrigins, env } from "./config/env.js";
+import { initSentry, setupSentryHandlers } from "./config/sentry.js";
 import apiRouter from "./routes/index.js";
 import { errorHandler } from "./middleware/errorHandler.js";
 import { notFound } from "./middleware/notFound.js";
 import { requestContext } from "./middleware/requestContext.js";
 import { createRateLimit } from "./middleware/rateLimit.js";
 import { csrfProtection } from "./middleware/csrfProtection.js";
+
+// Initialize Sentry for production error tracking
+initSentry();
 
 const apiGlobalLimiter = createRateLimit({
   key: "api-global",
@@ -68,6 +72,9 @@ app.get("/", (req, res) => {
 // The global limiter protects the absolute ceiling; the auth-read limiter
 // provides a tighter read-path budget to shield the DB connection pool.
 app.use("/api", apiGlobalLimiter, apiAuthReadLimiter, apiRouter);
+
+// Setup Sentry error handlers (must be after routes, before other error handlers)
+setupSentryHandlers(app);
 
 // 404 + error
 app.use(notFound);
