@@ -74,7 +74,7 @@ app.get("/", (req, res) => {
 app.use("/api", apiGlobalLimiter, apiAuthReadLimiter, apiRouter);
 
 // Setup Sentry error handlers (must be after routes, before other error handlers)
-setupSentryHandlers(app);
+setupSentryHandlers();
 
 // 404 + error
 app.use(notFound);

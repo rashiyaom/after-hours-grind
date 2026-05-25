@@ -193,7 +193,7 @@ export default function AdminTemplatesPage() {
     void loadData();
     const intervalId = window.setInterval(() => {
       void loadData();
-    }, 15000);
+    }, 60000);
     return () => window.clearInterval(intervalId);
   }, [loadData]);
 

@@ -380,6 +380,7 @@ export interface AHGEvent {
   status: "upcoming" | "live" | "completed";
   mediaType: "image" | "video";
   mediaUrl: string;       // poster image or video URL
+  registrationLink?: string;
   registrationOpen: boolean;
   formFields: EventFormField[];
   entries: EventEntry[];

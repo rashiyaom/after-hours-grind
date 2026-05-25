@@ -2,15 +2,6 @@ import type { Request, Response } from "express";
 import { z } from "zod";
 import * as svc from "./events.service.js";
 
-const eventFormFieldSchema = z.object({
-  id: z.string().min(1),
-  type: z.enum(["text", "email", "phone", "number", "textarea", "select", "checkbox", "radio", "date"]),
-  label: z.string().min(1),
-  placeholder: z.string().optional(),
-  required: z.boolean(),
-  options: z.array(z.string()).optional(),
-});
-
 const eventEntriesSchema = z.record(z.union([z.string(), z.array(z.string())]));
 
 const eventSchema = z.object({
@@ -21,8 +12,8 @@ const eventSchema = z.object({
   category: z.string().default("General"),
   mediaType: z.string().default("image"),
   mediaUrl: z.string().default(""),
+  registrationLink: z.string().trim().default(""),
   registrationOpen: z.boolean().default(true),
-  formFields: z.array(eventFormFieldSchema).default([]),
 });
 
 export async function getAllEventsHandler(req: Request, res: Response) {

@@ -11,8 +11,8 @@ import { ChatMessage } from "@/types";
 import { LUXURY_SPRING, LUXURY_TWEEN_MEDIUM } from "@/lib/motionTokens";
 import { subscribeRealtimeEvents } from "@/lib/api";
 
-const REALTIME_REFRESH_DEBOUNCE_MS = 180;
-const PERIODIC_REFRESH_MS = 120000;
+const REALTIME_REFRESH_DEBOUNCE_MS = 900;
+const PERIODIC_REFRESH_MS = 300000;
 
 const studentNav = [
   { label: "Dashboard", path: "/student/dashboard", icon: LayoutDashboard },

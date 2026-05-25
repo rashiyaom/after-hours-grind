@@ -14,43 +14,19 @@ export function initSentry() {
     dsn: process.env.SENTRY_DSN,
     environment: env.NODE_ENV,
     tracesSampleRate: 0.1,
-    // Some Sentry integration types may live in separate packages depending on version.
-    // Use `any` to avoid type issues across versions while still attempting to use integrations when available.
-    integrations: [
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      ...( ((Sentry as any).Integrations && [
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        new (Sentry as any).Integrations.Http({ tracing: true }),
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        new (Sentry as any).Integrations.OnUncaughtException(),
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        new (Sentry as any).Integrations.OnUnhandledRejection(),
-      ]) || [] ),
-    ],
   });
 }
 
 /**
  * Setup Sentry request/error handlers in Express
  */
-export function setupSentryHandlers(app: any) {
-  if (env.NODE_ENV !== "production") {
-    return;
-  }
-
-  // Attach handlers if available on this Sentry build
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const Handlers: any = (Sentry as any).Handlers;
-  if (Handlers && Handlers.requestHandler && Handlers.errorHandler) {
-    app.use(Handlers.requestHandler());
-    app.use(Handlers.errorHandler());
-  }
+export function setupSentryHandlers() {
 }
 
 /**
  * Capture exception to Sentry with context
  */
-export function captureError(error: any, context: Record<string, any> = {}) {
+export function captureError(error: unknown, context: Record<string, unknown> = {}) {
   if (env.NODE_ENV === "production") {
     Sentry.captureException(error, {
       extra: context,

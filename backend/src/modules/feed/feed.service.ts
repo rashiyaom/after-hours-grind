@@ -71,7 +71,7 @@ export async function createPost(userId: string, input: { type: string; mediaUrl
     type: post.type,
     mediaUrl: post.mediaUrl,
     caption: post.caption,
-    steps: (post as any).steps ?? null,
+    steps: post.steps ?? null,
     location: post.location,
     status: post.status,
     createdAt: post.createdAt.toISOString(),

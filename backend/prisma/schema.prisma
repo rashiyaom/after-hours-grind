@@ -41,12 +41,14 @@ model RolePermission {
 model User {
   id           String   @id @default(cuid())
   email        String   @unique
+  phoneNumber  String?  @unique
   passwordHash String
   name         String
   avatar       String   @default("")
   role         Role     @default(STUDENT)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
+  lastLoginAt  DateTime?
   isBanned     Boolean  @default(false)
 
   studentProfile StudentProfile?
@@ -68,6 +70,7 @@ model User {
   threadParticipants ThreadParticipant[]
 
   refreshTokens RefreshToken[]
+  passwordResetTokens PasswordResetToken[]
   achievements  UserAchievement[]
   progress      ProgressEntry[]
 
@@ -84,6 +87,19 @@ model RefreshToken {
   createdAt DateTime @default(now())
 
   @@index([userId])
+}
+
+model PasswordResetToken {
+  id        String   @id @default(cuid())
+  tokenHash String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([expiresAt])
 }
 
 model StudentProfile {
@@ -298,6 +314,7 @@ model Notification {
   createdAt DateTime @default(now())
 
   @@index([userId, read])
+  @@index([userId, createdAt(sort: Desc)])
 }
 
 // ─── CHAT ────────────────────────────────────────────────
@@ -354,6 +371,7 @@ model Event {
   status           String       @default("upcoming")
   mediaType        String       @default("image")
   mediaUrl         String       @default("")
+  registrationLink String       @default("")
   registrationOpen Boolean      @default(true)
   formFields       Json         @default("[]")
   createdAt        DateTime     @default(now())

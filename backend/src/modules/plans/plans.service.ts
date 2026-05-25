@@ -13,6 +13,7 @@ const TODAY_PLAN_CACHE_TTL_MS = 15_000;
 const TODAY_PLAN_LITE_CACHE_TTL_MS = 8_000;
 const TODAY_PLAN_CACHE_TTL_SECONDS = Math.ceil(TODAY_PLAN_CACHE_TTL_MS / 1000);
 const TODAY_PLAN_LITE_CACHE_TTL_SECONDS = Math.ceil(TODAY_PLAN_LITE_CACHE_TTL_MS / 1000);
+const SUBMISSIONS_LIST_CACHE_TTL_SECONDS = 10;
 // Safety limit: evict oldest entries when either cache exceeds this size.
 const PLAN_CACHE_MAX_SIZE = 2_000;
 
@@ -1243,8 +1244,17 @@ export async function unassignStudent(trainerId: string, studentId: string) {
 }
 
 export async function getSubmissions(userId: string, role: string) {
+  const scopeKey = role === "ADMIN" ? "admin" : `trainer:${userId}`;
+  const cacheKey = `submissions:v1:${scopeKey}`;
+  const cached = await getJsonCache<unknown[]>(cacheKey, {
+    endpoint: "GET /submissions",
+  });
+  if (cached) {
+    return cached;
+  }
+
   if (role === "ADMIN") {
-    return prisma.submission.findMany({
+    const rows = await prisma.submission.findMany({
       include: { 
         student: { select: { id: true, name: true, avatar: true } },
         planTask: { 
@@ -1260,9 +1270,11 @@ export async function getSubmissions(userId: string, role: string) {
       orderBy: { createdAt: "desc" },
       take: 100,
     });
+    await setJsonCache(cacheKey, rows, SUBMISSIONS_LIST_CACHE_TTL_SECONDS);
+    return rows;
   }
   
-  return prisma.submission.findMany({
+  const rows = await prisma.submission.findMany({
     where: {
       student: { studentProfile: { trainerId: userId } }
     },
@@ -1281,6 +1293,8 @@ export async function getSubmissions(userId: string, role: string) {
     orderBy: { createdAt: "desc" },
     take: 100,
   });
+  await setJsonCache(cacheKey, rows, SUBMISSIONS_LIST_CACHE_TTL_SECONDS);
+  return rows;
 }
 
 export async function resendSubmissionWhatsApp(studentId: string, input: { planTaskId: string }) {

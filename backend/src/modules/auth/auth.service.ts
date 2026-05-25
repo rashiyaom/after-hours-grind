@@ -6,9 +6,15 @@ import { env } from "../../config/env.js";
 import { parseDurationToMs } from "../../lib/duration.js";
 import type { SignupInput, LoginInput } from "./auth.schema.js";
 import crypto from "crypto";
+import { sendPasswordResetCodeEmail, sendPasswordResetEmail, isMailerConfigured, sendLoginAlertEmail, sendWelcomeEmail } from "../../lib/mailer.js";
+import { deleteCacheKey, getJsonCache, setJsonCache } from "../../lib/cache.js";
 
 const DEFAULT_REFRESH_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 const REFRESH_TOKEN_TTL_MS = parseDurationToMs(env.REFRESH_TOKEN_TTL, DEFAULT_REFRESH_TTL_MS);
+const PASSWORD_RESET_TTL_MS = env.RESET_PASSWORD_TTL_MINUTES * 60 * 1000;
+const FORGOT_PASSWORD_CODE_TTL_SECONDS = 10 * 60;
+const FORGOT_PASSWORD_CODE_TTL_MS = FORGOT_PASSWORD_CODE_TTL_SECONDS * 1000;
+const FORGOT_PASSWORD_MAX_VERIFY_ATTEMPTS = 5;
 
 function refreshTokenExpiry(): Date {
   return new Date(Date.now() + REFRESH_TOKEN_TTL_MS);
@@ -16,6 +22,30 @@ function refreshTokenExpiry(): Date {
 
 const hashRefreshToken = (token: string): string =>
   crypto.createHash("sha256").update(token).digest("hex");
+
+const hashResetToken = (token: string): string =>
+  crypto.createHash("sha256").update(token).digest("hex");
+
+const normalizePhoneNumber = (value: string): string => value.replace(/[\s\-()]/g, "");
+
+const hashEmail = (email: string): string =>
+  crypto.createHash("sha256").update(email.toLowerCase()).digest("hex");
+
+const generateVerificationCode = (): string => String(crypto.randomInt(100000, 1000000));
+
+type ForgotPasswordCodeCache = {
+  userId: string;
+  email: string;
+  codeHash: string;
+  attempts: number;
+  expiresAtMs: number;
+};
+
+const forgotPasswordCodeKey = (email: string): string =>
+  `auth:forgot-password:code:${hashEmail(email)}`;
+
+const codeHashForEmail = (email: string, code: string): string =>
+  hashResetToken(`${email.toLowerCase()}:${code}`);
 
 const isBannedUser = (user: unknown): boolean => {
   if (!user || typeof user !== "object") return false;
@@ -26,6 +56,12 @@ const isBannedUser = (user: unknown): boolean => {
 export async function signup(input: SignupInput) {
   const existing = await prisma.user.findUnique({ where: { email: input.email } });
   if (existing) throw HttpError.conflict("Email already registered");
+
+  const normalizedPhone = input.phoneNumber ? normalizePhoneNumber(input.phoneNumber) : undefined;
+  if (normalizedPhone) {
+    const existingPhone = await prisma.user.findUnique({ where: { phoneNumber: normalizedPhone } });
+    if (existingPhone) throw HttpError.conflict("Phone number already registered");
+  }
 
   const certifications = Array.isArray(input.certifications)
     ? input.certifications.map((cert) => cert.trim()).filter(Boolean)
@@ -44,6 +80,7 @@ export async function signup(input: SignupInput) {
     data: {
       name: input.name,
       email: input.email,
+      phoneNumber: normalizedPhone,
       passwordHash,
       role: input.role,
       ...(input.role === "STUDENT"
@@ -61,18 +98,35 @@ export async function signup(input: SignupInput) {
     },
   });
 
+  if (isMailerConfigured) {
+    void sendWelcomeEmail(user.email, user.name).catch(() => {});
+  }
+
   return issueTokens(user.id, user.role);
 }
 
 export async function login(input: LoginInput) {
-  const user = await prisma.user.findUnique({ where: { email: input.email } });
+  const user = await prisma.user.findUnique({ where: { email: input.email.trim().toLowerCase() } });
   if (!user) throw HttpError.unauthorized("Invalid credentials");
   if (isBannedUser(user)) throw HttpError.forbidden("Account is banned");
 
   const valid = await verifyPassword(input.password, user.passwordHash);
   if (!valid) throw HttpError.unauthorized("Invalid credentials");
 
-  return issueTokens(user.id, user.role);
+  const result = await issueTokens(user.id, user.role);
+  const shouldSendLoginAlert = isMailerConfigured && !user.lastLoginAt;
+  if (shouldSendLoginAlert) {
+    void sendLoginAlertEmail(user.email, user.name).catch(() => {});
+  }
+
+  await prisma.user
+    .update({
+      where: { id: user.id },
+      data: { lastLoginAt: user.lastLoginAt ?? new Date() },
+    })
+    .catch(() => {});
+
+  return result;
 }
 
 export async function refresh(oldToken: string) {
@@ -100,6 +154,118 @@ export async function refresh(oldToken: string) {
 
 export async function logout(refreshToken: string) {
   await prisma.refreshToken.deleteMany({ where: { token: hashRefreshToken(refreshToken) } });
+}
+
+export async function forgotPassword(email: string) {
+  if (!isMailerConfigured) {
+    throw new HttpError(500, "Email service is not configured");
+  }
+
+  const normalizedEmail = email.trim().toLowerCase();
+  const user = await prisma.user.findUnique({ where: { email: normalizedEmail } });
+  if (!user) return;
+
+  const code = generateVerificationCode();
+  const key = forgotPasswordCodeKey(normalizedEmail);
+
+  await setJsonCache(
+    key,
+    {
+      userId: user.id,
+      email: normalizedEmail,
+      codeHash: codeHashForEmail(normalizedEmail, code),
+      attempts: 0,
+      expiresAtMs: Date.now() + FORGOT_PASSWORD_CODE_TTL_MS,
+    } satisfies ForgotPasswordCodeCache,
+    FORGOT_PASSWORD_CODE_TTL_SECONDS
+  );
+
+  await sendPasswordResetCodeEmail(user.email, code);
+}
+
+export async function verifyForgotPasswordCode(email: string, code: string) {
+  if (!isMailerConfigured) {
+    throw new HttpError(500, "Email service is not configured");
+  }
+
+  const normalizedEmail = email.trim().toLowerCase();
+  const key = forgotPasswordCodeKey(normalizedEmail);
+  const cached = await getJsonCache<ForgotPasswordCodeCache>(key);
+  if (!cached || cached.expiresAtMs < Date.now()) {
+    await deleteCacheKey(key);
+    throw HttpError.badRequest("Verification code is invalid or expired");
+  }
+
+  const incomingHash = codeHashForEmail(normalizedEmail, code.trim());
+  if (incomingHash !== cached.codeHash) {
+    const nextAttempts = (cached.attempts ?? 0) + 1;
+    if (nextAttempts >= FORGOT_PASSWORD_MAX_VERIFY_ATTEMPTS) {
+      await deleteCacheKey(key);
+      throw HttpError.badRequest("Too many invalid attempts. Request a new code.");
+    }
+
+    await setJsonCache(
+      key,
+      {
+        ...cached,
+        attempts: nextAttempts,
+      } satisfies ForgotPasswordCodeCache,
+      Math.max(1, Math.floor((cached.expiresAtMs - Date.now()) / 1000))
+    );
+    throw HttpError.badRequest("Verification code is invalid or expired");
+  }
+
+  await deleteCacheKey(key);
+
+  const rawToken = crypto.randomBytes(32).toString("hex");
+  const tokenHash = hashResetToken(rawToken);
+  const expiresAt = new Date(Date.now() + PASSWORD_RESET_TTL_MS);
+
+  await prisma.passwordResetToken.create({
+    data: {
+      tokenHash,
+      userId: cached.userId,
+      expiresAt,
+    },
+  });
+
+  const resetLink = `${env.FRONTEND_URL}/reset-password?token=${encodeURIComponent(rawToken)}`;
+  await sendPasswordResetEmail(cached.email, resetLink);
+}
+
+export async function resetPassword(token: string, newPassword: string) {
+  const tokenHash = hashResetToken(token);
+  const resetToken = await prisma.passwordResetToken.findUnique({
+    where: { tokenHash },
+    include: { user: true },
+  });
+
+  if (!resetToken || resetToken.usedAt || resetToken.expiresAt < new Date()) {
+    throw HttpError.badRequest("Reset token is invalid or expired");
+  }
+
+  const newHash = await hashPassword(newPassword);
+  await prisma.$transaction([
+    prisma.user.update({ where: { id: resetToken.userId }, data: { passwordHash: newHash } }),
+    prisma.passwordResetToken.update({
+      where: { id: resetToken.id },
+      data: { usedAt: new Date() },
+    }),
+    prisma.refreshToken.deleteMany({ where: { userId: resetToken.userId } }),
+  ]);
+}
+
+export async function cleanupExpiredResetTokens() {
+  const now = new Date();
+  const usedBefore = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+  await prisma.passwordResetToken.deleteMany({
+    where: {
+      OR: [
+        { expiresAt: { lt: now } },
+        { usedAt: { not: null, lt: usedBefore } },
+      ],
+    },
+  });
 }
 
 async function issueTokens(userId: string, role: string) {

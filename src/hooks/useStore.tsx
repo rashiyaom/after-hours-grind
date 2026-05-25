@@ -165,6 +165,12 @@ type ProgressHeatmapPoint = {
   level: number;
 };
 
+const BACKGROUND_REFRESH_MIN_INTERVAL_MS = 15_000;
+const BACKGROUND_NOTIFICATIONS_MIN_INTERVAL_MS = 25_000;
+let isBackgroundRefreshInFlight = false;
+let lastBackgroundRefreshAt = 0;
+let lastNotificationsFetchAt = 0;
+
 const defaultTodayTask: LegacyTodayTask = {
   stepTarget: 0,
   hydrationGoal: '',
@@ -534,6 +540,7 @@ interface AppActions {
   signup: (userData: {
     name: string;
     email: string;
+    phoneNumber: string;
     password: string;
     role: Exclude<UserRole, 'admin'>;
     collegeId?: string;
@@ -1395,6 +1402,7 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
       await signupBackend({
         name: userData.name,
         email: userData.email,
+        phoneNumber: userData.phoneNumber,
         password: userData.password,
         role: userData.role.toUpperCase(),
         collegeId: userData.collegeId,
@@ -2567,6 +2575,17 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
 
   refreshData: async (options) => {
     const background = Boolean(options?.background);
+    const nowTs = Date.now();
+    if (background) {
+      if (isBackgroundRefreshInFlight) {
+        return;
+      }
+      if (nowTs - lastBackgroundRefreshAt < BACKGROUND_REFRESH_MIN_INTERVAL_MS) {
+        return;
+      }
+      isBackgroundRefreshInFlight = true;
+    }
+
     const role = get().session.currentUser?.role;
     const requestedScope = options?.scope;
     const effectiveScope = requestedScope && requestedScope !== 'all'
@@ -2597,12 +2616,17 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
         }));
       }
 
+      const shouldFetchNotifications =
+        !background || nowTs - lastNotificationsFetchAt >= BACKGROUND_NOTIFICATIONS_MIN_INTERVAL_MS;
+
       // Pull only route-relevant bundles to avoid blocking UI on non-essential APIs.
       const results = await Promise.allSettled([
         fetchFeed ? fetchFeedFromBackend() : Promise.resolve([]),
         fetchChats ? fetchChatThreads() : Promise.resolve([]),
         fetchEvents ? fetchEventsAPI() : Promise.resolve(null),
-        fetchNotificationsAPI(undefined, 40),
+        shouldFetchNotifications
+          ? fetchNotificationsAPI(undefined, 40)
+          : Promise.resolve({ data: [], nextCursor: null }),
       ]);
 
       const feedPosts = fetchFeed && results[0].status === "fulfilled" ? results[0].value : [];
@@ -2612,15 +2636,23 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
           : null;
       const events = fetchEvents && results[2].status === "fulfilled" ? results[2].value : null;
       const backendNotifications =
-        results[3].status === 'fulfilled'
+        shouldFetchNotifications && results[3].status === 'fulfilled'
           ? results[3].value.data
-          : [];
+          : null;
+      if (backendNotifications) {
+        lastNotificationsFetchAt = nowTs;
+      }
+
       const legacyNotifications = backendNotifications
-        .map(mapBackendNotificationToLegacy)
-        .filter((item): item is NotificationItem => Boolean(item));
+        ? backendNotifications
+            .map(mapBackendNotificationToLegacy)
+            .filter((item): item is NotificationItem => Boolean(item))
+        : null;
       const systemNotifications = backendNotifications
-        .map(mapBackendNotificationToSystem)
-        .filter((item): item is SystemNotification => Boolean(item));
+        ? backendNotifications
+            .map(mapBackendNotificationToSystem)
+            .filter((item): item is SystemNotification => Boolean(item))
+        : null;
 
       let trainersStudents: Record<string, unknown>[] = [];
       let adminUsers: unknown[] = [];
@@ -2714,14 +2746,18 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
       if (fetchTrainerBundle) {
         const [tsRes] = await Promise.allSettled([fetchTrainerStudentsAPI()]);
         trainersStudents = tsRes.status === "fulfilled" ? tsRes.value : [];
-        await get().fetchSubmissions().catch(() => {});
+        if (!background) {
+          await get().fetchSubmissions().catch(() => {});
+        }
       } else if (fetchAdminBundle) {
         const [auRes, permsRes] = await Promise.allSettled([fetchAdminUsersAPI(), fetchAdminPermissionsAPI()]);
         adminUsers = auRes.status === "fulfilled" ? auRes.value : [];
         if (permsRes.status === 'fulfilled') {
           adminPermissions = mapBackendPermissions(permsRes.value, get().system.permissions);
         }
-        await get().fetchSubmissions().catch(() => {});
+        if (!background) {
+          await get().fetchSubmissions().catch(() => {});
+        }
       }
 
       set((state) => {
@@ -2776,8 +2812,8 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
             ...state.system,
             chatThreads: chatThreads ?? state.system.chatThreads,
             events: events ?? state.system.events,
-            notifications: systemNotifications,
-            legacyNotifications,
+            notifications: systemNotifications ?? state.system.notifications,
+            legacyNotifications: legacyNotifications ?? state.system.legacyNotifications,
             progressOverview: progressOverview ?? state.system.progressOverview,
             progressWeekly: progressWeekly.length > 0 ? progressWeekly : state.system.progressWeekly,
             progressMonthly: progressMonthly.length > 0 ? progressMonthly : state.system.progressMonthly,
@@ -2804,6 +2840,11 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
           planLoading: false,
         },
       }));
+    } finally {
+      if (background) {
+        lastBackgroundRefreshAt = Date.now();
+        isBackgroundRefreshInFlight = false;
+      }
     }
   },
 }));

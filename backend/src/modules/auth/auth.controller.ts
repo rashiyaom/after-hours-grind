@@ -1,6 +1,12 @@
 import type { Request, Response } from "express";
 import type { CookieOptions } from "express";
-import { signupSchema, loginSchema } from "./auth.schema.js";
+import {
+  signupSchema,
+  loginSchema,
+  forgotPasswordSchema,
+  forgotPasswordVerifyCodeSchema,
+  resetPasswordSchema,
+} from "./auth.schema.js";
 import * as authService from "./auth.service.js";
 import { env } from "../../config/env.js";
 import { parseDurationToMs } from "../../lib/duration.js";
@@ -99,4 +105,22 @@ export async function logoutHandler(req: Request, res: Response) {
   });
   res.clearCookie(CSRF_COOKIE_NAME, LEGACY_CSRF_COOKIE_OPTIONS);
   res.json({ message: "Logged out" });
+}
+
+export async function forgotPasswordHandler(req: Request, res: Response) {
+  const data = forgotPasswordSchema.parse(req.body);
+  await authService.forgotPassword(data.email);
+  res.json({ message: "If the email exists, a verification code has been sent." });
+}
+
+export async function verifyForgotPasswordCodeHandler(req: Request, res: Response) {
+  const data = forgotPasswordVerifyCodeSchema.parse(req.body);
+  await authService.verifyForgotPasswordCode(data.email, data.code);
+  res.json({ message: "Code verified. Reset instructions have been sent." });
+}
+
+export async function resetPasswordHandler(req: Request, res: Response) {
+  const data = resetPasswordSchema.parse(req.body);
+  await authService.resetPassword(data.token, data.newPassword);
+  res.json({ message: "Password reset successful. Please sign in." });
 }

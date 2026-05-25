@@ -2,15 +2,6 @@ import { prisma } from "../../config/prisma.js";
 import { HttpError } from "../../lib/httpError.js";
 import type { Prisma } from "@prisma/client";
 
-type EventFormFieldInput = {
-  id: string;
-  type: string;
-  label: string;
-  placeholder?: string;
-  required: boolean;
-  options?: string[];
-};
-
 type EventPayloadInput = {
   title: string;
   description: string;
@@ -19,8 +10,8 @@ type EventPayloadInput = {
   category: string;
   mediaType: string;
   mediaUrl: string;
+  registrationLink: string;
   registrationOpen: boolean;
-  formFields: EventFormFieldInput[];
 };
 
 type EventRegistrationResponses = Record<string, string | string[]>;
@@ -38,7 +29,6 @@ export async function createEvent(userId: string, data: EventPayloadInput) {
       ...data,
       createdBy: userId,
       date: new Date(data.date),
-      formFields: data.formFields as Prisma.InputJsonValue,
     }
   });
 }
@@ -63,7 +53,6 @@ export async function updateEvent(eventId: string, data: Partial<EventPayloadInp
     data: {
       ...data,
       date: data.date ? new Date(data.date) : undefined,
-      formFields: data.formFields ? (data.formFields as Prisma.InputJsonValue) : undefined,
     }
   });
 }

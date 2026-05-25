@@ -1,5 +1,5 @@
-import { useMemo, useState } from "react";
-import { Search, ShieldCheck, UserX, Trash2, CheckSquare, Square, Plus, X, Loader2 } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { Search, ShieldCheck, UserX, Trash2, CheckSquare, Square, Plus, X, Loader2, Download, RefreshCw, Phone, Mail } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import Badge from "@/components/ui/badge";
 import Button from "@/components/ui/button";
@@ -8,6 +8,70 @@ import { useAppStore, useUsers } from "@/hooks/useStore";
 import { toast } from "sonner";
 import { Student } from "@/types";
 import { motion, AnimatePresence } from "framer-motion";
+import { fetchAdminUsersDetailedAPI, type AdminUserDetails } from "@/lib/api";
+
+type AdminUserRow = AdminUserDetails;
+
+const csvEscape = (value: unknown): string => {
+  const text = value == null ? "" : String(value);
+  if (/[,"\n\r]/.test(text)) {
+    return `"${text.replace(/"/g, '""')}"`;
+  }
+  return text;
+};
+
+const buildCsv = (rows: AdminUserRow[]): string => {
+  const headers = [
+    "id",
+    "name",
+    "email",
+    "phoneNumber",
+    "role",
+    "createdAt",
+    "updatedAt",
+    "isBanned",
+    "collegeId",
+    "heightCm",
+    "weightKg",
+    "fitnessGoal",
+    "trainerId",
+    "specialization",
+    "whatsappNumber",
+    "experience",
+    "certifications",
+  ];
+
+  const lines = [headers.join(",")];
+  for (const user of rows) {
+    const studentProfile = user.studentProfile && typeof user.studentProfile === "object" ? user.studentProfile : null;
+    const trainerProfile = user.trainerProfile && typeof user.trainerProfile === "object" ? user.trainerProfile : null;
+    const certifications = Array.isArray(trainerProfile?.certifications)
+      ? (trainerProfile?.certifications as string[]).join(" | ")
+      : "";
+
+    lines.push([
+      user.id,
+      user.name,
+      user.email,
+      user.phoneNumber ?? "",
+      user.role,
+      user.createdAt ?? "",
+      user.updatedAt ?? "",
+      user.isBanned ? "true" : "false",
+      studentProfile?.collegeId ?? "",
+      studentProfile?.heightCm ?? "",
+      studentProfile?.weightKg ?? "",
+      studentProfile?.fitnessGoal ?? "",
+      studentProfile?.trainerId ?? "",
+      trainerProfile?.specialization ?? "",
+      trainerProfile?.whatsappNumber ?? "",
+      trainerProfile?.experience ?? "",
+      certifications,
+    ].map(csvEscape).join(","));
+  }
+
+  return lines.join("\n");
+};
 
 const UserManagement = () => {
   const [query, setQuery] = useState("");
@@ -15,6 +79,9 @@ const UserManagement = () => {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
+  const [isLoadingUsers, setIsLoadingUsers] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const [detailedUsers, setDetailedUsers] = useState<AdminUserRow[]>([]);
   const [newTrainer, setNewTrainer] = useState({
     name: "",
     email: "",
@@ -30,6 +97,22 @@ const UserManagement = () => {
   const bulkDeleteUsers = useAppStore((state) => state.bulkDeleteUsers);
   const createTrainer = useAppStore((state) => state.createTrainer);
   const currentUser = useAppStore((state) => state.session.currentUser);
+
+  const loadUsers = async () => {
+    setIsLoadingUsers(true);
+    try {
+      const adminUsers = await fetchAdminUsersDetailedAPI();
+      setDetailedUsers(adminUsers);
+    } catch (error) {
+      toast.error("Failed to load admin users.");
+    } finally {
+      setIsLoadingUsers(false);
+    }
+  };
+
+  useEffect(() => {
+    void loadUsers();
+  }, []);
   
   const handleCreateTrainer = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -53,7 +136,7 @@ const UserManagement = () => {
     }
   };
 
-  const userList = Object.values(users);
+  const userList = detailedUsers.length > 0 ? detailedUsers : Object.values(users);
   const trainers = userList.filter(user => user.role === "trainer");
 
   const filteredUsers = useMemo(() => {
@@ -132,12 +215,65 @@ const UserManagement = () => {
     toast.success(`${userName} verified successfully.`);
   };
 
+  const exportVisibleUsers = async () => {
+    if (filteredUsers.length === 0) {
+      toast.info("No users available to export.");
+      return;
+    }
+
+    setExporting(true);
+    try {
+      const selectedSet = selectedIds.size > 0 ? selectedIds : null;
+      const exportRows = selectedSet
+        ? filteredUsers.filter((user) => selectedSet.has(user.id))
+        : (detailedUsers.length > 0
+            ? filteredUsers
+            : await fetchAdminUsersDetailedAPI().then((rows) => rows.filter((row) => {
+                const roleMatch = roleFilter === "all" ? true : row.role === roleFilter;
+                const queryMatch =
+                  query.trim() === ""
+                    ? true
+                    : row.name.toLowerCase().includes(query.toLowerCase()) || row.email.toLowerCase().includes(query.toLowerCase());
+                return roleMatch && queryMatch;
+              })));
+
+      if (exportRows.length === 0) {
+        toast.info("No matching users selected for export.");
+        return;
+      }
+
+      const csv = buildCsv(exportRows);
+      const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `after-hours-users-${roleFilter}-${new Date().toISOString().slice(0, 10)}.csv`;
+      link.click();
+      URL.revokeObjectURL(url);
+      toast.success(`Exported ${exportRows.length} user(s).`);
+    } catch (error) {
+      toast.error("Export failed. Please try again.");
+    } finally {
+      setExporting(false);
+    }
+  };
+
+  const selectedExportCount = selectedIds.size;
+
   return (
     <div className="p-4 md:p-8">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
         <h1 className="text-3xl font-bold">User Management</h1>
         
         <div className="flex items-center gap-3">
+          <Button variant="outline" onClick={() => void loadUsers()} disabled={isLoadingUsers}>
+            <RefreshCw className={`h-4 w-4 mr-2 ${isLoadingUsers ? "animate-spin" : ""}`} />
+            Refresh
+          </Button>
+          <Button variant="outline" onClick={() => void exportVisibleUsers()} disabled={exporting || filteredUsers.length === 0}>
+            <Download className="h-4 w-4 mr-2" />
+            Export {selectedExportCount > 0 ? `${selectedExportCount}` : "Visible"}
+          </Button>
           {selectedIds.size > 0 && (
             <Button 
               variant="destructive" 
@@ -281,10 +417,17 @@ const UserManagement = () => {
             </div>
           </div>
 
+          <div className="mb-4 rounded-xl border border-white/10 bg-muted/20 p-4 text-sm text-muted-foreground">
+            Showing {filteredUsers.length} user(s). Export includes phone number and profile details for the current role filter.
+          </div>
+
           <div className="flex flex-col gap-3">
             {filteredUsers.map((user) => {
               const isSelected = selectedIds.has(user.id);
               const isSelf = user.id === currentUser?.id;
+              const phoneNumber = user.phoneNumber ?? "Not provided";
+              const student = user.role === "student" ? (user as Student) : null;
+              const trainerProfile = user.role === "trainer" ? (user as AdminUserRow & { specialization?: string; whatsappNumber?: string; experience?: number; certifications?: string[] }) : null;
 
               return (
                 <div 
@@ -308,15 +451,32 @@ const UserManagement = () => {
                         {isSelf && <Badge variant="outline" className="text-[10px] h-4">YOU</Badge>}
                         <Badge variant="secondary">{user.role}</Badge>
                       </div>
-                      <p className="text-sm text-muted-foreground">{user.email}</p>
+                      <p className="text-sm text-muted-foreground flex items-center gap-2"><Mail className="h-3.5 w-3.5" />{user.email}</p>
+                      <p className="text-sm text-muted-foreground flex items-center gap-2"><Phone className="h-3.5 w-3.5" />{phoneNumber}</p>
                       
-                      {user.role === "student" && (
+                      {student && (
                         <div className="mt-2 flex flex-wrap gap-2 text-[10px]">
                           <span className="rounded-full bg-muted/50 px-2 py-0.5 text-muted-foreground">
-                            H: {(user as Student).height || 0}cm / W: {(user as Student).weight || 0}kg
+                            H: {student.height || 0}cm / W: {student.weight || 0}kg
                           </span>
                           <span className="rounded-full bg-muted/50 px-2 py-0.5 text-muted-foreground">
-                            Goal: {(user as Student).fitnessGoal || "None"}
+                            Goal: {student.fitnessGoal || "None"}
+                          </span>
+                          <span className="rounded-full bg-muted/50 px-2 py-0.5 text-muted-foreground">
+                            Trainer: {student.trainerId || "None"}
+                          </span>
+                        </div>
+                      )}
+                      {trainerProfile && (
+                        <div className="mt-2 flex flex-wrap gap-2 text-[10px]">
+                          <span className="rounded-full bg-muted/50 px-2 py-0.5 text-muted-foreground">
+                            Spec: {trainerProfile.specialization || "None"}
+                          </span>
+                          <span className="rounded-full bg-muted/50 px-2 py-0.5 text-muted-foreground">
+                            WA: {trainerProfile.whatsappNumber || "None"}
+                          </span>
+                          <span className="rounded-full bg-muted/50 px-2 py-0.5 text-muted-foreground">
+                            Exp: {trainerProfile.experience || 0} yrs
                           </span>
                         </div>
                       )}

@@ -1,13 +1,12 @@
 import { Link, useNavigate } from "react-router-dom";
-import { motion, AnimatePresence } from "framer-motion";
-import { Flame, User, Dumbbell, ArrowLeft, ChevronRight, Loader2 } from "lucide-react";
+import { motion } from "framer-motion";
+import { Loader2 } from "lucide-react";
 import { useState } from "react";
 import { useAppStore } from "@/hooks/useStore";
 import { toast } from "sonner";
 import { LUXURY_TWEEN_MEDIUM, LUXURY_TWEEN_SLOW } from "@/lib/motionTokens";
 
 export default function SignupPage() {
-  const [role, setRole] = useState<"student" | null>("student");
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
   const { signup } = useAppStore();
@@ -16,7 +15,9 @@ export default function SignupPage() {
   const [form, setForm] = useState({
     name: "",
     email: "",
+    phoneNumber: "",
     password: "",
+    confirmPassword: "",
     collegeId: "",
     height: "",
     weight: "",
@@ -35,8 +36,12 @@ export default function SignupPage() {
     if (!form.name.trim()) errs.name = "Name is required";
     if (!form.email.trim()) errs.email = "Email is required";
     else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) errs.email = "Invalid email";
+    if (!form.phoneNumber.trim()) errs.phoneNumber = "Phone number is required";
+    else if (!/^\+?[0-9]{8,15}$/.test(form.phoneNumber.trim())) errs.phoneNumber = "Invalid phone number";
     if (!form.password) errs.password = "Password is required";
     else if (form.password.length < 8) errs.password = "Min 8 characters";
+    if (!form.confirmPassword) errs.confirmPassword = "Please confirm your password";
+    else if (form.password !== form.confirmPassword) errs.confirmPassword = "Passwords do not match";
     
     if (!form.collegeId.trim()) errs.collegeId = "College ID is required";
     
@@ -52,8 +57,9 @@ export default function SignupPage() {
       await signup({
         name: form.name,
         email: form.email,
+        phoneNumber: form.phoneNumber,
         password: form.password,
-        role: "student",
+        role: "STUDENT",
         collegeId: form.collegeId || undefined,
         height: form.height ? parseFloat(form.height) : undefined,
         weight: form.weight ? parseFloat(form.weight) : undefined,
@@ -61,8 +67,8 @@ export default function SignupPage() {
       });
       toast.success("Account created successfully!");
       navigate("/student/onboarding");
-    } catch {
-      toast.error("Signup failed. Please try again.");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Signup failed. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -103,9 +109,19 @@ export default function SignupPage() {
                 {errors.email && <p className="text-xs text-red-400 mt-1">{errors.email}</p>}
               </div>
               <div>
+                <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Phone Number</label>
+                <input type="tel" value={form.phoneNumber} onChange={e => updateField("phoneNumber", e.target.value)} placeholder="e.g. +919876543210" className={fieldClass("phoneNumber")} />
+                {errors.phoneNumber && <p className="text-xs text-red-400 mt-1">{errors.phoneNumber}</p>}
+              </div>
+              <div>
                 <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Password</label>
                 <input type="password" value={form.password} onChange={e => updateField("password", e.target.value)} placeholder="Min 8 characters" className={fieldClass("password")} />
                 {errors.password && <p className="text-xs text-red-400 mt-1">{errors.password}</p>}
+              </div>
+              <div>
+                <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Confirm Password</label>
+                <input type="password" value={form.confirmPassword} onChange={e => updateField("confirmPassword", e.target.value)} placeholder="Re-enter your password" className={fieldClass("confirmPassword")} />
+                {errors.confirmPassword && <p className="text-xs text-red-400 mt-1">{errors.confirmPassword}</p>}
               </div>
               
               <div>

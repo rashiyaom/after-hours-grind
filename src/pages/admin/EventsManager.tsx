@@ -1,21 +1,9 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Plus, Trash2, Edit3, Eye, X, ChevronDown, ChevronUp, GripVertical, Users, Calendar, MapPin, Tag, CheckCircle2, AlertCircle } from "lucide-react";
+import { Plus, Trash2, Edit3, X, Users, Calendar, MapPin, Tag, Link as LinkIcon, Video } from "lucide-react";
 import { useAppStore } from "@/hooks/useStore";
-import { AHGEvent, EventFormField, EventFormFieldType } from "@/types";
+import { AHGEvent } from "@/types";
 import { toast } from "sonner";
-
-const FIELD_TYPES: { value: EventFormFieldType; label: string }[] = [
-  { value: "text", label: "Short Text" },
-  { value: "email", label: "Email" },
-  { value: "phone", label: "Phone" },
-  { value: "number", label: "Number" },
-  { value: "textarea", label: "Long Text" },
-  { value: "select", label: "Dropdown" },
-  { value: "radio", label: "Multiple Choice" },
-  { value: "checkbox", label: "Checkboxes" },
-  { value: "date", label: "Date" },
-];
 
 const CATEGORIES = ["Competition", "Workshop", "Seminar", "Social", "Challenge", "Masterclass"];
 
@@ -25,57 +13,6 @@ const inputCls: React.CSSProperties = {
   borderRadius: 8, color: "#EFEFEF", fontSize: "0.875rem", outline: "none",
   fontFamily: "inherit", boxSizing: "border-box",
 };
-
-/* ─── Field Editor Row ────────────────────────────────── */
-function FieldEditor({ field, onUpdate, onDelete }: { field: EventFormField; onUpdate: (f: EventFormField) => void; onDelete: () => void }) {
-  const [expanded, setExpanded] = useState(false);
-  const needsOptions = ["select", "radio", "checkbox"].includes(field.type);
-
-  return (
-    <div style={{ border: "1px solid rgba(255,255,255,0.08)", borderRadius: 10, background: "rgba(255,255,255,0.02)", overflow: "hidden" }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 14px", cursor: "pointer" }} onClick={() => setExpanded(!expanded)}>
-        <GripVertical size={14} color="rgba(255,255,255,0.2)" />
-        <span style={{ flex: 1, fontSize: "0.875rem", color: "#EFEFEF", fontWeight: 500 }}>{field.label || "Untitled Field"}</span>
-        <span style={{ fontSize: "0.7rem", color: "rgba(201,248,90,0.9)", background: "rgba(201,248,90,0.08)", border: "1px solid rgba(201,248,90,0.2)", padding: "2px 8px", borderRadius: 999 }}>{field.type}</span>
-        {field.required && <span style={{ fontSize: "0.65rem", color: "#FF6B6B" }}>required</span>}
-        <button onClick={(e) => { e.stopPropagation(); onDelete(); }} style={{ background: "none", border: "none", color: "rgba(255,100,100,0.5)", cursor: "pointer", padding: 4, display: "flex" }}><Trash2 size={13} /></button>
-        {expanded ? <ChevronUp size={14} color="rgba(255,255,255,0.3)" /> : <ChevronDown size={14} color="rgba(255,255,255,0.3)" />}
-      </div>
-      {expanded && (
-        <div style={{ padding: "12px 14px", borderTop: "1px solid rgba(255,255,255,0.06)", display: "flex", flexDirection: "column", gap: "0.75rem" }}>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))", gap: "0.75rem" }}>
-            <div>
-              <label style={{ display: "block", fontSize: "0.72rem", fontWeight: 600, color: "rgba(239,239,239,0.5)", marginBottom: 6, letterSpacing: "0.08em" }}>LABEL</label>
-              <input style={inputCls} value={field.label} onChange={(e) => onUpdate({ ...field, label: e.target.value })} placeholder="Field label" />
-            </div>
-            <div>
-              <label style={{ display: "block", fontSize: "0.72rem", fontWeight: 600, color: "rgba(239,239,239,0.5)", marginBottom: 6, letterSpacing: "0.08em" }}>TYPE</label>
-              <select style={{ ...inputCls, cursor: "pointer" }} value={field.type} onChange={(e) => onUpdate({ ...field, type: e.target.value as EventFormFieldType })}>
-                {FIELD_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
-              </select>
-            </div>
-          </div>
-          {!["radio", "checkbox", "select", "date"].includes(field.type) && (
-            <div>
-              <label style={{ display: "block", fontSize: "0.72rem", fontWeight: 600, color: "rgba(239,239,239,0.5)", marginBottom: 6, letterSpacing: "0.08em" }}>PLACEHOLDER</label>
-              <input style={inputCls} value={field.placeholder ?? ""} onChange={(e) => onUpdate({ ...field, placeholder: e.target.value })} />
-            </div>
-          )}
-          {needsOptions && (
-            <div>
-              <label style={{ display: "block", fontSize: "0.72rem", fontWeight: 600, color: "rgba(239,239,239,0.5)", marginBottom: 6, letterSpacing: "0.08em" }}>OPTIONS (one per line)</label>
-              <textarea rows={3} style={{ ...inputCls, resize: "vertical" }} value={(field.options ?? []).join("\n")} onChange={(e) => onUpdate({ ...field, options: e.target.value.split("\n").filter(Boolean) })} placeholder="Option 1&#10;Option 2&#10;Option 3" />
-            </div>
-          )}
-          <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", fontSize: "0.82rem", color: "rgba(239,239,239,0.7)" }}>
-            <input type="checkbox" checked={field.required} onChange={(e) => onUpdate({ ...field, required: e.target.checked })} style={{ accentColor: "#C9F85A" }} />
-            Required field
-          </label>
-        </div>
-      )}
-    </div>
-  );
-}
 
 /* ─── Event Form Modal ──────────────────────────────── */
 function EventFormModal({ existing, onClose }: { existing?: AHGEvent; onClose: () => void }) {
@@ -89,19 +26,28 @@ function EventFormModal({ existing, onClose }: { existing?: AHGEvent; onClose: (
   const [location, setLocation] = useState(existing?.location ?? "");
   const [category, setCategory] = useState(existing?.category ?? CATEGORIES[0]);
   const [status, setStatus] = useState<AHGEvent["status"]>(existing?.status ?? "upcoming");
+  const [mediaType, setMediaType] = useState<AHGEvent["mediaType"]>(existing?.mediaType ?? "image");
   const [mediaUrl, setMediaUrl] = useState(existing?.mediaUrl ?? "");
+  const [registrationLink, setRegistrationLink] = useState(existing?.registrationLink ?? "");
   const [regOpen, setRegOpen] = useState(existing?.registrationOpen ?? true);
-  const [fields, setFields] = useState<EventFormField[]>(existing?.formFields ?? []);
-
-  const addField = () => {
-    const f: EventFormField = { id: `ff-${Date.now()}`, type: "text", label: "", required: false };
-    setFields((prev) => [...prev, f]);
-  };
 
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim() || !date) { toast.error("Title and date are required."); return; }
-    const payload = { title, description, date: new Date(date).toISOString(), location, category, status, mediaType: "image" as const, mediaUrl, registrationOpen: regOpen, formFields: fields, createdBy: currentUser?.id ?? "admin" };
+    const payload = {
+      title,
+      description,
+      date: new Date(date).toISOString(),
+      location,
+      category,
+      status,
+      mediaType,
+      mediaUrl,
+      registrationLink,
+      registrationOpen: regOpen,
+      formFields: [],
+      createdBy: currentUser?.id ?? "admin",
+    };
     if (existing) { updateEvent(existing.id, payload); toast.success("Event updated!"); }
     else { createEvent(payload); toast.success("Event created!"); }
     onClose();
@@ -148,35 +94,40 @@ function EventFormModal({ existing, onClose }: { existing?: AHGEvent; onClose: (
                   <select style={{ ...inputCls, cursor: "pointer" }} value={status} onChange={(e) => setStatus(e.target.value as AHGEvent["status"])}><option value="upcoming">Upcoming</option><option value="live">Live</option><option value="completed">Completed</option></select>
                 </div>
               </div>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: "0.75rem" }}>
+                <div>
+                  <label style={{ display: "block", fontSize: "0.72rem", fontWeight: 600, color: "rgba(239,239,239,0.5)", marginBottom: 6, letterSpacing: "0.08em" }}>MEDIA TYPE</label>
+                  <select style={{ ...inputCls, cursor: "pointer" }} value={mediaType} onChange={(e) => setMediaType(e.target.value as AHGEvent["mediaType"])}>
+                    <option value="image">Poster Image</option>
+                    <option value="video">Promo Video</option>
+                  </select>
+                </div>
+                <div>
+                  <label style={{ display: "block", fontSize: "0.72rem", fontWeight: 600, color: "rgba(239,239,239,0.5)", marginBottom: 6, letterSpacing: "0.08em" }}>
+                    {mediaType === "video" ? "VIDEO URL" : "POSTER IMAGE URL"}
+                  </label>
+                  <input
+                    style={inputCls}
+                    value={mediaUrl}
+                    onChange={(e) => setMediaUrl(e.target.value)}
+                    placeholder={mediaType === "video" ? "https://example.com/event-promo.mp4" : "https://images.unsplash.com/..."}
+                  />
+                </div>
+              </div>
               <div>
-                <label style={{ display: "block", fontSize: "0.72rem", fontWeight: 600, color: "rgba(239,239,239,0.5)", marginBottom: 6, letterSpacing: "0.08em" }}>POSTER IMAGE URL</label>
-                <input style={inputCls} value={mediaUrl} onChange={(e) => setMediaUrl(e.target.value)} placeholder="https://images.unsplash.com/…" />
+                <label style={{ display: "block", fontSize: "0.72rem", fontWeight: 600, color: "rgba(239,239,239,0.5)", marginBottom: 6, letterSpacing: "0.08em" }}>REGISTRATION FORM LINK</label>
+                <input
+                  style={inputCls}
+                  value={registrationLink}
+                  onChange={(e) => setRegistrationLink(e.target.value)}
+                  placeholder="https://docs.google.com/forms/..."
+                />
               </div>
               <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", fontSize: "0.85rem", color: "rgba(239,239,239,0.7)" }}>
                 <input type="checkbox" checked={regOpen} onChange={(e) => setRegOpen(e.target.checked)} style={{ accentColor: "#C9F85A" }} />
                 Registration Open
               </label>
             </div>
-          </div>
-
-          {/* Form Builder */}
-          <div style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 12, padding: "1.25rem" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" }}>
-              <p style={{ fontSize: "0.7rem", fontWeight: 700, letterSpacing: "0.16em", color: "rgba(201,248,90,0.75)", margin: 0, textTransform: "uppercase" }}>Registration Form Fields</p>
-              <button type="button" onClick={addField} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.75rem", fontWeight: 700, color: "#C9F85A", background: "rgba(201,248,90,0.08)", border: "1px solid rgba(201,248,90,0.2)", borderRadius: 8, padding: "6px 12px", cursor: "pointer" }}><Plus size={13} /> Add Field</button>
-            </div>
-            {fields.length === 0 ? (
-              <p style={{ fontSize: "0.82rem", color: "rgba(255,255,255,0.2)", textAlign: "center", padding: "1.5rem 0" }}>No fields yet. Add one above.</p>
-            ) : (
-              <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
-                {fields.map((f) => (
-                  <FieldEditor key={f.id} field={f}
-                    onUpdate={(updated) => setFields((prev) => prev.map((x) => x.id === f.id ? updated : x))}
-                    onDelete={() => setFields((prev) => prev.filter((x) => x.id !== f.id))}
-                  />
-                ))}
-              </div>
-            )}
           </div>
 
           <div style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap" }}>
@@ -189,56 +140,12 @@ function EventFormModal({ existing, onClose }: { existing?: AHGEvent; onClose: (
   );
 }
 
-/* ─── Entries Viewer ────────────────────────────────── */
-function EntriesModal({ event, onClose }: { event: AHGEvent; onClose: () => void }) {
-  return (
-    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose} style={{ position: "fixed", inset: 0, zIndex: 100, background: "rgba(0,0,0,0.88)", backdropFilter: "blur(12px)", display: "flex", alignItems: "flex-start", justifyContent: "center", padding: "2rem 1rem", overflowY: "auto" }}>
-      <motion.div initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 24 }} onClick={(e) => e.stopPropagation()} style={{ background: "#0A0A0A", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 20, width: "100%", maxWidth: 720, padding: "clamp(1.5rem,4vw,2.5rem)" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.5rem" }}>
-          <div>
-            <h2 style={{ fontSize: "1.1rem", fontWeight: 700, color: "#EFEFEF", margin: 0 }}>{event.title}</h2>
-            <p style={{ fontSize: "0.75rem", color: "rgba(201,248,90,0.72)", margin: "4px 0 0" }}>{event.entries.length} registered entries</p>
-          </div>
-          <button onClick={onClose} style={{ background: "rgba(255,255,255,0.06)", border: "none", borderRadius: 8, padding: 8, cursor: "pointer", color: "rgba(255,255,255,0.5)", display: "flex" }}><X size={16} /></button>
-        </div>
-        {event.entries.length === 0 ? (
-          <div style={{ textAlign: "center", padding: "3rem 0" }}><Users size={36} color="rgba(255,255,255,0.1)" style={{ marginBottom: "1rem" }} /><p style={{ color: "rgba(255,255,255,0.3)", fontSize: "0.9rem" }}>No registrations yet.</p></div>
-        ) : (
-          <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
-            {event.entries.map((entry, idx) => (
-              <div key={entry.id} style={{ border: "1px solid rgba(255,255,255,0.06)", borderRadius: 12, padding: "1rem", background: "rgba(255,255,255,0.02)" }}>
-                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "0.75rem" }}>
-                  <span style={{ fontSize: "0.72rem", fontWeight: 700, color: "rgba(201,248,90,0.7)" }}>Entry #{idx + 1}</span>
-                  <span style={{ fontSize: "0.68rem", color: "rgba(255,255,255,0.3)" }}>{new Date(entry.submittedAt).toLocaleString()}</span>
-                </div>
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(200px,1fr))", gap: "0.5rem" }}>
-                  {event.formFields.map((f) => {
-                    const val = entry.responses[f.id];
-                    if (!val || (Array.isArray(val) && val.length === 0)) return null;
-                    return (
-                      <div key={f.id}>
-                        <p style={{ fontSize: "0.68rem", fontWeight: 600, color: "rgba(239,239,239,0.35)", margin: "0 0 3px", textTransform: "uppercase", letterSpacing: "0.08em" }}>{f.label}</p>
-                        <p style={{ fontSize: "0.85rem", color: "#EFEFEF", margin: 0 }}>{Array.isArray(val) ? val.join(", ") : val}</p>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </motion.div>
-    </motion.div>
-  );
-}
-
 /* ─── Main Manager ──────────────────────────────────── */
 export default function AdminEventsManager() {
   const events = useAppStore((s) => s.system.events);
   const deleteEvent = useAppStore((s) => s.deleteEvent);
   const [creating, setCreating] = useState(false);
   const [editing, setEditing] = useState<AHGEvent | null>(null);
-  const [viewing, setViewing] = useState<AHGEvent | null>(null);
 
   return (
     <div style={{ padding: "clamp(1rem,4vw,2.5rem)", minHeight: "100vh", background: "radial-gradient(800px 420px at 20% 0%, rgba(201,248,90,0.14) 0%, transparent 60%), linear-gradient(180deg, #050804 0%, #040603 45%, #030502 100%)", color: "#EFEFEF", fontFamily: "'Outfit',system-ui,sans-serif" }}>
@@ -258,7 +165,7 @@ export default function AdminEventsManager() {
         {[
           { label: "Total Events", value: events.length, color: "#C9F85A" },
           { label: "Upcoming", value: events.filter((e) => e.status === "upcoming").length, color: "#D9FF84" },
-          { label: "Total Entries", value: events.reduce((s, e) => s + e.entries.length, 0), color: "#9BE53D" },
+          { label: "Links Added", value: events.filter((e) => Boolean(e.registrationLink?.trim())).length, color: "#9BE53D" },
           { label: "Live Now", value: events.filter((e) => e.status === "live").length, color: "#FF7A70" },
         ].map(({ label, value, color }) => (
           <div key={label} style={{ background: "linear-gradient(180deg, rgba(255,255,255,0.045) 0%, rgba(255,255,255,0.015) 100%)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 14, padding: "0.9rem" }}>
@@ -279,7 +186,11 @@ export default function AdminEventsManager() {
           {events.map((event) => (
             <div key={event.id} style={{ display: "flex", gap: "0.9rem", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 16, background: "linear-gradient(180deg, rgba(255,255,255,0.035) 0%, rgba(255,255,255,0.01) 100%)", padding: "0.9rem", alignItems: "center", flexWrap: "wrap", boxShadow: "0 16px 30px rgba(0,0,0,0.24)" }}>
               {event.mediaUrl && (
-                <img src={event.mediaUrl} alt={event.title} style={{ width: "clamp(72px,24vw,120px)", height: "clamp(56px,18vw,84px)", objectFit: "cover", borderRadius: 10, flexShrink: 0 }} />
+                event.mediaType === "video" ? (
+                  <video src={event.mediaUrl} style={{ width: "clamp(72px,24vw,120px)", height: "clamp(56px,18vw,84px)", objectFit: "cover", borderRadius: 10, flexShrink: 0 }} muted loop playsInline autoPlay />
+                ) : (
+                  <img src={event.mediaUrl} alt={event.title} style={{ width: "clamp(72px,24vw,120px)", height: "clamp(56px,18vw,84px)", objectFit: "cover", borderRadius: 10, flexShrink: 0 }} />
+                )
               )}
               <div style={{ flex: 1, minWidth: 200 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4, flexWrap: "wrap" }}>
@@ -294,12 +205,14 @@ export default function AdminEventsManager() {
                   <span style={{ display: "flex", alignItems: "center", gap: 5, fontSize: "0.75rem", color: "rgba(239,239,239,0.4)" }}><Calendar size={11} />{new Date(event.date).toLocaleDateString()}</span>
                   <span style={{ display: "flex", alignItems: "center", gap: 5, fontSize: "0.75rem", color: "rgba(239,239,239,0.4)" }}><MapPin size={11} />{event.location || "TBD"}</span>
                   <span style={{ display: "flex", alignItems: "center", gap: 5, fontSize: "0.75rem", color: "rgba(239,239,239,0.4)" }}><Tag size={11} />{event.category}</span>
-                  <span style={{ display: "flex", alignItems: "center", gap: 5, fontSize: "0.75rem", color: "rgba(239,239,239,0.4)" }}><Users size={11} />{event.entries.length} entries</span>
-                  {event.formFields.length > 0 && <span style={{ fontSize: "0.72rem", color: "rgba(201,248,90,0.7)" }}>{event.formFields.length} form fields</span>}
+                  <span style={{ display: "flex", alignItems: "center", gap: 5, fontSize: "0.75rem", color: "rgba(239,239,239,0.4)" }}>
+                    {event.mediaType === "video" ? <Video size={11} /> : <Users size={11} />}
+                    {event.mediaType === "video" ? "Video" : "Poster"}
+                  </span>
+                  {event.registrationLink?.trim() && <span style={{ display: "flex", alignItems: "center", gap: 5, fontSize: "0.72rem", color: "rgba(201,248,90,0.75)" }}><LinkIcon size={11} />Registration Link Added</span>}
                 </div>
               </div>
               <div style={{ display: "flex", gap: "0.5rem", flexShrink: 0, flexWrap: "wrap" }}>
-                <button onClick={() => setViewing(event)} title="View Entries" style={{ padding: "8px 12px", background: "rgba(201,248,90,0.1)", border: "1px solid rgba(201,248,90,0.24)", borderRadius: 9, color: "#C9F85A", cursor: "pointer", display: "flex", alignItems: "center", gap: 6, fontSize: "0.78rem", fontWeight: 700 }}><Eye size={13} />Entries</button>
                 <button onClick={() => setEditing(event)} title="Edit" style={{ padding: "8px 12px", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 8, color: "rgba(239,239,239,0.6)", cursor: "pointer", display: "flex", alignItems: "center", gap: 6, fontSize: "0.78rem" }}><Edit3 size={13} />Edit</button>
                 <button onClick={() => { if (confirm(`Delete "${event.title}"?`)) deleteEvent(event.id); }} title="Delete" style={{ padding: "8px", background: "rgba(255,60,60,0.06)", border: "1px solid rgba(255,60,60,0.15)", borderRadius: 8, color: "rgba(255,100,100,0.6)", cursor: "pointer", display: "flex" }}><Trash2 size={13} /></button>
               </div>
@@ -312,7 +225,6 @@ export default function AdminEventsManager() {
       <AnimatePresence>
         {creating && <EventFormModal onClose={() => setCreating(false)} />}
         {editing && <EventFormModal existing={editing} onClose={() => setEditing(null)} />}
-        {viewing && <EntriesModal event={viewing} onClose={() => setViewing(null)} />}
       </AnimatePresence>
     </div>
   );

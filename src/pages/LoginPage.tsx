@@ -1,6 +1,6 @@
 import { Link, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Flame, Eye, EyeOff, Loader2 } from "lucide-react";
+import { Eye, EyeOff, Loader2 } from "lucide-react";
 import { useState } from "react";
 import { useAppStore } from "@/hooks/useStore";
 import { toast } from "sonner";
@@ -15,24 +15,7 @@ export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!email.trim() || !password.trim()) {
-      toast.error("Please fill in all fields");
-      return;
-    }
-    setLoading(true);
-
-    const success = await login(email, password);
-    setLoading(false);
-
-    if (!success) {
-      toast.error("Login failed. Please check your credentials.");
-      return;
-    }
-
-    toast.success("Welcome back! Live backend sync enabled.");
-
+  const navigateByRole = () => {
     const currentSession = useAppStore.getState();
     const currentUser = currentSession.session.currentUser;
     switch (currentUser?.role) {
@@ -58,6 +41,26 @@ export default function LoginPage() {
     }
   };
 
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!email.trim() || !password.trim()) {
+      toast.error("Please fill in all fields");
+      return;
+    }
+    setLoading(true);
+
+    const success = await login(email, password);
+    setLoading(false);
+
+    if (!success) {
+      toast.error("Login failed. Please check your credentials.");
+      return;
+    }
+
+    toast.success("Welcome back! Live backend sync enabled.");
+    navigateByRole();
+  };
+
   return (
     <div className="min-h-screen bg-background flex items-center justify-center section-padding py-16 relative overflow-hidden">
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(255,165,0,0.1),transparent_70%)]" />
@@ -75,7 +78,6 @@ export default function LoginPage() {
 
         <form onSubmit={handleSubmit} className="glass-card p-8 space-y-6 relative border border-white/5">
 
-          {/* Role toggle */}
           <div className="space-y-4">
             <div>
               <label className="text-xs font-medium text-muted-foreground mb-1.5 block">
@@ -117,7 +119,11 @@ export default function LoginPage() {
           </div>
 
           <div className="flex justify-end">
-            <button type="button" className="text-xs font-medium text-muted-foreground hover:text-primary transition-colors">
+            <button
+              type="button"
+              onClick={() => navigate("/reset-password")}
+              className="text-xs font-medium text-muted-foreground hover:text-primary transition-colors"
+            >
               Forgot password?
             </button>
           </div>

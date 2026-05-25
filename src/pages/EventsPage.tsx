@@ -1,8 +1,8 @@
 import { useState, useEffect } from "react";
-import { motion, AnimatePresence, useSpring, useMotionValue } from "framer-motion";
-import { Calendar, MapPin, ArrowRight, X, CheckCircle2, Zap, Users, Trophy, Clock, ChevronRight, Tag } from "lucide-react";
+import { motion, useSpring, useMotionValue } from "framer-motion";
+import { Calendar, MapPin, ArrowRight, Zap, Users, Trophy, Clock, Tag, ExternalLink, Video } from "lucide-react";
 import { useAppStore } from "@/hooks/useStore";
-import { AHGEvent, EventFormField } from "@/types";
+import { AHGEvent } from "@/types";
 
 const ease: [number, number, number, number] = [0.22, 1, 0.36, 1];
 const revealUp = (delay = 0) => ({
@@ -21,61 +21,42 @@ function StatusBadge({ status }: { status: AHGEvent["status"] }) {
   return <span style={{ fontSize: "0.6rem", fontWeight: 700, letterSpacing: "0.18em", padding: "4px 10px", borderRadius: 999, background: cfg.bg, border: `1px solid ${cfg.border}`, color: cfg.color, textTransform: "uppercase" }}>{cfg.label}</span>;
 }
 
-function FieldRenderer({ field, value, onChange }: { field: EventFormField; value: string | string[]; onChange: (v: string | string[]) => void }) {
-  const base: React.CSSProperties = { width: "100%", padding: "12px 16px", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 8, color: "#EFEFEF", fontSize: "0.9rem", outline: "none", fontFamily: "inherit", boxSizing: "border-box" };
-  if (field.type === "textarea") return <textarea required={field.required} placeholder={field.placeholder} value={value as string} onChange={(e) => onChange(e.target.value)} rows={4} style={{ ...base, resize: "vertical" }} />;
-  if (field.type === "select") return <select required={field.required} value={value as string} onChange={(e) => onChange(e.target.value)} style={{ ...base, cursor: "pointer" }}><option value="">Select…</option>{field.options?.map((o) => <option key={o} value={o}>{o}</option>)}</select>;
-  if (field.type === "radio") return <div style={{ display: "flex", flexWrap: "wrap", gap: 12 }}>{field.options?.map((o) => <label key={o} style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", fontSize: "0.875rem", color: "rgba(239,239,239,0.8)" }}><input type="radio" name={field.id} value={o} checked={value === o} onChange={() => onChange(o)} style={{ accentColor: "#C9F85A" }} />{o}</label>)}</div>;
-  if (field.type === "checkbox") { const arr = Array.isArray(value) ? value : []; return <div style={{ display: "flex", flexWrap: "wrap", gap: 12 }}>{field.options?.map((o) => <label key={o} style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", fontSize: "0.875rem", color: "rgba(239,239,239,0.8)" }}><input type="checkbox" checked={arr.includes(o)} onChange={() => onChange(arr.includes(o) ? arr.filter((v) => v !== o) : [...arr, o])} style={{ accentColor: "#C9F85A" }} />{o}</label>)}</div>; }
-  return <input type={field.type === "phone" ? "tel" : field.type} required={field.required} placeholder={field.placeholder} value={value as string} onChange={(e) => onChange(e.target.value)} style={base} />;
-}
+const isSafeExternalLink = (link?: string): boolean => {
+  if (!link) return false;
+  try {
+    const url = new URL(link);
+    return url.protocol === "http:" || url.protocol === "https:";
+  } catch {
+    return false;
+  }
+};
 
-function RegModal({ event, onClose }: { event: AHGEvent; onClose: () => void }) {
-  const submit = useAppStore((s) => s.submitEventEntry);
-  const [res, setRes] = useState<Record<string, string | string[]>>(Object.fromEntries(event.formFields.map((f): [string, string | string[]] => [f.id, f.type === "checkbox" ? [] : ""])));
-  const [done, setDone] = useState(false);
-  return (
-    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose} style={{ position: "fixed", inset: 0, zIndex: 100, background: "rgba(0,0,0,0.85)", backdropFilter: "blur(12px)", display: "flex", alignItems: "center", justifyContent: "center", padding: "1rem" }}>
-      <motion.div initial={{ opacity: 0, scale: 0.94, y: 24, rotateX: -10 }} animate={{ opacity: 1, scale: 1, y: 0, rotateX: 0 }} exit={{ opacity: 0, scale: 0.94, y: -24, rotateX: 10 }} transition={{ type: "spring", damping: 25, stiffness: 300 }} onClick={(e) => e.stopPropagation()} style={{ background: "#0A0A0A", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 20, width: "100%", maxWidth: 560, maxHeight: "90vh", overflowY: "auto", padding: "clamp(1.5rem,5vw,2.5rem)", boxShadow: "0 20px 40px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.1)", perspective: 1000 }}>
-        {done ? (
-          <div style={{ textAlign: "center", padding: "2rem 0" }}>
-            <div style={{ width: 72, height: 72, borderRadius: "50%", background: "rgba(201,248,90,0.1)", border: "1px solid rgba(201,248,90,0.3)", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 1.5rem" }}><CheckCircle2 size={32} color="#C9F85A" /></div>
-            <h3 style={{ fontSize: "1.4rem", fontWeight: 700, color: "#EFEFEF", margin: "0 0 0.5rem" }}>You're Registered!</h3>
-            <p style={{ color: "rgba(239,239,239,0.5)", marginBottom: "2rem" }}>Entry for <strong style={{ color: "#EFEFEF" }}>{event.title}</strong> received.</p>
-            <button onClick={onClose} style={{ padding: "12px 32px", background: "#C9F85A", color: "#0E1400", border: "none", borderRadius: 8, fontWeight: 700, cursor: "pointer" }}>Close</button>
-          </div>
-        ) : (
-          <>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "1.75rem" }}>
-              <div><p style={{ fontSize: "0.65rem", fontWeight: 700, letterSpacing: "0.2em", color: "#C9F85A", marginBottom: 6, textTransform: "uppercase" }}>Register Now</p><h3 style={{ fontSize: "1.2rem", fontWeight: 700, color: "#EFEFEF", margin: 0 }}>{event.title}</h3></div>
-              <button onClick={onClose} style={{ background: "rgba(255,255,255,0.06)", border: "none", borderRadius: 8, padding: 8, cursor: "pointer", color: "rgba(255,255,255,0.5)", display: "flex" }}><X size={16} /></button>
-            </div>
-            <form onSubmit={(e) => { e.preventDefault(); submit(event.id, res); setDone(true); }} style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
-              {event.formFields.map((f) => (
-                <div key={f.id}>
-                  <label style={{ display: "block", fontSize: "0.8rem", fontWeight: 600, color: "rgba(239,239,239,0.7)", marginBottom: "0.5rem" }}>{f.label}{f.required && <span style={{ color: "#FF6B6B", marginLeft: 4 }}>*</span>}</label>
-                  <FieldRenderer field={f} value={res[f.id]} onChange={(v) => setRes((p) => ({ ...p, [f.id]: v }))} />
-                </div>
-              ))}
-              <button type="submit" style={{ marginTop: "0.5rem", padding: "14px", background: "#C9F85A", color: "#0E1400", border: "none", borderRadius: 10, fontWeight: 700, fontSize: "0.9rem", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>Submit Registration <ArrowRight size={16} /></button>
-            </form>
-          </>
-        )}
-      </motion.div>
-    </motion.div>
-  );
-}
-
-function EventCard({ event, idx, onRegister }: { event: AHGEvent; idx: number; onRegister: () => void }) {
+function EventCard({ event, idx }: { event: AHGEvent; idx: number }) {
   const d = new Date(event.date);
+  const hasRegistrationLink = isSafeExternalLink(event.registrationLink);
   return (
     <motion.div initial={{ opacity: 0, y: 40 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, amount: 0.1 }} transition={{ duration: 0.65, ease, delay: idx * 0.1 }} whileHover={{ y: -8, boxShadow: "0 24px 48px rgba(201,248,90,0.1)" }} style={{ background: "#080808", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 20, overflow: "hidden", display: "flex", flexDirection: "column", transition: "all 0.3s ease" }} onMouseEnter={(e) => (e.currentTarget.style.borderColor = "rgba(201,248,90,0.35)")} onMouseLeave={(e) => (e.currentTarget.style.borderColor = "rgba(255,255,255,0.07)")}>
       <motion.div whileHover="hover" style={{ position: "relative", height: "clamp(190px,34vw,238px)", overflow: "hidden" }}>
-        <motion.img 
-          variants={{ hover: { scale: 1.08 } }}
-          transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
-          src={event.mediaUrl} alt={event.title} style={{ width: "100%", height: "100%", objectFit: "cover", transformOrigin: "center" }} 
-        />
+        {event.mediaType === "video" ? (
+          <motion.video
+            variants={{ hover: { scale: 1.08 } }}
+            transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+            src={event.mediaUrl}
+            style={{ width: "100%", height: "100%", objectFit: "cover", transformOrigin: "center" }}
+            muted
+            loop
+            autoPlay
+            playsInline
+          />
+        ) : (
+          <motion.img
+            variants={{ hover: { scale: 1.08 } }}
+            transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+            src={event.mediaUrl}
+            alt={event.title}
+            style={{ width: "100%", height: "100%", objectFit: "cover", transformOrigin: "center" }}
+          />
+        )}
         <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to top, #080808 0%, transparent 55%)" }} />
         <div style={{ position: "absolute", top: 14, left: 14, right: 14, display: "flex", justifyContent: "space-between" }}><StatusBadge status={event.status} /><span style={{ fontSize: "0.6rem", fontWeight: 700, letterSpacing: "0.14em", color: "rgba(255,255,255,0.5)", background: "rgba(0,0,0,0.6)", backdropFilter: "blur(8px)", border: "1px solid rgba(255,255,255,0.08)", padding: "4px 10px", borderRadius: 999, textTransform: "uppercase" }}>{event.category}</span></div>
         <div style={{ position: "absolute", bottom: 14, left: 14, background: "rgba(0,0,0,0.7)", backdropFilter: "blur(12px)", border: "1px solid rgba(201,248,90,0.22)", borderRadius: 12, padding: "8px 12px", textAlign: "center" }}>
@@ -88,11 +69,27 @@ function EventCard({ event, idx, onRegister }: { event: AHGEvent; idx: number; o
         <p style={{ fontSize: "0.85rem", fontWeight: 300, color: "rgba(239,239,239,0.45)", lineHeight: 1.7, margin: 0 }}>{event.description.length > 120 ? event.description.slice(0, 120) + "…" : event.description}</p>
         <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}><MapPin size={12} color="rgba(201,248,90,0.7)" /><span style={{ fontSize: "0.75rem", color: "rgba(239,239,239,0.4)" }}>{event.location}</span></div>
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}><Users size={12} color="rgba(201,248,90,0.7)" /><span style={{ fontSize: "0.75rem", color: "rgba(239,239,239,0.4)" }}>{event.entries.length} registered</span></div>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            {event.mediaType === "video" ? <Video size={12} color="rgba(201,248,90,0.7)" /> : <Users size={12} color="rgba(201,248,90,0.7)" />}
+            <span style={{ fontSize: "0.75rem", color: "rgba(239,239,239,0.4)" }}>
+              {event.mediaType === "video" ? "Video event" : "Poster event"}
+            </span>
+          </div>
         </div>
         <div style={{ marginTop: "auto", paddingTop: "1rem" }}>
-          {event.registrationOpen && event.status !== "completed" ? (
-            <button onClick={onRegister} style={{ width: "100%", padding: "12px", background: "transparent", border: "1px solid rgba(201,248,90,0.35)", borderRadius: 10, color: "#C9F85A", fontWeight: 700, fontSize: "0.82rem", letterSpacing: "0.1em", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, textTransform: "uppercase", transition: "all 0.2s" }} onMouseEnter={(e) => { e.currentTarget.style.background = "#C9F85A"; e.currentTarget.style.color = "#0E1400"; }} onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "#C9F85A"; }}>Register Now <ChevronRight size={14} /></button>
+          {event.registrationOpen && event.status !== "completed" && hasRegistrationLink ? (
+            <a
+              href={event.registrationLink}
+              target="_blank"
+              rel="noreferrer"
+              style={{ width: "100%", padding: "12px", background: "transparent", border: "1px solid rgba(201,248,90,0.35)", borderRadius: 10, color: "#C9F85A", fontWeight: 700, fontSize: "0.82rem", letterSpacing: "0.1em", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, textTransform: "uppercase", transition: "all 0.2s", textDecoration: "none" }}
+              onMouseEnter={(e) => { e.currentTarget.style.background = "#C9F85A"; e.currentTarget.style.color = "#0E1400"; }}
+              onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "#C9F85A"; }}
+            >
+              Register Now <ExternalLink size={14} />
+            </a>
+          ) : event.registrationOpen && event.status !== "completed" ? (
+            <div style={{ padding: "12px", borderRadius: 10, background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)", textAlign: "center", fontSize: "0.78rem", color: "rgba(255,255,255,0.3)", fontWeight: 500 }}>Registration Link Coming Soon</div>
           ) : (
             <div style={{ padding: "12px", borderRadius: 10, background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)", textAlign: "center", fontSize: "0.78rem", color: "rgba(255,255,255,0.3)", fontWeight: 500 }}>{event.status === "completed" ? "Event Completed" : "Registration Closed"}</div>
           )}
@@ -104,7 +101,6 @@ function EventCard({ event, idx, onRegister }: { event: AHGEvent; idx: number; o
 
 export default function EventsPage() {
   const events = useAppStore((s) => s.system.events);
-  const [activeEvent, setActiveEvent] = useState<AHGEvent | null>(null);
   const [filter, setFilter] = useState<"all" | "upcoming" | "live" | "completed">("all");
   const filtered = events.filter((e) => filter === "all" || e.status === filter);
   const liveEventsCount = events.filter((e) => e.status === "live").length;
@@ -239,13 +235,11 @@ export default function EventsPage() {
             <div style={{ textAlign: "center", padding: "5rem 0" }}><p style={{ fontSize: "1.1rem", color: "rgba(239,239,239,0.3)", fontWeight: 300 }}>No events found.</p></div>
           ) : (
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(280px,1fr))", gap: "1rem" }}>
-              {filtered.map((e, i) => <EventCard key={e.id} event={e} idx={i} onRegister={() => setActiveEvent(e)} />)}
+              {filtered.map((e, i) => <EventCard key={e.id} event={e} idx={i} />)}
             </div>
           )}
         </div>
       </section>
-
-      <AnimatePresence>{activeEvent && <RegModal event={activeEvent} onClose={() => setActiveEvent(null)} />}</AnimatePresence>
     </div>
   );
 }

@@ -8,6 +8,9 @@ const CSRF_EXEMPT_PATHS = new Set([
   "/api/auth/login",
   "/api/auth/signup",
   "/api/auth/refresh",
+  "/api/auth/forgot-password",
+  "/api/auth/forgot-password/verify-code",
+  "/api/auth/reset-password",
 ]);
 
 const getAllCookieValues = (rawCookieHeader: string | undefined, key: string): string[] => {

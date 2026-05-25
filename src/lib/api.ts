@@ -297,15 +297,26 @@ const isUnauthorizedError = (error: unknown): boolean =>
 const isCsrfError = (error: unknown): boolean =>
   error instanceof ApiError && error.status === 403 && error.message.includes("CSRF token invalid or missing");
 
+const REFRESH_RETRY_COOLDOWN_MS = 15_000;
+let lastRefreshFailureAt = 0;
+
+const isAuthRoute = (pathname: string): boolean =>
+  pathname.startsWith("/login") || pathname.startsWith("/signup") || pathname.startsWith("/unauthorized");
+
+const canAttemptRefresh = (): boolean =>
+  Date.now() - lastRefreshFailureAt > REFRESH_RETRY_COOLDOWN_MS;
+
 async function refreshBackendAccessToken(): Promise<string | null> {
   try {
     const response = await apiRequest<BackendAuthResponse>("/auth/refresh", {
       method: "POST",
     });
     setAccessToken(response.accessToken);
+    lastRefreshFailureAt = 0;
     return response.accessToken;
   } catch (error) {
     // Token refresh failed - session is invalid
+    lastRefreshFailureAt = Date.now();
     Sentry.captureException(error, { 
       tags: { context: "token_refresh_failed" },
       level: "warning"
@@ -324,12 +335,14 @@ async function authedRequest<T>(path: string, init: RequestInit = {}): Promise<T
     }
   }
 
+  if ((typeof window !== "undefined" && isAuthRoute(window.location.pathname)) || !canAttemptRefresh()) {
+    throw new ApiError("Session expired. Please log in again.", 401);
+  }
+
   // Try to refresh token
   const refreshedToken = await refreshBackendAccessToken();
   if (!refreshedToken) {
-    // Refresh failed - redirect to login
-    Sentry.captureMessage("Session expired - redirecting to login", "warning");
-    window.location.href = "/login";
+    Sentry.captureMessage("Session expired - authentication required", "warning");
     throw new ApiError("Session expired. Please log in again.", 401);
   }
 
@@ -343,6 +356,27 @@ export async function loginBackend(email: string, password: string): Promise<Bac
   });
   setAccessToken(response.accessToken);
   return response;
+}
+
+export async function forgotPasswordBackend(email: string): Promise<{ message: string }> {
+  return apiRequest<{ message: string }>("/auth/forgot-password", {
+    method: "POST",
+    body: JSON.stringify({ email }),
+  });
+}
+
+export async function verifyForgotPasswordCodeBackend(email: string, code: string): Promise<{ message: string }> {
+  return apiRequest<{ message: string }>("/auth/forgot-password/verify-code", {
+    method: "POST",
+    body: JSON.stringify({ email, code }),
+  });
+}
+
+export async function resetPasswordBackend(token: string, newPassword: string): Promise<{ message: string }> {
+  return apiRequest<{ message: string }>("/auth/reset-password", {
+    method: "POST",
+    body: JSON.stringify({ token, newPassword }),
+  });
 }
 
 export async function logoutBackend(): Promise<void> {
@@ -426,6 +460,7 @@ export function subscribeRealtimeEvents(
 export async function signupBackend(data: {
   name: string;
   email: string;
+  phoneNumber: string;
   password: string;
   role: string;
   collegeId?: string;
@@ -575,6 +610,19 @@ export async function createPlanAPI(data: ApiRecord): Promise<ApiRecord> {
 
 export async function fetchAdminUsersAPI(): Promise<ApiCurrentUser[]> {
   return authedRequest<ApiCurrentUser[]>("/admin/users", { method: "GET" });
+}
+
+export type AdminUserDetails = ApiCurrentUser & {
+  phoneNumber?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
+  isBanned?: boolean;
+  studentProfile?: Record<string, unknown> | null;
+  trainerProfile?: Record<string, unknown> | null;
+};
+
+export async function fetchAdminUsersDetailedAPI(): Promise<AdminUserDetails[]> {
+  return authedRequest<AdminUserDetails[]>("/admin/users", { method: "GET" });
 }
 
 export async function toggleUserBanAPI(userId: string): Promise<ApiRecord> {

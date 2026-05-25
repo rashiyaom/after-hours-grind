@@ -7,6 +7,10 @@ import { randomUUID } from "node:crypto";
 import { getSmartPlanExerciseTemplateSeeds } from "../plans/personalizedPlan.js";
 import { invalidateFeedCache } from "../feed/feed.service.js";
 import { invalidateNotificationsCacheForUser } from "../notifications/notifications.service.js";
+import { getJsonCache, setJsonCache } from "../../lib/cache.js";
+
+const ADMIN_ACTIVITY_CACHE_TTL_SECONDS = 12;
+const ADMIN_STATS_CACHE_TTL_SECONDS = 12;
 
 const NUTRITION_TEMPLATE_SEEDS = [
     {
@@ -192,7 +196,7 @@ const safeTrainerProfileSelect = {
 } as const;
 
 const safeUserSelect = {
-    id: true, email: true, name: true, avatar: true, role: true,
+    id: true, email: true, phoneNumber: true, name: true, avatar: true, role: true,
     createdAt: true, updatedAt: true, isBanned: true,
     studentProfile: { select: safeStudentProfileSelect },
     trainerProfile: { select: safeTrainerProfileSelect },
@@ -233,6 +237,7 @@ export async function createTrainer(input: SignupInput) {
         data: {
             name: input.name,
             email: input.email,
+            phoneNumber: input.phoneNumber,
             passwordHash,
             role: "TRAINER",
             trainerProfile: {
@@ -403,6 +408,18 @@ export async function deletePostAdmin(postId: string) {
 }
 
 export async function getActivityLogs() {
+    const cacheKey = "admin:activity-logs:v1";
+    const cached = await getJsonCache<{
+        users: unknown[];
+        posts: unknown[];
+        submissions: unknown[];
+    }>(cacheKey, {
+        endpoint: "GET /admin/activity-logs",
+    });
+    if (cached) {
+        return cached;
+    }
+
     const [recentUsers, recentPosts, recentSubmissions] = await Promise.all([
         prisma.user.findMany({ take: 10, orderBy: { createdAt: 'desc' }, select: safeUserSelect }),
         prisma.post.findMany({ take: 10, orderBy: { createdAt: 'desc' }, include: { user: { select: { id: true, name: true } } } }),
@@ -413,10 +430,27 @@ export async function getActivityLogs() {
         })
     ]);
 
-    return { users: recentUsers, posts: recentPosts, submissions: recentSubmissions };
+    const result = { users: recentUsers, posts: recentPosts, submissions: recentSubmissions };
+    await setJsonCache(cacheKey, result, ADMIN_ACTIVITY_CACHE_TTL_SECONDS);
+    return result;
 }
 
 export async function getAdminStats() {
+    const cacheKey = "admin:stats:v1";
+    const cached = await getJsonCache<{
+        userCount: number;
+        studentCount: number;
+        trainerCount: number;
+        postCount: number;
+        submissionCount: number;
+        pendingCount: number;
+    }>(cacheKey, {
+        endpoint: "GET /admin/stats",
+    });
+    if (cached) {
+        return cached;
+    }
+
     const [userCount, studentCount, trainerCount, postCount, submissionCount, pendingCount] = await Promise.all([
         prisma.user.count(),
         prisma.user.count({ where: { role: "STUDENT" } }),
@@ -426,7 +460,9 @@ export async function getAdminStats() {
         prisma.submission.count({ where: { status: "PENDING" } }),
     ]);
 
-    return { userCount, studentCount, trainerCount, postCount, submissionCount, pendingCount };
+    const result = { userCount, studentCount, trainerCount, postCount, submissionCount, pendingCount };
+    await setJsonCache(cacheKey, result, ADMIN_STATS_CACHE_TTL_SECONDS);
+    return result;
 }
 
 const ensureExerciseTemplateTables = async () => {

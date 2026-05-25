@@ -20,6 +20,9 @@ const refreshLimiter = createRateLimit({
 
 router.post("/signup", authLimiter, asyncHandler(ctrl.signupHandler));
 router.post("/login", authLimiter, asyncHandler(ctrl.loginHandler));
+router.post("/forgot-password", authLimiter, asyncHandler(ctrl.forgotPasswordHandler));
+router.post("/forgot-password/verify-code", authLimiter, asyncHandler(ctrl.verifyForgotPasswordCodeHandler));
+router.post("/reset-password", authLimiter, asyncHandler(ctrl.resetPasswordHandler));
 router.post("/refresh", refreshLimiter, asyncHandler(ctrl.refreshHandler));
 router.post("/logout", asyncHandler(ctrl.logoutHandler));
 

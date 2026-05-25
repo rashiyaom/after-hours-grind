@@ -16,6 +16,7 @@ const AppLayout = lazy(() => import("@/layouts/AppLayout"));
 const LandingPage = lazy(() => import("@/pages/LandingPage"));
 const LoginPage = lazy(() => import("@/pages/LoginPage"));
 const SignupPage = lazy(() => import("@/pages/SignupPage"));
+const ResetPasswordPage = lazy(() => import("@/pages/ResetPasswordPage"));
 const NotFound = lazy(() => import("@/pages/NotFound"));
 const UnauthorizedPage = lazy(() => import("@/pages/UnauthorizedPage"));
 
@@ -58,6 +59,12 @@ const AppRouteFallback = () => (
   <div className="min-h-screen bg-background" aria-busy="true" />
 );
 
+const SessionBootstrapFallback = () => (
+  <div className="min-h-screen bg-background flex items-center justify-center" aria-busy="true">
+    <div className="text-sm text-muted-foreground">Loading...</div>
+  </div>
+);
+
 // Error boundary fallback component
 const ErrorFallback = () => (
   <div className="min-h-screen bg-gradient-to-br from-red-50 to-red-100 flex items-center justify-center px-4">
@@ -92,7 +99,7 @@ const App = () => {
   }, [initializeSession]);
 
   if (!isSessionReady) {
-    return null;
+    return <SessionBootstrapFallback />;
   }
 
   return (
@@ -112,6 +119,7 @@ const App = () => {
           </Route>
           <Route path="/login" element={<LoginPage />} />
           <Route path="/signup" element={<SignupPage />} />
+          <Route path="/reset-password" element={<ResetPasswordPage />} />
           <Route path="/unauthorized" element={<UnauthorizedPage />} />
           <Route path="/sentry-test" element={<SentryTestPage />} />
 

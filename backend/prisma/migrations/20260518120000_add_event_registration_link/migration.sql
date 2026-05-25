@@ -1,0 +1,2 @@
+ALTER TABLE "Event"
+ADD COLUMN "registrationLink" TEXT NOT NULL DEFAULT '';
