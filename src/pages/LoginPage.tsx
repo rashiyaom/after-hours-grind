@@ -145,9 +145,9 @@ export default function LoginPage() {
 
           <div className="pt-4 text-center">
             <p className="text-xs text-muted-foreground">
-              New user?{" "}
-              <Link to="/signup" className="text-primary font-medium hover:underline underline-offset-4">
-                Create Account
+              Need access?{" "}
+              <Link to="/request-access" className="text-primary font-medium hover:underline underline-offset-4">
+                Request Access
               </Link>
             </p>
           </div>

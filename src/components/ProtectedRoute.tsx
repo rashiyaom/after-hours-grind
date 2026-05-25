@@ -14,8 +14,17 @@ const ProtectedRoute = ({ allowedRoles, requiredPermission }: ProtectedRouteProp
   const location = useLocation();
   const isAuthenticated = useIsAuthenticated();
   const currentUser = useCurrentUser();
+  const isSessionBootstrapping = useAppStore((state) => state.system.isLoading);
   const permissions = usePermissions();
   const plans = useAppStore((state) => state.plans);
+
+  if (isSessionBootstrapping && !currentUser) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center" aria-busy="true">
+        <div className="text-sm text-muted-foreground">Loading access layer...</div>
+      </div>
+    );
+  }
 
   // During refresh/session bootstrap, avoid a false unauthorized redirect.
   if (isAuthenticated && !currentUser) {

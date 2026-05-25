@@ -221,7 +221,7 @@ export async function toggleUserBan(userId: string) {
 }
 
 
-export async function createTrainer(input: SignupInput) {
+export async function createAccount(input: SignupInput) {
     const existing = await prisma.user.findUnique({ where: { email: input.email } });
     if (existing) throw HttpError.conflict("Email already registered");
 
@@ -239,16 +239,29 @@ export async function createTrainer(input: SignupInput) {
             email: input.email,
             phoneNumber: input.phoneNumber,
             passwordHash,
-            role: "TRAINER",
-            trainerProfile: {
-                create: {
-                    specialization: input.specialization ?? "",
-                    whatsappNumber: input.whatsappNumber ?? null,
-                    experience: input.experience ?? 0,
-                    certifications,
-                    isVerified: true,
-                },
-            },
+            role: input.role,
+            ...(input.role === "STUDENT"
+                ? {
+                        studentProfile: {
+                            create: {
+                                collegeId: input.collegeId ?? "",
+                                heightCm: input.height ?? 170,
+                                weightKg: input.weight ?? 70,
+                                fitnessGoal: input.fitnessGoal ?? "",
+                            },
+                        },
+                    }
+                : {
+                        trainerProfile: {
+                            create: {
+                                specialization: input.specialization ?? "",
+                                whatsappNumber: input.whatsappNumber ?? null,
+                                experience: input.experience ?? 0,
+                                certifications,
+                                isVerified: true,
+                            },
+                        },
+                    }),
         },
     });
 

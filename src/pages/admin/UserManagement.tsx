@@ -82,12 +82,20 @@ const UserManagement = () => {
   const [isLoadingUsers, setIsLoadingUsers] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [detailedUsers, setDetailedUsers] = useState<AdminUserRow[]>([]);
-  const [newTrainer, setNewTrainer] = useState({
+  const [newAccount, setNewAccount] = useState({
+    role: "STUDENT" as "STUDENT" | "TRAINER",
     name: "",
     email: "",
     password: "",
+    phoneNumber: "",
+    collegeId: "",
+    height: "",
+    weight: "",
+    fitnessGoal: "",
     specialization: "",
     whatsappNumber: "",
+    experience: "",
+    certifications: "",
   });
   
   const users = useUsers();
@@ -95,7 +103,7 @@ const UserManagement = () => {
   const verifyTrainer = useAppStore((state) => state.verifyTrainer);
   const assignTrainer = useAppStore((state) => state.assignTrainer);
   const bulkDeleteUsers = useAppStore((state) => state.bulkDeleteUsers);
-  const createTrainer = useAppStore((state) => state.createTrainer);
+  const createAccount = useAppStore((state) => state.createAccount);
   const currentUser = useAppStore((state) => state.session.currentUser);
 
   const loadUsers = async () => {
@@ -114,21 +122,56 @@ const UserManagement = () => {
     void loadUsers();
   }, []);
   
-  const handleCreateTrainer = async (e: React.FormEvent) => {
+  const handleCreateAccount = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newTrainer.name || !newTrainer.email || !newTrainer.password || !newTrainer.whatsappNumber) {
+    if (!newAccount.name || !newAccount.email || !newAccount.password || !newAccount.phoneNumber) {
       toast.error("Please fill in all required fields");
+      return;
+    }
+
+    if (newAccount.role === "STUDENT" && !newAccount.collegeId) {
+      toast.error("College ID is required for student accounts.");
+      return;
+    }
+
+    if (newAccount.role === "TRAINER" && !newAccount.whatsappNumber) {
+      toast.error("WhatsApp number is required for trainer accounts.");
       return;
     }
     
     setIsCreating(true);
     try {
-      await createTrainer({
-        ...newTrainer,
-        role: "TRAINER",
+      await createAccount({
+        name: newAccount.name,
+        email: newAccount.email,
+        password: newAccount.password,
+        role: newAccount.role,
+        phoneNumber: newAccount.phoneNumber,
+        collegeId: newAccount.role === "STUDENT" ? newAccount.collegeId || undefined : undefined,
+        height: newAccount.role === "STUDENT" && newAccount.height ? parseFloat(newAccount.height) : undefined,
+        weight: newAccount.role === "STUDENT" && newAccount.weight ? parseFloat(newAccount.weight) : undefined,
+        fitnessGoal: newAccount.role === "STUDENT" ? newAccount.fitnessGoal || undefined : undefined,
+        specialization: newAccount.role === "TRAINER" ? newAccount.specialization || undefined : undefined,
+        whatsappNumber: newAccount.role === "TRAINER" ? newAccount.whatsappNumber || undefined : undefined,
+        experience: newAccount.role === "TRAINER" && newAccount.experience ? parseInt(newAccount.experience, 10) : undefined,
+        certifications: newAccount.role === "TRAINER" ? newAccount.certifications || undefined : undefined,
       });
       setShowCreateModal(false);
-      setNewTrainer({ name: "", email: "", password: "", specialization: "", whatsappNumber: "" });
+      setNewAccount({
+        role: "STUDENT",
+        name: "",
+        email: "",
+        password: "",
+        phoneNumber: "",
+        collegeId: "",
+        height: "",
+        weight: "",
+        fitnessGoal: "",
+        specialization: "",
+        whatsappNumber: "",
+        experience: "",
+        certifications: "",
+      });
     } catch (err) {
       // toast handled in store
     } finally {
@@ -287,7 +330,7 @@ const UserManagement = () => {
           
           <Button onClick={() => setShowCreateModal(true)}>
             <Plus className="h-4 w-4 mr-2" />
-            Add Trainer
+            Add Account
           </Button>
         </div>
       </div>
@@ -302,19 +345,31 @@ const UserManagement = () => {
               className="w-full max-w-lg glass-card border border-white/10 shadow-2xl p-6 overflow-hidden bg-background rounded-xl"
             >
               <div className="flex items-center justify-between mb-6">
-                <h2 className="text-xl font-bold">Create New Trainer</h2>
+                <h2 className="text-xl font-bold">Create New Account</h2>
                 <button onClick={() => setShowCreateModal(false)} className="p-2 hover:bg-white/5 rounded-full transition-colors">
                   <X className="h-5 w-5" />
                 </button>
               </div>
 
-              <form onSubmit={handleCreateTrainer} className="space-y-4">
+              <form onSubmit={handleCreateAccount} className="space-y-4">
+                <div className="space-y-2">
+                  <label className="text-xs font-medium text-muted-foreground">Account Type *</label>
+                  <select
+                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                    value={newAccount.role}
+                    onChange={(e) => setNewAccount((prev) => ({ ...prev, role: e.target.value as "STUDENT" | "TRAINER" }))}
+                  >
+                    <option value="STUDENT">Student</option>
+                    <option value="TRAINER">Trainer</option>
+                  </select>
+                </div>
+
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <label className="text-xs font-medium text-muted-foreground">Name *</label>
                     <Input 
-                      value={newTrainer.name}
-                      onChange={e => setNewTrainer(prev => ({ ...prev, name: e.target.value }))}
+                      value={newAccount.name}
+                      onChange={e => setNewAccount(prev => ({ ...prev, name: e.target.value }))}
                       placeholder="Trainer Name"
                       required
                     />
@@ -323,8 +378,8 @@ const UserManagement = () => {
                     <label className="text-xs font-medium text-muted-foreground">Email *</label>
                     <Input 
                       type="email"
-                      value={newTrainer.email}
-                      onChange={e => setNewTrainer(prev => ({ ...prev, email: e.target.value }))}
+                      value={newAccount.email}
+                      onChange={e => setNewAccount(prev => ({ ...prev, email: e.target.value }))}
                       placeholder="trainer@example.com"
                       required
                     />
@@ -335,31 +390,102 @@ const UserManagement = () => {
                   <label className="text-xs font-medium text-muted-foreground">Password *</label>
                   <Input 
                     type="password"
-                    value={newTrainer.password}
-                    onChange={e => setNewTrainer(prev => ({ ...prev, password: e.target.value }))}
+                    value={newAccount.password}
+                    onChange={e => setNewAccount(prev => ({ ...prev, password: e.target.value }))}
                     placeholder="Min 8 characters"
                     required
                   />
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-xs font-medium text-muted-foreground">Specialization</label>
-                  <Input 
-                    value={newTrainer.specialization}
-                    onChange={e => setNewTrainer(prev => ({ ...prev, specialization: e.target.value }))}
-                    placeholder="e.g. Strength & Conditioning"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-xs font-medium text-muted-foreground">WhatsApp Number *</label>
-                  <Input 
-                    value={newTrainer.whatsappNumber}
-                    onChange={e => setNewTrainer(prev => ({ ...prev, whatsappNumber: e.target.value }))}
+                  <label className="text-xs font-medium text-muted-foreground">Phone Number *</label>
+                  <Input
+                    value={newAccount.phoneNumber}
+                    onChange={e => setNewAccount(prev => ({ ...prev, phoneNumber: e.target.value }))}
                     placeholder="+91 98765 43210"
                     required
                   />
                 </div>
+
+                {newAccount.role === "STUDENT" ? (
+                  <>
+                    <div className="space-y-2">
+                      <label className="text-xs font-medium text-muted-foreground">College ID *</label>
+                      <Input
+                        value={newAccount.collegeId}
+                        onChange={e => setNewAccount(prev => ({ ...prev, collegeId: e.target.value }))}
+                        placeholder="COL2024XXX"
+                        required
+                      />
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <label className="text-xs font-medium text-muted-foreground">Height (cm)</label>
+                        <Input
+                          value={newAccount.height}
+                          onChange={e => setNewAccount(prev => ({ ...prev, height: e.target.value }))}
+                          placeholder="175"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-xs font-medium text-muted-foreground">Weight (kg)</label>
+                        <Input
+                          value={newAccount.weight}
+                          onChange={e => setNewAccount(prev => ({ ...prev, weight: e.target.value }))}
+                          placeholder="70"
+                        />
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-xs font-medium text-muted-foreground">Fitness Goal</label>
+                      <Input
+                        value={newAccount.fitnessGoal}
+                        onChange={e => setNewAccount(prev => ({ ...prev, fitnessGoal: e.target.value }))}
+                        placeholder="Build lean muscle"
+                      />
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="space-y-2">
+                      <label className="text-xs font-medium text-muted-foreground">Specialization</label>
+                      <Input 
+                        value={newAccount.specialization}
+                        onChange={e => setNewAccount(prev => ({ ...prev, specialization: e.target.value }))}
+                        placeholder="Strength & Conditioning"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="text-xs font-medium text-muted-foreground">WhatsApp Number *</label>
+                      <Input 
+                        value={newAccount.whatsappNumber}
+                        onChange={e => setNewAccount(prev => ({ ...prev, whatsappNumber: e.target.value }))}
+                        placeholder="+91 98765 43210"
+                        required
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <label className="text-xs font-medium text-muted-foreground">Experience (years)</label>
+                        <Input 
+                          value={newAccount.experience}
+                          onChange={e => setNewAccount(prev => ({ ...prev, experience: e.target.value }))}
+                          placeholder="5"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-xs font-medium text-muted-foreground">Certifications</label>
+                        <Input 
+                          value={newAccount.certifications}
+                          onChange={e => setNewAccount(prev => ({ ...prev, certifications: e.target.value }))}
+                          placeholder="NASM, ACE, etc."
+                        />
+                      </div>
+                    </div>
+                  </>
+                )}
 
                 <div className="flex justify-end gap-3 pt-4 border-t border-white/5">
                   <Button type="button" variant="ghost" onClick={() => setShowCreateModal(false)}>Cancel</Button>
@@ -369,7 +495,7 @@ const UserManagement = () => {
                     ) : (
                       <Plus className="h-4 w-4 mr-2" />
                     )}
-                    Create Trainer
+                    Create Account
                   </Button>
                 </div>
               </form>
@@ -453,6 +579,9 @@ const UserManagement = () => {
                       </div>
                       <p className="text-sm text-muted-foreground flex items-center gap-2"><Mail className="h-3.5 w-3.5" />{user.email}</p>
                       <p className="text-sm text-muted-foreground flex items-center gap-2"><Phone className="h-3.5 w-3.5" />{phoneNumber}</p>
+                      <p className="text-xs text-muted-foreground/80 mt-1">
+                        Last password/account update: {user.updatedAt ? new Date(user.updatedAt as string).toLocaleString() : "Unknown"}
+                      </p>
                       
                       {student && (
                         <div className="mt-2 flex flex-wrap gap-2 text-[10px]">

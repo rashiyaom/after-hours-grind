@@ -1,6 +1,6 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Route, Routes, Navigate } from "react-router-dom";
-import { Suspense, lazy, useEffect, useState } from "react";
+import { Suspense, lazy, useEffect } from "react";
 import * as Sentry from "@sentry/react";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
@@ -15,7 +15,7 @@ const AppLayout = lazy(() => import("@/layouts/AppLayout"));
 
 const LandingPage = lazy(() => import("@/pages/LandingPage"));
 const LoginPage = lazy(() => import("@/pages/LoginPage"));
-const SignupPage = lazy(() => import("@/pages/SignupPage"));
+const RequestAccessPage = lazy(() => import("@/pages/RequestAccessPage"));
 const ResetPasswordPage = lazy(() => import("@/pages/ResetPasswordPage"));
 const NotFound = lazy(() => import("@/pages/NotFound"));
 const UnauthorizedPage = lazy(() => import("@/pages/UnauthorizedPage"));
@@ -59,12 +59,6 @@ const AppRouteFallback = () => (
   <div className="min-h-screen bg-background" aria-busy="true" />
 );
 
-const SessionBootstrapFallback = () => (
-  <div className="min-h-screen bg-background flex items-center justify-center" aria-busy="true">
-    <div className="text-sm text-muted-foreground">Loading...</div>
-  </div>
-);
-
 // Error boundary fallback component
 const ErrorFallback = () => (
   <div className="min-h-screen bg-gradient-to-br from-red-50 to-red-100 flex items-center justify-center px-4">
@@ -90,17 +84,10 @@ const ErrorFallback = () => (
 
 const App = () => {
   const initializeSession = useAppStore((state) => state.initializeSession);
-  const [isSessionReady, setIsSessionReady] = useState(false);
 
   useEffect(() => {
-    void initializeSession().finally(() => {
-      setIsSessionReady(true);
-    });
+    void initializeSession();
   }, [initializeSession]);
-
-  if (!isSessionReady) {
-    return <SessionBootstrapFallback />;
-  }
 
   return (
     <QueryClientProvider client={queryClient}>
@@ -118,7 +105,8 @@ const App = () => {
             <Route path="/athletes" element={<AthletesPage />} />
           </Route>
           <Route path="/login" element={<LoginPage />} />
-          <Route path="/signup" element={<SignupPage />} />
+          <Route path="/request-access" element={<RequestAccessPage />} />
+          <Route path="/signup" element={<Navigate to="/request-access" replace />} />
           <Route path="/reset-password" element={<ResetPasswordPage />} />
           <Route path="/unauthorized" element={<UnauthorizedPage />} />
           <Route path="/sentry-test" element={<SentryTestPage />} />

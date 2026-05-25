@@ -13,7 +13,7 @@ router.patch("/users/:userId/ban", asyncHandler(ctrl.toggleUserBanHandler));
 router.patch("/users/:userId/role", asyncHandler(ctrl.changeUserRoleHandler));
 router.patch("/users/:userId/verify-trainer", asyncHandler(ctrl.verifyTrainerHandler));
 router.patch("/users/:userId/trainer", asyncHandler(ctrl.assignStudentTrainerHandler));
-router.post("/trainers", asyncHandler(ctrl.createTrainerHandler));
+router.post("/users", asyncHandler(ctrl.createAccountHandler));
 router.delete("/users/bulk", asyncHandler(ctrl.bulkDeleteUsersHandler));
 router.get("/stats", asyncHandler(ctrl.getAdminStatsHandler));
 router.get("/permissions", asyncHandler(ctrl.getPermissionsHandler));

@@ -301,7 +301,7 @@ const REFRESH_RETRY_COOLDOWN_MS = 15_000;
 let lastRefreshFailureAt = 0;
 
 const isAuthRoute = (pathname: string): boolean =>
-  pathname.startsWith("/login") || pathname.startsWith("/signup") || pathname.startsWith("/unauthorized");
+  pathname.startsWith("/login") || pathname.startsWith("/signup") || pathname.startsWith("/request-access") || pathname.startsWith("/unauthorized");
 
 const canAttemptRefresh = (): boolean =>
   Date.now() - lastRefreshFailureAt > REFRESH_RETRY_COOLDOWN_MS;
@@ -640,8 +640,8 @@ export async function assignStudentTrainerAdminAPI(studentId: string, trainerId:
   });
 }
 
-export async function createTrainerAPI(data: ApiRecord): Promise<ApiRecord> {
-  return authedRequest<ApiRecord>("/admin/trainers", {
+export async function createAdminAccountAPI(data: ApiRecord): Promise<ApiRecord> {
+  return authedRequest<ApiRecord>("/admin/users", {
     method: "POST",
     body: JSON.stringify(data),
   });
@@ -776,6 +776,13 @@ export async function fetchSettingsAPI(): Promise<ApiRecord> {
 export async function updateSettingsAPI(data: ApiRecord): Promise<ApiRecord> {
   return authedRequest<ApiRecord>("/settings", {
     method: "PATCH",
+    body: JSON.stringify(data),
+  });
+}
+
+export async function changePasswordAPI(data: { currentPassword: string; newPassword: string }): Promise<ApiRecord> {
+  return authedRequest<ApiRecord>("/auth/change-password", {
+    method: "POST",
     body: JSON.stringify(data),
   });
 }

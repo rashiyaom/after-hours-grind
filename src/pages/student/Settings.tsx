@@ -8,7 +8,7 @@ import {
 import { useStore } from "@/hooks/useStore";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
-import { fetchSettingsAPI, updateSettingsAPI } from "@/lib/api";
+import { changePasswordAPI, fetchSettingsAPI, updateSettingsAPI } from "@/lib/api";
 
 type PersistedSettings = {
   notifications: {
@@ -41,6 +41,7 @@ export default function SettingsPage() {
   const navigate = useNavigate();
   const { student: s, updateProfile } = useStore();
   const [view, setView] = useState<"menu" | "edit-profile">("menu");
+  const [isSavingPassword, setIsSavingPassword] = useState(false);
 
   const [formData, setFormData] = useState({
     name: s.name,
@@ -59,6 +60,12 @@ export default function SettingsPage() {
   const [privacy, setPrivacy] = useState({
     publicProfile: true,
     showStreak: true,
+  });
+
+  const [passwordForm, setPasswordForm] = useState({
+    currentPassword: "",
+    newPassword: "",
+    confirmPassword: "",
   });
 
   useEffect(() => {
@@ -136,6 +143,37 @@ export default function SettingsPage() {
     toast.success("SYSTEM_FLAG_UPDATED");
   };
 
+  const handleChangePassword = async () => {
+    if (!passwordForm.currentPassword || !passwordForm.newPassword || !passwordForm.confirmPassword) {
+      toast.error("Please complete all password fields.");
+      return;
+    }
+
+    if (passwordForm.newPassword.length < 8) {
+      toast.error("Password must be at least 8 characters.");
+      return;
+    }
+
+    if (passwordForm.newPassword !== passwordForm.confirmPassword) {
+      toast.error("Passwords do not match.");
+      return;
+    }
+
+    setIsSavingPassword(true);
+    try {
+      await changePasswordAPI({
+        currentPassword: passwordForm.currentPassword,
+        newPassword: passwordForm.newPassword,
+      });
+      setPasswordForm({ currentPassword: "", newPassword: "", confirmPassword: "" });
+      toast.success("Password updated. The admin panel will reflect the update timestamp.");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to update password.");
+    } finally {
+      setIsSavingPassword(false);
+    }
+  };
+
   const profileInitials = s.name
     .split(" ")
     .filter(Boolean)
@@ -145,8 +183,8 @@ export default function SettingsPage() {
     .toUpperCase();
 
   return (
-    <div className="p-4 sm:p-6 lg:p-8 max-w-4xl mx-auto space-y-10 pb-28 relative">
-       <div className="absolute top-0 right-0 w-64 h-64 bg-neon-orange/5 blur-3xl pointer-events-none" />
+    <div className="mx-auto max-w-3xl space-y-5 p-4 sm:p-6 lg:p-8 pb-10 relative">
+       <div className="absolute top-0 right-0 w-64 h-64 bg-neon-blue/5 blur-3xl pointer-events-none" />
        
       <AnimatePresence mode="wait">
         {view === "menu" ? (
@@ -155,25 +193,25 @@ export default function SettingsPage() {
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: -20 }}
-            className="space-y-10"
+            className="space-y-6"
           >
             <div className="space-y-2">
               <div className="flex items-center gap-2">
                 <div className="rounded-xl border border-white/10 bg-white/[0.03] p-2">
-                  <Cpu className="h-4 w-4 text-neon-blue" />
+                  <Cpu className="h-4 w-4 text-[#C9F85A]" />
                 </div>
-                <p className="text-[10px] font-black uppercase tracking-[0.35em] text-neon-blue">Settings Hub</p>
+                <p className="text-[10px] font-black uppercase tracking-[0.35em] text-[#C9F85A]">Settings Hub</p>
               </div>
               <h1 className="text-3xl sm:text-4xl font-display font-black uppercase italic tracking-tight text-foreground">Control Center</h1>
-              <p className="text-sm text-muted-foreground/80">Manage profile, notifications, and privacy from one unified panel.</p>
+              <p className="text-sm text-muted-foreground/80">Manage profile, notifications, privacy, and security from one unified panel.</p>
             </div>
 
-            <div className="relative overflow-hidden rounded-[2.25rem] border border-white/10 bg-[#101214] p-6 sm:p-8 shadow-[0_24px_70px_rgba(0,0,0,0.35)]">
-              <div className="pointer-events-none absolute -top-20 -left-16 h-48 w-48 rounded-full bg-neon-blue/10 blur-3xl" />
-              <div className="pointer-events-none absolute -bottom-20 -right-16 h-48 w-48 rounded-full bg-neon-orange/10 blur-3xl" />
+            <div className="relative overflow-hidden rounded-[32px] border border-white/10 bg-[#121212] p-6 sm:p-8 shadow-[0_20px_60px_rgba(0,0,0,0.4)]">
+              <div className="pointer-events-none absolute -top-20 -left-16 h-48 w-48 rounded-full bg-[#4DD2FF]/10 blur-3xl" />
+              <div className="pointer-events-none absolute -bottom-20 -right-16 h-48 w-48 rounded-full bg-[#C9F85A]/10 blur-3xl" />
 
               <div className="relative flex flex-col gap-6 sm:flex-row sm:items-center">
-                <div className="flex h-20 w-20 items-center justify-center rounded-3xl bg-gradient-to-br from-neon-blue/35 to-neon-orange/35 p-[2px]">
+                <div className="flex h-20 w-20 items-center justify-center rounded-3xl bg-gradient-to-br from-[#C9F85A]/35 to-[#4DD2FF]/35 p-[2px]">
                   <div className="flex h-full w-full items-center justify-center rounded-3xl bg-[#111] text-xl font-black text-foreground">
                     {profileInitials}
                   </div>
@@ -183,10 +221,10 @@ export default function SettingsPage() {
                   <p className="text-2xl font-display font-black uppercase italic tracking-tight text-foreground">{s.name}</p>
                   <p className="mt-1 text-[11px] uppercase tracking-[0.2em] text-muted-foreground/70">{s.email}</p>
                   <div className="mt-4 flex flex-wrap gap-2">
-                    <span className="rounded-full border border-neon-blue/30 bg-neon-blue/10 px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-neon-blue">
+                    <span className="rounded-full border border-[#4DD2FF]/30 bg-[#4DD2FF]/10 px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-[#4DD2FF]">
                       ID {s.collegeId}
                     </span>
-                    <span className="rounded-full border border-neon-orange/30 bg-neon-orange/10 px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-neon-orange">
+                    <span className="rounded-full border border-[#C9F85A]/30 bg-[#C9F85A]/10 px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-[#C9F85A]">
                       Rank #{s.rank}
                     </span>
                   </div>
@@ -194,7 +232,7 @@ export default function SettingsPage() {
 
                 <button
                   onClick={() => setView("edit-profile")}
-                  className="h-12 rounded-2xl bg-gradient-to-r from-neon-blue to-neon-orange px-6 text-xs font-black uppercase tracking-[0.2em] text-black transition-all hover:brightness-110 active:scale-[0.99]"
+                  className="h-12 rounded-2xl bg-gradient-to-r from-[#C9F85A] to-[#4DD2FF] px-6 text-xs font-black uppercase tracking-[0.2em] text-black transition-all hover:brightness-110 active:scale-[0.99]"
                 >
                   Edit Profile
                 </button>
@@ -202,13 +240,13 @@ export default function SettingsPage() {
             </div>
 
             <div className="grid gap-6 lg:grid-cols-2">
-              <div className="rounded-[2rem] border border-white/10 bg-[#111315] p-6 shadow-[0_16px_50px_rgba(0,0,0,0.28)]">
+              <div className="rounded-[32px] border border-white/10 bg-[#121212] p-6 shadow-[0_20px_60px_rgba(0,0,0,0.4)]">
                 <div className="mb-5 flex items-center gap-3">
-                  <div className="rounded-xl border border-neon-blue/30 bg-neon-blue/10 p-2.5">
-                    <Bell className="h-4 w-4 text-neon-blue" />
+                  <div className="rounded-xl border border-[#4DD2FF]/30 bg-[#4DD2FF]/10 p-2.5">
+                    <Bell className="h-4 w-4 text-[#4DD2FF]" />
                   </div>
                   <div>
-                    <p className="text-[10px] font-black uppercase tracking-[0.3em] text-neon-blue">Signals</p>
+                    <p className="text-[10px] font-black uppercase tracking-[0.3em] text-[#4DD2FF]">Signals</p>
                     <h3 className="text-xl font-display font-black uppercase italic tracking-tight text-foreground">Notifications</h3>
                   </div>
                 </div>
@@ -228,7 +266,7 @@ export default function SettingsPage() {
                       className="flex items-center gap-4 rounded-2xl border border-white/10 bg-black/20 px-4 py-3 transition-all hover:bg-black/30"
                     >
                       <div className="rounded-xl border border-white/10 bg-white/[0.03] p-2">
-                        <item.icon className="h-4 w-4 text-neon-blue" />
+                        <item.icon className="h-4 w-4 text-[#4DD2FF]" />
                       </div>
                       <div className="flex-1">
                         <p className="text-sm font-semibold text-foreground">{item.label}</p>
@@ -237,20 +275,20 @@ export default function SettingsPage() {
                       <Toggle
                         enabled={notifications[item.key as keyof typeof notifications]}
                         onToggle={() => toggle("notifications", item.key)}
-                        accent="bg-neon-blue"
+                        accent="bg-[#C9F85A]"
                       />
                     </motion.div>
                   ))}
                 </div>
               </div>
 
-              <div className="rounded-[2rem] border border-white/10 bg-[#111315] p-6 shadow-[0_16px_50px_rgba(0,0,0,0.28)]">
+              <div className="rounded-[32px] border border-white/10 bg-[#121212] p-6 shadow-[0_20px_60px_rgba(0,0,0,0.4)]">
                 <div className="mb-5 flex items-center gap-3">
-                  <div className="rounded-xl border border-neon-orange/30 bg-neon-orange/10 p-2.5">
-                    <ShieldCheck className="h-4 w-4 text-neon-orange" />
+                  <div className="rounded-xl border border-[#C9F85A]/30 bg-[#C9F85A]/10 p-2.5">
+                    <ShieldCheck className="h-4 w-4 text-[#C9F85A]" />
                   </div>
                   <div>
-                    <p className="text-[10px] font-black uppercase tracking-[0.3em] text-neon-orange">Privacy</p>
+                    <p className="text-[10px] font-black uppercase tracking-[0.3em] text-[#C9F85A]">Privacy</p>
                     <h3 className="text-xl font-display font-black uppercase italic tracking-tight text-foreground">Visibility</h3>
                   </div>
                 </div>
@@ -268,7 +306,7 @@ export default function SettingsPage() {
                       className="flex items-center gap-4 rounded-2xl border border-white/10 bg-black/20 px-4 py-3 transition-all hover:bg-black/30"
                     >
                       <div className="rounded-xl border border-white/10 bg-white/[0.03] p-2">
-                        <item.icon className="h-4 w-4 text-neon-orange" />
+                        <item.icon className="h-4 w-4 text-[#C9F85A]" />
                       </div>
                       <div className="flex-1">
                         <p className="text-sm font-semibold text-foreground">{item.label}</p>
@@ -277,7 +315,7 @@ export default function SettingsPage() {
                       <Toggle
                         enabled={privacy[item.key as keyof typeof privacy]}
                         onToggle={() => toggle("privacy", item.key)}
-                        accent="bg-neon-orange"
+                        accent="bg-[#4DD2FF]"
                       />
                     </motion.div>
                   ))}
@@ -290,6 +328,55 @@ export default function SettingsPage() {
                   >
                     <LogOut className="h-4 w-4" />
                     Log Out
+                  </button>
+                </div>
+              </div>
+
+              <div className="rounded-[32px] border border-white/10 bg-[#121212] p-6 shadow-[0_20px_60px_rgba(0,0,0,0.4)] lg:col-span-2">
+                <div className="mb-5 flex items-center gap-3">
+                  <div className="rounded-xl border border-[#4DD2FF]/30 bg-[#4DD2FF]/10 p-2.5">
+                    <Shield className="h-4 w-4 text-[#4DD2FF]" />
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-black uppercase tracking-[0.3em] text-[#4DD2FF]">Security</p>
+                    <h3 className="text-xl font-display font-black uppercase italic tracking-tight text-foreground">Change Password</h3>
+                  </div>
+                </div>
+
+                <div className="grid gap-4 md:grid-cols-3">
+                  <input
+                    type="password"
+                    value={passwordForm.currentPassword}
+                    onChange={(e) => setPasswordForm((prev) => ({ ...prev, currentPassword: e.target.value }))}
+                    placeholder="Current password"
+                    className="h-14 rounded-2xl border border-white/10 bg-black/20 px-4 text-sm font-semibold text-foreground placeholder:text-muted-foreground/40 focus:border-[#4DD2FF]/50 focus:outline-none"
+                  />
+                  <input
+                    type="password"
+                    value={passwordForm.newPassword}
+                    onChange={(e) => setPasswordForm((prev) => ({ ...prev, newPassword: e.target.value }))}
+                    placeholder="New password"
+                    className="h-14 rounded-2xl border border-white/10 bg-black/20 px-4 text-sm font-semibold text-foreground placeholder:text-muted-foreground/40 focus:border-[#4DD2FF]/50 focus:outline-none"
+                  />
+                  <input
+                    type="password"
+                    value={passwordForm.confirmPassword}
+                    onChange={(e) => setPasswordForm((prev) => ({ ...prev, confirmPassword: e.target.value }))}
+                    placeholder="Confirm new password"
+                    className="h-14 rounded-2xl border border-white/10 bg-black/20 px-4 text-sm font-semibold text-foreground placeholder:text-muted-foreground/40 focus:border-[#4DD2FF]/50 focus:outline-none"
+                  />
+                </div>
+
+                <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <p className="text-xs text-muted-foreground/70">
+                    Password updates are recorded in the admin panel as an account update timestamp.
+                  </p>
+                  <button
+                    onClick={handleChangePassword}
+                    disabled={isSavingPassword}
+                    className="h-12 rounded-2xl bg-gradient-to-r from-[#C9F85A] to-[#4DD2FF] px-6 text-xs font-black uppercase tracking-[0.2em] text-black transition-all hover:brightness-110 active:scale-[0.99] disabled:opacity-50"
+                  >
+                    {isSavingPassword ? "Saving..." : "Update Password"}
                   </button>
                 </div>
               </div>

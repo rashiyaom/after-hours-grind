@@ -54,55 +54,7 @@ const isBannedUser = (user: unknown): boolean => {
 };
 
 export async function signup(input: SignupInput) {
-  const existing = await prisma.user.findUnique({ where: { email: input.email } });
-  if (existing) throw HttpError.conflict("Email already registered");
-
-  const normalizedPhone = input.phoneNumber ? normalizePhoneNumber(input.phoneNumber) : undefined;
-  if (normalizedPhone) {
-    const existingPhone = await prisma.user.findUnique({ where: { phoneNumber: normalizedPhone } });
-    if (existingPhone) throw HttpError.conflict("Phone number already registered");
-  }
-
-  const certifications = Array.isArray(input.certifications)
-    ? input.certifications.map((cert) => cert.trim()).filter(Boolean)
-    : (input.certifications ?? "")
-        .split(",")
-        .map((cert) => cert.trim())
-        .filter(Boolean);
-
-  const passwordHash = await hashPassword(input.password);
-  
-  if (input.role !== "STUDENT") {
-    throw HttpError.badRequest("Public signup is restricted to student accounts only.");
-  }
-
-  const user = await prisma.user.create({
-    data: {
-      name: input.name,
-      email: input.email,
-      phoneNumber: normalizedPhone,
-      passwordHash,
-      role: input.role,
-      ...(input.role === "STUDENT"
-        ? {
-            studentProfile: {
-              create: {
-                collegeId: input.collegeId ?? "",
-                heightCm: input.height ?? 170,
-                weightKg: input.weight ?? 70,
-                fitnessGoal: input.fitnessGoal ?? "",
-              },
-            },
-          }
-        : {}),
-    },
-  });
-
-  if (isMailerConfigured) {
-    void sendWelcomeEmail(user.email, user.name).catch(() => {});
-  }
-
-  return issueTokens(user.id, user.role);
+  throw HttpError.forbidden("Public signup is disabled. Ask an admin for an account.");
 }
 
 export async function login(input: LoginInput) {
@@ -253,6 +205,22 @@ export async function resetPassword(token: string, newPassword: string) {
     }),
     prisma.refreshToken.deleteMany({ where: { userId: resetToken.userId } }),
   ]);
+}
+
+export async function changePassword(userId: string, currentPassword: string, newPassword: string) {
+  const user = await prisma.user.findUnique({ where: { id: userId } });
+  if (!user) throw HttpError.notFound("User not found");
+
+  const currentPasswordValid = await verifyPassword(currentPassword, user.passwordHash);
+  if (!currentPasswordValid) throw HttpError.unauthorized("Current password is incorrect");
+
+  const newHash = await hashPassword(newPassword);
+  await prisma.$transaction([
+    prisma.user.update({ where: { id: userId }, data: { passwordHash: newHash } }),
+    prisma.refreshToken.deleteMany({ where: { userId } }),
+  ]);
+
+  return issueTokens(user.id, user.role);
 }
 
 export async function cleanupExpiredResetTokens() {

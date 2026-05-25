@@ -1,6 +1,7 @@
 import type { Request, Response } from "express";
 import { z } from "zod";
 import * as svc from "./admin.service.js";
+import { signupSchema } from "../auth/auth.schema.js";
 
 export async function getAllUsersHandler(req: Request, res: Response) {
     const users = await svc.getAllUsersAdmin();
@@ -12,12 +13,10 @@ export async function toggleUserBanHandler(req: Request, res: Response) {
     res.json(user);
 }
 
-import { signupSchema } from "../auth/auth.schema.js";
-
-export async function createTrainerHandler(req: Request, res: Response) {
+export async function createAccountHandler(req: Request, res: Response) {
     const payload = signupSchema.parse(req.body);
-    const trainer = await svc.createTrainer(payload);
-    res.status(201).json(trainer);
+    const account = await svc.createAccount(payload);
+    res.status(201).json(account);
 }
 
 export async function changeUserRoleHandler(req: Request, res: Response) {

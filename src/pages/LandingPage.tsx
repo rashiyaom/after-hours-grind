@@ -283,7 +283,7 @@ export default function LandingPage() {
 
             <div style={{ display: "flex", flexDirection: "column", gap: "1rem", width: "100%" }}>
               <Link
-                to="/signup"
+                to="/request-access"
                 className="sm:w-auto"
                 style={{
                   position: "relative",
@@ -384,7 +384,7 @@ export default function LandingPage() {
           <div>
             <motion.div {...revealUp(0.15, 24)} style={{ fontSize: "clamp(2.2rem,5vw,4.5rem)", fontWeight: 800, lineHeight: 0.9, letterSpacing: "-0.03em", color: "#000", textTransform: "uppercase" }}>BUILT FOR THOSE WHO SHOW UP.</motion.div>
             <motion.div {...revealUp(0.3)}>
-              <Link to="/signup" style={{ display: "inline-flex", alignItems: "center", gap: 10, marginTop: "2.5rem", background: "#000", color: "#fff", textDecoration: "none", padding: "14px 28px", fontSize: "0.8rem", fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", transition: "opacity 0.2s", borderRadius: 8 }} onMouseEnter={e => (e.currentTarget.style.opacity = "0.8")} onMouseLeave={e => (e.currentTarget.style.opacity = "1")}>Start Now <ArrowRight size={15} /></Link>
+              <Link to="/request-access" style={{ display: "inline-flex", alignItems: "center", gap: 10, marginTop: "2.5rem", background: "#000", color: "#fff", textDecoration: "none", padding: "14px 28px", fontSize: "0.8rem", fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", transition: "opacity 0.2s", borderRadius: 8 }} onMouseEnter={e => (e.currentTarget.style.opacity = "0.8")} onMouseLeave={e => (e.currentTarget.style.opacity = "1")}>Request Access <ArrowRight size={15} /></Link>
             </motion.div>
           </div>
         </motion.div>
@@ -407,7 +407,7 @@ export default function LandingPage() {
         </motion.h2>
         <motion.p {...revealUp(0.18)} style={{ maxWidth: 460, margin: "0 auto 2.5rem", fontSize: "0.9rem", fontWeight: 300, lineHeight: 1.8, color: "rgba(239,239,239,0.4)" }}>Join the platform where accountability isn't optional and progress is measurable. From day one to day thirty — we watch every rep.</motion.p>
         <motion.div {...revealUp(0.26)} className="flex flex-col sm:flex-row justify-center items-stretch sm:items-center gap-3 sm:gap-4">
-          <Link to="/signup" style={{ position: "relative", display: "flex", alignItems: "center", justifyContent: "center", gap: 10, background: "#C9F85A", color: "#0E1400", textDecoration: "none", padding: "18px 40px", fontSize: "0.85rem", fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", transition: "opacity 0.2s", overflow: "hidden", borderRadius: 8 }} onMouseEnter={e => (e.currentTarget.style.opacity = "0.85")} onMouseLeave={e => (e.currentTarget.style.opacity = "1")}>
+          <Link to="/request-access" style={{ position: "relative", display: "flex", alignItems: "center", justifyContent: "center", gap: 10, background: "#C9F85A", color: "#0E1400", textDecoration: "none", padding: "18px 40px", fontSize: "0.85rem", fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", transition: "opacity 0.2s", overflow: "hidden", borderRadius: 8 }} onMouseEnter={e => (e.currentTarget.style.opacity = "0.85")} onMouseLeave={e => (e.currentTarget.style.opacity = "1")}>
             <motion.span style={{ position: "absolute", inset: 0, background: "linear-gradient(105deg, transparent 35%, rgba(255,255,255,0.3) 50%, transparent 65%)", backgroundSize: "200% 100%" }} animate={{ backgroundPosition: ["200% 0", "-200% 0"] }} transition={{ duration: 2.6, repeat: Infinity, ease: "linear", repeatDelay: 1.5 }} />
             Create Free Account <ArrowRight size={16} />
           </Link>

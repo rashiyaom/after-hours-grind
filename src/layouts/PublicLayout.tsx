@@ -38,8 +38,8 @@ export default function PublicLayout() {
           
           <div className="items-center gap-3 hidden md:flex relative z-[101]">
             <Link to="/login" className="text-[0.75rem] uppercase font-bold tracking-widest text-white/65 hover:text-white transition-colors">Log in</Link>
-            <Link to="/signup" className="text-[0.75rem] bg-[#4DD2FF] text-black px-4 py-2 rounded font-bold uppercase tracking-widest hover:opacity-85 transition-opacity">
-              Get Started
+            <Link to="/request-access" className="text-[0.75rem] bg-[#4DD2FF] text-black px-4 py-2 rounded font-bold uppercase tracking-widest hover:opacity-85 transition-opacity">
+              Request Access
             </Link>
           </div>
 
@@ -95,7 +95,7 @@ export default function PublicLayout() {
                 className="mt-8 flex flex-col gap-4 border-t border-white/10 pt-8"
               >
                 <Link to="/login" className="text-xl font-bold uppercase tracking-wider text-white/60 hover:text-[#A78BFA]" onClick={() => setMobileMenuOpen(false)}>Log In</Link>
-                <Link to="/signup" className="text-xl font-bold uppercase tracking-wider text-[#4DD2FF]" onClick={() => setMobileMenuOpen(false)}>Create Account</Link>
+                <Link to="/request-access" className="text-xl font-bold uppercase tracking-wider text-[#4DD2FF]" onClick={() => setMobileMenuOpen(false)}>Request Access</Link>
               </motion.div>
             </div>
           </motion.div>
