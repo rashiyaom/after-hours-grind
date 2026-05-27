@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Search, Compass, Users, TrendingUp, Flame, Trophy,
@@ -9,6 +9,7 @@ import { Link } from "react-router-dom";
 import { LUXURY_TWEEN_MEDIUM } from "@/lib/motionTokens";
 import SuggestedAthletes from "@/components/SuggestedAthletes";
 import { User, Student, Trainer } from "@/types";
+import { fetchFeaturedAthletesAPI } from "@/lib/api";
 
 const AVATAR_GRADIENTS = [
   "from-[#C9F85A] to-[#4DD2FF]",
@@ -30,12 +31,60 @@ export default function ExplorePage() {
   const users = useAppStore((state) => state.users);
   const [searchQuery, setSearchQuery] = useState("");
   const [sortBy, setSortBy] = useState<SortKey>("trending");
+  const [publicProfiles, setPublicProfiles] = useState<Array<User & Partial<Student>>> ([]);
+
+  useEffect(() => {
+    let active = true;
+
+    fetchFeaturedAthletesAPI()
+      .then((data) => {
+        if (!active) return;
+        const mapped = (Array.isArray(data) ? data : [])
+          .map((entry) => {
+            const record = entry as Record<string, unknown>;
+            const user = (record.user as Record<string, unknown> | undefined) ?? {};
+            const userId = typeof record.userId === "string" ? record.userId : typeof record.id === "string" ? record.id : "";
+            const name = typeof user.name === "string" ? user.name : typeof record.name === "string" ? record.name : "";
+            if (!userId || !name) return null;
+
+            return {
+              id: userId,
+              name,
+              email: "",
+              passwordHash: "",
+              avatar: typeof user.avatar === "string" ? user.avatar : "",
+              role: "student" as const,
+              streak: typeof record.streak === "number" ? record.streak : 0,
+              rank: typeof record.rank === "number" ? record.rank : 0,
+              completionPercentage: typeof record.completionPercentage === "number" ? record.completionPercentage : 0,
+              followers: typeof record.followers === "number" ? record.followers : 0,
+              following: typeof record.following === "number" ? record.following : 0,
+              collegeId: typeof record.collegeId === "string" ? record.collegeId : undefined,
+            };
+          })
+          .filter((entry): entry is User & Partial<Student> => Boolean(entry));
+        setPublicProfiles(mapped);
+      })
+      .catch(() => {
+        if (!active) return;
+        setPublicProfiles([]);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const allUsers = useMemo<User[]>(() => {
-    return Object.values(users).filter(
-      (u) => u.id !== me.id && u.role !== "admin"
-    );
-  }, [users, me.id]);
+    const storeUsers = Object.values(users).filter((u) => u.id !== me.id && u.role !== "admin");
+    const merged = [...storeUsers];
+    publicProfiles.forEach((profile) => {
+      if (!merged.some((existing) => existing.id === profile.id)) {
+        merged.push(profile as User);
+      }
+    });
+    return merged;
+  }, [users, me.id, publicProfiles]);
 
   const sortedUsers = useMemo(() => {
     let list = [...allUsers];

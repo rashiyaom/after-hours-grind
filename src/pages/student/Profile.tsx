@@ -76,7 +76,7 @@ export default function ProfilePage() {
   const [fetchedProfile, setFetchedProfile] = useState<Record<string, unknown> | null>(null);
 
   const isMe = !userId || userId === me.id;
-
+      toast.error(error instanceof ApiError ? error.message : "Could not update follow status");
   useEffect(() => {
     let isMounted = true;
 

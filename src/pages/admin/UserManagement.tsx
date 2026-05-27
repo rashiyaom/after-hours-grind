@@ -9,6 +9,7 @@ import { toast } from "sonner";
 import { Student } from "@/types";
 import { motion, AnimatePresence } from "framer-motion";
 import { fetchAdminUsersDetailedAPI, type AdminUserDetails } from "@/lib/api";
+import { useNavigate } from "react-router-dom";
 
 type AdminUserRow = AdminUserDetails;
 
@@ -105,12 +106,16 @@ const UserManagement = () => {
   const bulkDeleteUsers = useAppStore((state) => state.bulkDeleteUsers);
   const createAccount = useAppStore((state) => state.createAccount);
   const currentUser = useAppStore((state) => state.session.currentUser);
+  const navigate = useNavigate();
 
   const loadUsers = async () => {
     setIsLoadingUsers(true);
     try {
       const adminUsers = await fetchAdminUsersDetailedAPI();
-      setDetailedUsers(adminUsers);
+      setDetailedUsers(adminUsers.map((user) => ({
+        ...user,
+        role: user.role.toLowerCase() as AdminUserRow["role"],
+      })));
     } catch (error) {
       toast.error("Failed to load admin users.");
     } finally {
@@ -180,11 +185,11 @@ const UserManagement = () => {
   };
 
   const userList = detailedUsers.length > 0 ? detailedUsers : Object.values(users);
-  const trainers = userList.filter(user => user.role === "trainer");
+  const trainers = userList.filter(user => user.role.toLowerCase() === "trainer");
 
   const filteredUsers = useMemo(() => {
     return userList.filter((user) => {
-      const roleMatch = roleFilter === "all" ? true : user.role === roleFilter;
+      const roleMatch = roleFilter === "all" ? true : user.role.toLowerCase() === roleFilter;
       const queryMatch =
         query.trim() === ""
           ? true
@@ -272,7 +277,7 @@ const UserManagement = () => {
         : (detailedUsers.length > 0
             ? filteredUsers
             : await fetchAdminUsersDetailedAPI().then((rows) => rows.filter((row) => {
-                const roleMatch = roleFilter === "all" ? true : row.role === roleFilter;
+                const roleMatch = roleFilter === "all" ? true : row.role.toLowerCase() === roleFilter;
                 const queryMatch =
                   query.trim() === ""
                     ? true
@@ -552,8 +557,9 @@ const UserManagement = () => {
               const isSelected = selectedIds.has(user.id);
               const isSelf = user.id === currentUser?.id;
               const phoneNumber = user.phoneNumber ?? "Not provided";
-              const student = user.role === "student" ? (user as Student) : null;
-              const trainerProfile = user.role === "trainer" ? (user as AdminUserRow & { specialization?: string; whatsappNumber?: string; experience?: number; certifications?: string[] }) : null;
+              const normalizedRole = user.role.toLowerCase();
+              const student = normalizedRole === "student" ? (user as Student & AdminUserRow) : null;
+              const trainerProfile = normalizedRole === "trainer" ? (user as AdminUserRow & { specialization?: string; whatsappNumber?: string; experience?: number; certifications?: string[] }) : null;
 
               return (
                 <div 
@@ -571,11 +577,14 @@ const UserManagement = () => {
                       {isSelected ? <CheckSquare className="h-5 w-5" /> : <Square className="h-5 w-5" />}
                     </button>
                     
-                    <div>
+                    <div
+                      className="cursor-pointer"
+                      onClick={() => normalizedRole === "student" && navigate(`/admin/users/${user.id}/questionnaire`)}
+                    >
                       <div className="font-semibold flex items-center gap-2">
                         {user.name} 
                         {isSelf && <Badge variant="outline" className="text-[10px] h-4">YOU</Badge>}
-                        <Badge variant="secondary">{user.role}</Badge>
+                        <Badge variant="secondary">{normalizedRole}</Badge>
                       </div>
                       <p className="text-sm text-muted-foreground flex items-center gap-2"><Mail className="h-3.5 w-3.5" />{user.email}</p>
                       <p className="text-sm text-muted-foreground flex items-center gap-2"><Phone className="h-3.5 w-3.5" />{phoneNumber}</p>
@@ -613,7 +622,7 @@ const UserManagement = () => {
                   </div>
 
                   <div className="flex flex-wrap items-center gap-3">
-                    {user.role === "student" && (
+                    {user.role.toLowerCase() === "student" && (
                       <div className="flex items-center gap-2">
                         <select
                           className="text-xs bg-background border border-input rounded-md px-2 py-1 min-w-[140px]"
@@ -637,6 +646,17 @@ const UserManagement = () => {
                     )}
                     
                     <div className="flex gap-2">
+                      {normalizedRole === "student" && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-8 text-[10px]"
+                          onClick={() => navigate(`/admin/users/${user.id}/questionnaire`)}
+                        >
+                          View questionnaire
+                        </Button>
+                      )}
+
                       {!isSelf && (
                         <Button
                           variant="ghost"
@@ -648,7 +668,7 @@ const UserManagement = () => {
                         </Button>
                       )}
                       
-                      {user.role === "trainer" && !(user as { isVerified?: boolean }).isVerified && (
+                      {normalizedRole === "trainer" && !(user as { isVerified?: boolean }).isVerified && (
                         <Button
                           variant="outline"
                           size="sm"

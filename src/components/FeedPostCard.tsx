@@ -1,9 +1,10 @@
-import { Heart, MessageCircle, Share2, Bookmark, MoreHorizontal, Play, Image as ImageIcon, ArrowUpRight, Bike } from "lucide-react";
+import { Heart, MessageCircle, Share2, Bookmark, MoreHorizontal, Play, Image as ImageIcon } from "lucide-react";
 import { Post } from "@/types";
 import { motion, AnimatePresence } from "framer-motion";
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { useStore, useAppStore, useCurrentUser } from "@/hooks/useStore";
+import { ApiError } from "@/lib/api";
 import { LUXURY_TWEEN_MEDIUM } from "@/lib/motionTokens";
 import { toast } from "sonner";
 
@@ -40,7 +41,14 @@ function timeAgo(ts: string) {
   }
 }
 
-export default function FeedPostCard({ post, onClick }: { post: Post; onClick?: () => void }) {
+type FeedPostCardProps = {
+  post: Post;
+  onClick?: () => void;
+  isFollowed?: boolean;
+  onToggleFollow?: (userId: string, shouldFollow: boolean) => Promise<void> | void;
+};
+
+export default function FeedPostCard({ post, onClick, isFollowed = false, onToggleFollow }: FeedPostCardProps) {
   const { likePost, addComment } = useStore();
   const [bookmarked, setBookmarked] = useState(false);
   const [showComments, setShowComments] = useState(false);
@@ -50,7 +58,6 @@ export default function FeedPostCard({ post, onClick }: { post: Post; onClick?: 
   const currentUser = useCurrentUser();
   const followUser = useAppStore((state) => state.followUser);
   const unfollowUser = useAppStore((state) => state.unfollowUser);
-  const [isFollowed, setIsFollowed] = useState(false);
   const [followLoading, setFollowLoading] = useState(false);
   const isOtherUser = currentUser?.id !== post.userId && post.userRole === "student";
 
@@ -60,16 +67,22 @@ export default function FeedPostCard({ post, onClick }: { post: Post; onClick?: 
     setFollowLoading(true);
     try {
       if (isFollowed) {
-        await unfollowUser(post.userId);
-        setIsFollowed(false);
+        if (onToggleFollow) {
+          await onToggleFollow(post.userId, false);
+        } else {
+          await unfollowUser(post.userId);
+        }
         toast.info(`Unfollowed ${post.userName}`);
       } else {
-        await followUser(post.userId);
-        setIsFollowed(true);
+        if (onToggleFollow) {
+          await onToggleFollow(post.userId, true);
+        } else {
+          await followUser(post.userId);
+        }
         toast.success(`Following ${post.userName}!`);
       }
-    } catch {
-      toast.error("Could not update follow status");
+    } catch (error) {
+      toast.error(error instanceof ApiError ? error.message : "Could not update follow status");
     } finally {
       setFollowLoading(false);
     }
@@ -124,13 +137,15 @@ export default function FeedPostCard({ post, onClick }: { post: Post; onClick?: 
           <div>
             <div className="flex items-center gap-2">
               <p className="text-sm font-semibold text-white leading-tight">{post.userName}</p>
-              {isOtherUser && !isFollowed && (
+              {isOtherUser && (
                 <button
                   onClick={handleFollowToggle}
                   disabled={followLoading}
-                  className="text-[11px] font-bold text-[#4DD2FF] hover:text-[#6ee0ff] transition-colors disabled:opacity-50"
+                  className={`text-[11px] font-bold transition-colors disabled:opacity-50 ${
+                    isFollowed ? "text-white/45 hover:text-white/80" : "text-[#4DD2FF] hover:text-[#6ee0ff]"
+                  }`}
                 >
-                  · Follow
+                  {isFollowed ? "· Following" : "· Follow"}
                 </button>
               )}
             </div>
@@ -139,11 +154,6 @@ export default function FeedPostCard({ post, onClick }: { post: Post; onClick?: 
         </Link>
 
         <div className="flex items-center gap-2" onClick={stop}>
-          {post.source === "strava" && (
-            <span className="text-[10px] px-2.5 py-1 rounded-full bg-[#FC4C02]/10 text-[#FC4C02] border border-[#FC4C02]/25 font-semibold uppercase tracking-wider">
-              Strava
-            </span>
-          )}
           {post.source === "task-proof" && (
             <span
               className={`text-[10px] px-2.5 py-1 rounded-full border font-semibold uppercase tracking-wider ${
@@ -169,31 +179,7 @@ export default function FeedPostCard({ post, onClick }: { post: Post; onClick?: 
       </div>
 
       {/* ── Media block ─────────────────────────────────── */}
-      {post.source === "strava" ? (
-        <div className="relative aspect-square overflow-hidden bg-[radial-gradient(circle_at_20%_0%,rgba(252,76,2,0.35),transparent_55%),linear-gradient(135deg,#1a120e_0%,#141414_100%)]">
-          <div className="absolute inset-0 opacity-20" style={{ backgroundImage: "linear-gradient(rgba(252,76,2,0.12) 1px, transparent 1px), linear-gradient(90deg, rgba(252,76,2,0.12) 1px, transparent 1px)", backgroundSize: "28px 28px" }} />
-          <div className="relative z-10 h-full w-full flex flex-col items-center justify-center gap-4 text-center px-8">
-            <div className="h-16 w-16 rounded-2xl bg-[#FC4C02]/20 border border-[#FC4C02]/40 flex items-center justify-center">
-              <Bike className="h-8 w-8 text-[#FC4C02]" />
-            </div>
-            <p className="text-sm font-semibold text-white max-w-[26ch] leading-relaxed">
-              Imported from Strava activity feed
-            </p>
-            {post.mediaUrl.startsWith("http") && (
-              <a
-                href={post.mediaUrl}
-                target="_blank"
-                rel="noreferrer"
-                onClick={stop}
-                className="inline-flex items-center gap-1.5 rounded-full border border-[#FC4C02]/40 bg-[#FC4C02]/12 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-[#FC4C02] hover:bg-[#FC4C02]/18"
-              >
-                View on Strava
-                <ArrowUpRight className="h-3.5 w-3.5" />
-              </a>
-            )}
-          </div>
-        </div>
-      ) : hasRenderableMedia ? (
+      {hasRenderableMedia ? (
         <div className="relative aspect-square overflow-hidden bg-[#090909]">
           {isVideoPost ? (
             <video
@@ -324,13 +310,6 @@ export default function FeedPostCard({ post, onClick }: { post: Post; onClick?: 
           </Link>{" "}
           {post.caption}
         </p>
-
-        {post.source === "strava" && (
-          <p className="text-[11px] font-medium text-[#FC4C02]/80">
-            Strava activity posts are informational and do not add points.
-          </p>
-        )}
-
         {/* view comments toggle */}
         <button
           onClick={(e) => { stop(e); setShowComments(!showComments); }}

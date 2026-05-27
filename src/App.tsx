@@ -43,6 +43,7 @@ const StudentDetail = lazy(() => import("@/pages/trainer/StudentDetail"));
 
 const AdminDashboard = lazy(() => import("@/pages/admin/Dashboard"));
 const UserManagement = lazy(() => import("@/pages/admin/UserManagement"));
+const UserQuestionnaire = lazy(() => import("@/pages/admin/UserQuestionnaire"));
 const ContentModeration = lazy(() => import("@/pages/admin/ContentModeration"));
 const Permissions = lazy(() => import("@/pages/admin/Permissions"));
 const AdminEventsManager = lazy(() => import("@/pages/admin/EventsManager"));
@@ -157,6 +158,7 @@ const App = () => {
               <Route path="dashboard" element={<AdminDashboard />} />
               <Route element={<ProtectedRoute allowedRoles={["admin"]} requiredPermission="manage_users" />}>
                 <Route path="users" element={<UserManagement />} />
+                <Route path="users/:userId/questionnaire" element={<UserQuestionnaire />} />
                 <Route path="permissions" element={<Permissions />} />
                 <Route path="templates" element={<AdminTemplates />} />
               </Route>

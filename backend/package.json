@@ -16,6 +16,8 @@
     "prisma:migrate:status": "prisma migrate status",
     "prisma:studio": "prisma studio",
     "db:list-users": "tsx scratch/list_users.ts"
+    ,
+    "db:run-audit": "tsx scripts/run_db_audit.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

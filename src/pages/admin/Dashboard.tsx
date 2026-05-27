@@ -4,7 +4,7 @@ import { Shield, Users, FileWarning, EyeOff, Download, LineChart, CheckCircle2, 
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import Button from "@/components/ui/button";
 import { useCurrentUser, usePermissions, usePosts, useSystem, useUsers, useAppStore } from "@/hooks/useStore";
-import { fetchAdminActivityLogsAPI, fetchAdminStatsAPI, fetchFlaggedContentAPI } from "@/lib/api";
+import { fetchAdminActivityLogsAPI, fetchAdminStatsAPI, fetchFlaggedContentAPI, fetchHealthAPI } from "@/lib/api";
 
 const AdminDashboard = () => {
   const [rangeDays, setRangeDays] = useState<7 | 14 | 30>(7);
@@ -21,6 +21,7 @@ const AdminDashboard = () => {
   const [moderationStats, setModerationStats] = useState<{ flaggedPosts: number; hiddenPosts: number }>({ flaggedPosts: 0, hiddenPosts: 0 });
   const [activityItems, setActivityItems] = useState<Array<{ id: string; action: string; userId: string; timestamp: string }>>([]);
   const [adminLoading, setAdminLoading] = useState(false);
+  const [health, setHealth] = useState<{ status: string; timestamp?: string; checks?: Record<string, any> } | null>(null);
   const legacySubmissions = useAppStore((s) => s.system.legacySubmissions);
   const approveTaskSubmission = useAppStore((s) => s.approveTaskSubmission);
   const rejectTaskSubmission = useAppStore((s) => s.rejectTaskSubmission);
@@ -46,10 +47,11 @@ const AdminDashboard = () => {
   const loadAdminDashboard = async () => {
     try {
       setAdminLoading(true);
-      const [statsRes, moderationRes, activityRes] = await Promise.allSettled([
+      const [statsRes, moderationRes, activityRes, healthRes] = await Promise.allSettled([
         fetchAdminStatsAPI(),
         fetchFlaggedContentAPI(),
         fetchAdminActivityLogsAPI(),
+        fetchHealthAPI(),
       ]);
 
       if (statsRes.status === "fulfilled") {
@@ -103,6 +105,10 @@ const AdminDashboard = () => {
 
         items.sort((a, b) => b.timestamp.localeCompare(a.timestamp));
         setActivityItems(items);
+      }
+
+      if (healthRes && healthRes.status === "fulfilled") {
+        setHealth(healthRes.value as { status: string; timestamp?: string; checks?: Record<string, any> });
       }
     } finally {
       setAdminLoading(false);
@@ -186,6 +192,18 @@ const AdminDashboard = () => {
           <CardContent>
             <p className="text-sm text-muted-foreground">Under review: <span className="font-semibold text-foreground">{flaggedPosts}</span></p>
             <p className="text-sm text-muted-foreground">Hidden posts: <span className="font-semibold text-foreground">{hiddenPosts}</span></p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2"><Shield className="h-4 w-4" /> Media Storage</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-muted-foreground">Provider: <span className="font-semibold text-foreground">{String(health?.checks?.media?.provider ?? "local")}</span></p>
+            <p className="text-sm text-muted-foreground">Status: <span className="font-semibold text-foreground">{String(health?.checks?.media?.status ?? "disabled")}</span></p>
+            {health?.checks?.media?.message && (
+              <p className="text-xs text-rose-400 mt-2">{String(health.checks.media.message)}</p>
+            )}
           </CardContent>
         </Card>
         <Card>

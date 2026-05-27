@@ -190,3 +190,8 @@ export async function bulkDeleteUsersHandler(req: Request, res: Response) {
     res.json(result);
 }
 
+export async function runDbAuditHandler(_req: Request, res: Response) {
+    const result = await svc.runDbAudit();
+    res.json(result);
+}
+

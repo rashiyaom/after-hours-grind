@@ -1466,7 +1466,7 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
     set((state) => ({
       posts: {
         ...state.posts,
-        [postId]: { ...post, liked, likes: liked ? post.likes + 1 : post.likes - 1 }
+        [postId]: { ...post, liked, likes: liked ? post.likes + 1 : Math.max(0, post.likes - 1) }
       }
     }));
 
@@ -1628,8 +1628,9 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
     } catch (error) {
       Sentry.captureException(error, {
         tags: { feature: "follow" },
-        extra: { targetUserId },
+        extra: { targetUserId: userId },
       });
+      throw error;
     }
   },
 
@@ -1660,8 +1661,9 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
     } catch (error) {
       Sentry.captureException(error, {
         tags: { feature: "unfollow" },
-        extra: { targetUserId },
+        extra: { targetUserId: userId },
       });
+      throw error;
     }
   },
 
@@ -2527,7 +2529,13 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
   // Events CRUD
   createEvent: async (eventData: Omit<AHGEvent, 'id' | 'createdAt' | 'entries'>) => {
     try {
-      await createEventAPI(eventData);
+      const createdEvent = await createEventAPI(eventData);
+      set((state) => ({
+        system: {
+          ...state.system,
+          events: [createdEvent, ...state.system.events],
+        },
+      }));
       await get().refreshData();
     } catch (error) {
       Sentry.captureException(error, { tags: { action: "create_event" } });
@@ -2537,7 +2545,13 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
 
   updateEvent: async (eventId: string, updates: Partial<AHGEvent>) => {
     try {
-      await updateEventAPI(eventId, updates);
+      const updatedEvent = await updateEventAPI(eventId, updates);
+      set((state) => ({
+        system: {
+          ...state.system,
+          events: state.system.events.map((event) => (event.id === eventId ? updatedEvent : event)),
+        },
+      }));
       await get().refreshData();
     } catch (error) {
       Sentry.captureException(error, { tags: { action: "update_event" } });
@@ -2548,6 +2562,12 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
   deleteEvent: async (eventId: string) => {
     try {
       await deleteEventAPI(eventId);
+      set((state) => ({
+        system: {
+          ...state.system,
+          events: state.system.events.filter((event) => event.id !== eventId),
+        },
+      }));
       await get().refreshData();
     } catch (error) {
       Sentry.captureException(error, { tags: { action: "delete_event" } });
@@ -2597,7 +2617,7 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
       ? requestedScope
       : getRefreshScopeForRole(role);
 
-    const fetchFeed = effectiveScope === 'student' || effectiveScope === 'trainer';
+    const fetchFeed = effectiveScope === 'student' || effectiveScope === 'trainer' || effectiveScope === 'admin';
     const fetchChats = effectiveScope === 'trainer' || effectiveScope === 'student' || effectiveScope === 'student-dashboard';
     const fetchEvents = effectiveScope === 'admin';
     const fetchStudentBundle =
@@ -3659,14 +3679,17 @@ export const useStore = () => {
       }));
 
       try {
-        await createPostAPI({
+        const payload: Parameters<typeof createPostAPI>[0] = {
           type: optimisticPost.type,
           mediaUrl: optimisticPost.mediaUrl,
           caption: optimisticPost.caption,
           source: optimisticPost.source,
           location: optimisticPost.location,
-          steps: optimisticPost.steps ?? null,
-        });
+        };
+        if (typeof optimisticPost.steps === 'number') {
+          payload.steps = optimisticPost.steps;
+        }
+        await createPostAPI(payload);
         void useAppStore.getState().refreshData({ background: true, scope: getRefreshScopeForRole(useAppStore.getState().session.currentUser?.role) });
       } catch (error) {
         useAppStore.setState((prev) => {

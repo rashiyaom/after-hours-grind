@@ -27,6 +27,10 @@ const useCloudinary =
   env.MEDIA_PROVIDER === "cloudinary" &&
   Boolean(env.CLOUDINARY_CLOUD_NAME && env.CLOUDINARY_API_KEY && env.CLOUDINARY_API_SECRET);
 
+const cloudinaryConfigIncomplete =
+  env.MEDIA_PROVIDER === "cloudinary" &&
+  !useCloudinary;
+
 if (useCloudinary) {
   cloudinary.config({
     cloud_name: env.CLOUDINARY_CLOUD_NAME,
@@ -41,6 +45,12 @@ const normalizePath = (value: string): string => value.split(path.sep).join("/")
 export async function storeMediaFile(file: Express.Multer.File): Promise<StoredMedia> {
   if (!file.buffer || file.size <= 0) {
     throw new Error("Invalid upload payload");
+  }
+
+  if (cloudinaryConfigIncomplete) {
+    throw new Error(
+      "MEDIA_PROVIDER is set to cloudinary, but CLOUDINARY_CLOUD_NAME / CLOUDINARY_API_KEY / CLOUDINARY_API_SECRET are missing"
+    );
   }
 
   if (useCloudinary) {

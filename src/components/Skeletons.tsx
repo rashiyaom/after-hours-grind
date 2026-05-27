@@ -5,27 +5,34 @@ import { Skeleton } from "@/components/ui/skeleton";
  */
 export function FeedPostCardSkeleton() {
   return (
-    <div className="bg-white dark:bg-slate-900 rounded-lg border border-gray-200 dark:border-slate-800 overflow-hidden">
-      {/* Header */}
-      <div className="p-4 flex items-center gap-3">
-        <Skeleton className="h-12 w-12 rounded-full" />
-        <div className="flex-1 space-y-2">
-          <Skeleton className="h-4 w-32" />
-          <Skeleton className="h-3 w-24" />
+    <div className="relative overflow-hidden rounded-[28px] border border-white/10 bg-[#111111]">
+      <div className="pointer-events-none absolute inset-0 animate-pulse opacity-60 [background:linear-gradient(115deg,transparent_20%,rgba(255,255,255,0.06)_40%,transparent_60%)]" />
+      <div className="p-5">
+        <div className="flex items-center gap-3">
+          <Skeleton className="h-10 w-10 rounded-2xl bg-white/10" />
+          <div className="flex-1 space-y-2">
+            <Skeleton className="h-3.5 w-40 bg-white/10" />
+            <Skeleton className="h-3 w-28 bg-white/5" />
+          </div>
+          <Skeleton className="h-7 w-7 rounded-full bg-white/10" />
         </div>
-      </div>
-      {/* Image */}
-      <Skeleton className="h-64 w-full" />
-      {/* Caption */}
-      <div className="p-4 space-y-2">
-        <Skeleton className="h-3 w-full" />
-        <Skeleton className="h-3 w-5/6" />
-      </div>
-      {/* Actions */}
-      <div className="p-4 flex gap-4 border-t border-gray-200 dark:border-slate-800">
-        <Skeleton className="h-8 w-8 rounded" />
-        <Skeleton className="h-8 w-8 rounded" />
-        <Skeleton className="h-8 w-8 rounded" />
+
+        <Skeleton className="mt-5 aspect-square w-full rounded-3xl bg-white/10" />
+
+        <div className="mt-5 space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <Skeleton className="h-5 w-5 rounded-full bg-white/10" />
+              <Skeleton className="h-5 w-5 rounded-full bg-white/10" />
+              <Skeleton className="h-5 w-5 rounded-full bg-white/10" />
+            </div>
+            <Skeleton className="h-5 w-5 rounded-full bg-white/10" />
+          </div>
+
+          <Skeleton className="h-3.5 w-24 bg-white/10" />
+          <Skeleton className="h-3.5 w-full bg-white/10" />
+          <Skeleton className="h-3.5 w-3/4 bg-white/5" />
+        </div>
       </div>
     </div>
   );
@@ -36,7 +43,7 @@ export function FeedPostCardSkeleton() {
  */
 export function FeedGridSkeleton({ count = 6 }: { count?: number }) {
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+    <div className="space-y-6">
       {Array.from({ length: count }).map((_, i) => (
         <FeedPostCardSkeleton key={i} />
       ))}

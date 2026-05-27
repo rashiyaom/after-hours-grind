@@ -1,4 +1,4 @@
-import { AHGEvent, Post, User, UserRole } from "@/types";
+import { AHGEvent, Post, User, UserRole, type FitnessQuestionnaire } from "@/types";
 import * as Sentry from "@sentry/react";
 
 // Validate API URL - must be set in production
@@ -612,13 +612,52 @@ export async function fetchAdminUsersAPI(): Promise<ApiCurrentUser[]> {
   return authedRequest<ApiCurrentUser[]>("/admin/users", { method: "GET" });
 }
 
+export async function fetchHealthAPI(): Promise<{ status: string; timestamp: string; checks: Record<string, unknown> }> {
+  return apiRequest<{ status: string; timestamp: string; checks: Record<string, unknown> }>("/health", { method: "GET" });
+}
+
 export type AdminUserDetails = ApiCurrentUser & {
   phoneNumber?: string | null;
   createdAt?: string;
   updatedAt?: string;
   isBanned?: boolean;
-  studentProfile?: Record<string, unknown> | null;
+  studentProfile?: (Record<string, unknown> & {
+    onboardingDraft?: FitnessQuestionnaire | null;
+    onboardingStep?: number | null;
+  }) | null;
   trainerProfile?: Record<string, unknown> | null;
+};
+
+export type AdminExerciseTemplate = {
+  id: string;
+  name: string;
+  description: string;
+  category: string;
+  sets: number | null;
+  reps: number | null;
+  restSeconds: number | null;
+  durationMinutes: number | null;
+  difficulty: string;
+  equipment: string;
+  youtubeUrl: string | null;
+  proteinGrams: number | null;
+  calories: number | null;
+  mealTiming: string | null;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type AdminExerciseTemplateAssignment = {
+  id: string;
+  studentId: string;
+  studentName: string;
+  templateId: string;
+  templateName: string;
+  dayNumber: number;
+  sortOrder: number;
+  createdAt: string;
+  updatedAt: string;
 };
 
 export async function fetchAdminUsersDetailedAPI(): Promise<AdminUserDetails[]> {
@@ -663,13 +702,19 @@ export async function createPostAPI(payload: {
   location?: string;
   steps?: number | null;
 }): Promise<ApiRecord> {
+  const body: Record<string, unknown> = {
+    source: "general",
+    location: "Campus",
+    ...payload,
+  };
+
+  if (body.steps === null || body.steps === undefined) {
+    delete body.steps;
+  }
+
   return authedRequest<ApiRecord>("/posts", {
     method: "POST",
-    body: JSON.stringify({
-      source: "general",
-      location: "Campus",
-      ...payload,
-    }),
+    body: JSON.stringify(body),
   });
 }
 
@@ -825,24 +870,24 @@ export async function fetchExerciseTemplatesAPI(options?: {
   q?: string;
   category?: string;
   activeOnly?: boolean;
-}): Promise<ApiRecord[]> {
+}): Promise<AdminExerciseTemplate[]> {
   const params = new URLSearchParams();
   if (options?.q) params.set("q", options.q);
   if (options?.category) params.set("category", options.category);
   if (typeof options?.activeOnly === "boolean") params.set("activeOnly", String(options.activeOnly));
   const query = params.toString();
-  return authedRequest<ApiRecord[]>(`/admin/exercise-templates${query ? `?${query}` : ""}`, { method: "GET" });
+  return authedRequest<AdminExerciseTemplate[]>(`/admin/exercise-templates${query ? `?${query}` : ""}`, { method: "GET" });
 }
 
-export async function createExerciseTemplateAPI(payload: ApiRecord): Promise<ApiRecord> {
-  return authedRequest<ApiRecord>("/admin/exercise-templates", {
+export async function createExerciseTemplateAPI(payload: ApiRecord): Promise<AdminExerciseTemplate> {
+  return authedRequest<AdminExerciseTemplate>("/admin/exercise-templates", {
     method: "POST",
     body: JSON.stringify(payload),
   });
 }
 
-export async function updateExerciseTemplateAPI(templateId: string, payload: ApiRecord): Promise<ApiRecord> {
-  return authedRequest<ApiRecord>(`/admin/exercise-templates/${templateId}`, {
+export async function updateExerciseTemplateAPI(templateId: string, payload: ApiRecord): Promise<AdminExerciseTemplate> {
+  return authedRequest<AdminExerciseTemplate>(`/admin/exercise-templates/${templateId}`, {
     method: "PATCH",
     body: JSON.stringify(payload),
   });
@@ -854,8 +899,8 @@ export async function deleteExerciseTemplateAPI(templateId: string): Promise<Api
   });
 }
 
-export async function fetchExerciseTemplateAssignmentsAPI(): Promise<ApiRecord[]> {
-  return authedRequest<ApiRecord[]>("/admin/exercise-templates/assignments", { method: "GET" });
+export async function fetchExerciseTemplateAssignmentsAPI(): Promise<AdminExerciseTemplateAssignment[]> {
+  return authedRequest<AdminExerciseTemplateAssignment[]>("/admin/exercise-templates/assignments", { method: "GET" });
 }
 
 

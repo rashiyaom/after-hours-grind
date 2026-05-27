@@ -30,5 +30,6 @@ router.delete("/exercise-templates/:templateId", asyncHandler(ctrl.deleteExercis
 router.get("/exercise-templates/assignments", asyncHandler(ctrl.getExerciseTemplateAssignmentsHandler));
 router.post("/exercise-templates/assign", asyncHandler(ctrl.assignExerciseTemplateHandler));
 router.post("/exercise-templates/assign-bulk", asyncHandler(ctrl.assignExerciseTemplateBulkHandler));
+router.post("/db-audit", asyncHandler(ctrl.runDbAuditHandler));
 
 export default router;

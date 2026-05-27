@@ -1,16 +1,16 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  Search, Plus, X, Heart, MessageCircle, Share2, Send,
-  Play, Image as ImageIcon, Filter, Bookmark, ArrowUpRight,
-  Flame, TrendingUp, Loader2, Bike, RefreshCw, Link2, Unplug,
+  Plus, X, Heart, MessageCircle, Share2, Send,
+  Play, Image as ImageIcon, Filter, ArrowUpRight,
+  Flame, TrendingUp, Loader2,
 } from "lucide-react";
 import FeedPostCard from "@/components/FeedPostCard";
 import { useStore } from "@/hooks/useStore";
 import { useAppStore } from "@/hooks/useStore";
 import { useCurrentUser, usePermissions } from "@/hooks/useStore";
 import { Post } from "@/types";
-import { Link, useLocation, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { toast } from "sonner";
 import { FeedGridSkeleton } from "@/components/Skeletons";
 import { filterPostsByTab } from "@/lib/feedFilters";
@@ -20,13 +20,7 @@ import SuggestedAthletes from "@/components/SuggestedAthletes";
 import {
   fetchFeedPageFromBackend,
   fetchCommentsAPI,
-  fetchStravaStatusAPI,
-  fetchStravaConnectUrlAPI,
-  exchangeStravaCodeAPI,
-  syncStravaActivitiesAPI,
-  disconnectStravaAPI,
-  ApiError,
-  type StravaStatusResponse,
+  fetchFollowingAPI,
 } from "@/lib/api";
 
 type FeedComment = {
@@ -70,13 +64,7 @@ export default function FeedPage() {
   const [hasMore, setHasMore] = useState<boolean>(false);
   const [isLoadingMore, setIsLoadingMore] = useState<boolean>(false);
   const [initialLoadAttempted, setInitialLoadAttempted] = useState<boolean>(false);
-  const [stravaStatus, setStravaStatus] = useState<StravaStatusResponse | null>(null);
-  const [isConnectingStrava, setIsConnectingStrava] = useState(false);
-  const [isSyncingStrava, setIsSyncingStrava] = useState(false);
-  const [isDisconnectingStrava, setIsDisconnectingStrava] = useState(false);
-  const callbackHandledRef = useRef(false);
-  const location = useLocation();
-  const navigate = useNavigate();
+  const [followingUserIds, setFollowingUserIds] = useState<Set<string>>(new Set());
   const loadMoreRef = useRef<HTMLDivElement | null>(null);
 
   const activePost = selectedPost ? postMap[selectedPost.id] ?? null : null;
@@ -115,21 +103,36 @@ export default function FeedPage() {
     }
   }, [hasMore, isLoadingMore, mergeRemotePosts, nextCursor]);
 
-  const refreshFeedFirstPage = useCallback(async () => {
-    const response = await fetchFeedPageFromBackend(undefined, FEED_PAGE_SIZE);
-    mergeRemotePosts(response.data);
-    setFeedOrderIds(response.data.map((post) => post.id));
-    setNextCursor(response.nextCursor);
-    setHasMore(Boolean(response.nextCursor));
-  }, [mergeRemotePosts]);
-
-  const loadStravaStatus = useCallback(async () => {
+  const hydrateFollowing = useCallback(async () => {
+    if (!currentUser) return;
     try {
-      const status = await fetchStravaStatusAPI();
-      setStravaStatus(status);
+      const edges = await fetchFollowingAPI(currentUser.id);
+      const ids = edges
+        .map((edge) => edge.following?.id)
+        .filter((id): id is string => Boolean(id));
+      setFollowingUserIds(new Set(ids));
     } catch {
-      setStravaStatus(null);
+      setFollowingUserIds(new Set());
     }
+  }, [currentUser]);
+
+  const handleToggleFollow = useCallback(async (targetUserId: string, shouldFollow: boolean) => {
+    if (shouldFollow) {
+      await useAppStore.getState().followUser(targetUserId);
+      setFollowingUserIds((prev) => {
+        const next = new Set(prev);
+        next.add(targetUserId);
+        return next;
+      });
+      return;
+    }
+
+    await useAppStore.getState().unfollowUser(targetUserId);
+    setFollowingUserIds((prev) => {
+      const next = new Set(prev);
+      next.delete(targetUserId);
+      return next;
+    });
   }, []);
 
   useEffect(() => {
@@ -183,79 +186,8 @@ export default function FeedPage() {
   }, [mergeRemotePosts, setLoading]);
 
   useEffect(() => {
-    void loadStravaStatus();
-  }, [loadStravaStatus]);
-
-  useEffect(() => {
-    if (callbackHandledRef.current) return;
-
-    const params = new URLSearchParams(location.search);
-    const code = params.get("code");
-    const state = params.get("state");
-    const error = params.get("error");
-
-    if (error) {
-      callbackHandledRef.current = true;
-      toast.error("Strava authorization was cancelled or failed.");
-      navigate(location.pathname, { replace: true });
-      return;
-    }
-
-    if (!code || !state) return;
-
-    callbackHandledRef.current = true;
-    setIsConnectingStrava(true);
-
-    void (async () => {
-      try {
-        const result = await exchangeStravaCodeAPI({ code, state });
-        toast.success(`Strava connected. Imported ${result.importedCount} activities.`);
-        await Promise.all([loadStravaStatus(), refreshFeedFirstPage()]);
-      } catch (error) {
-        toast.error(error instanceof ApiError ? error.message : "Could not connect Strava right now.");
-      } finally {
-        setIsConnectingStrava(false);
-        navigate(location.pathname, { replace: true });
-      }
-    })();
-  }, [loadStravaStatus, location.pathname, location.search, navigate, refreshFeedFirstPage]);
-
-  const handleConnectStrava = async () => {
-    setIsConnectingStrava(true);
-    try {
-      const { connectUrl } = await fetchStravaConnectUrlAPI();
-      window.location.href = connectUrl;
-    } catch (error) {
-      setIsConnectingStrava(false);
-      toast.error(error instanceof ApiError ? error.message : "Could not start Strava connection.");
-    }
-  };
-
-  const handleSyncStrava = async () => {
-    setIsSyncingStrava(true);
-    try {
-      const result = await syncStravaActivitiesAPI();
-      toast.success(`Synced Strava. Imported ${result.importedCount} new activities.`);
-      await Promise.all([loadStravaStatus(), refreshFeedFirstPage()]);
-    } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : "Could not sync Strava activities.");
-    } finally {
-      setIsSyncingStrava(false);
-    }
-  };
-
-  const handleDisconnectStrava = async () => {
-    setIsDisconnectingStrava(true);
-    try {
-      await disconnectStravaAPI();
-      toast.success("Strava disconnected.");
-      await loadStravaStatus();
-    } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : "Could not disconnect Strava right now.");
-    } finally {
-      setIsDisconnectingStrava(false);
-    }
-  };
+    void hydrateFollowing();
+  }, [hydrateFollowing]);
 
 
   useEffect(() => {
@@ -304,7 +236,10 @@ export default function FeedPage() {
       .filter((post): post is Post => Boolean(post));
   }, [fallbackPostList, feedOrderIds, postMap]);
 
-  const filteredPosts = filterPostsByTab(orderedFeedPosts, activeTab);
+  const filteredPosts = filterPostsByTab(
+    orderedFeedPosts.filter((post) => post.source !== "strava"),
+    activeTab
+  );
 
   if (loading) {
     return (
@@ -342,7 +277,7 @@ export default function FeedPage() {
                 />
                 <div className="absolute inset-0 bg-gradient-to-br from-[#C9F85A]/4 via-transparent to-[#4DD2FF]/4" />
 
-                {activePost.source !== "strava" && hasRenderableActiveMedia ? (
+                {hasRenderableActiveMedia ? (
                   isActiveVideo ? (
                     <video
                       src={activePost.mediaUrl}
@@ -561,70 +496,6 @@ export default function FeedPage() {
         </div>
       </motion.div>
 
-      <motion.div
-        initial={{ opacity: 0, y: 12 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ ...LUXURY_TWEEN_MEDIUM, delay: 0.06 }}
-        className="rounded-[28px] border border-white/10 bg-[#111111] p-5 sm:p-6"
-      >
-        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-          <div>
-            <div className="inline-flex items-center gap-2 rounded-full bg-[#FC4C02]/15 border border-[#FC4C02]/30 px-3 py-1.5 mb-3">
-              <Bike className="h-3.5 w-3.5 text-[#FC4C02]" />
-              <span className="text-xs font-bold text-[#FC4C02] uppercase tracking-wider">Strava Integration</span>
-            </div>
-            <h2 className="text-xl font-bold text-white">Auto-import your Strava activities</h2>
-            <p className="text-sm text-white/45 mt-1">
-              Activities are posted to your feed, but they do not add leaderboard points.
-            </p>
-            {stravaStatus?.connected && (
-              <p className="text-xs text-white/35 mt-2">
-                Connected as {stravaStatus.athleteUsername ? `@${stravaStatus.athleteUsername}` : (stravaStatus.athleteDisplayName ?? "Strava athlete")}
-                {stravaStatus.lastSyncAt ? ` · Last sync ${timeAgo(stravaStatus.lastSyncAt)}` : ""}
-              </p>
-            )}
-          </div>
-
-          <div className="flex flex-wrap items-center gap-2">
-            {!stravaStatus?.connected ? (
-              <button
-                onClick={() => {
-                  void handleConnectStrava();
-                }}
-                disabled={isConnectingStrava}
-                className="inline-flex items-center gap-2 rounded-full bg-[#FC4C02] px-4 py-2.5 text-xs font-bold uppercase tracking-wider text-white disabled:opacity-60"
-              >
-                {isConnectingStrava ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Link2 className="h-3.5 w-3.5" />}
-                Connect Strava
-              </button>
-            ) : (
-              <>
-                <button
-                  onClick={() => {
-                    void handleSyncStrava();
-                  }}
-                  disabled={isSyncingStrava}
-                  className="inline-flex items-center gap-2 rounded-full bg-[#FC4C02] px-4 py-2.5 text-xs font-bold uppercase tracking-wider text-white disabled:opacity-60"
-                >
-                  {isSyncingStrava ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
-                  Sync Now
-                </button>
-                <button
-                  onClick={() => {
-                    void handleDisconnectStrava();
-                  }}
-                  disabled={isDisconnectingStrava}
-                  className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-transparent px-4 py-2.5 text-xs font-bold uppercase tracking-wider text-white/70 hover:text-white disabled:opacity-60"
-                >
-                  {isDisconnectingStrava ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Unplug className="h-3.5 w-3.5" />}
-                  Disconnect
-                </button>
-              </>
-            )}
-          </div>
-        </div>
-      </motion.div>
-
       {/* ── Tab filter ───────────────────────────────────── */}
       <motion.div
         initial={{ opacity: 0, y: 12 }}
@@ -674,7 +545,12 @@ export default function FeedPage() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ ...LUXURY_TWEEN_MEDIUM, delay: i * 0.07 }}
             >
-              <FeedPostCard post={post} onClick={() => setSelectedPost(post)} />
+              <FeedPostCard
+                post={post}
+                isFollowed={followingUserIds.has(post.userId)}
+                onToggleFollow={handleToggleFollow}
+                onClick={() => setSelectedPost(post)}
+              />
             </motion.div>
           ))}
 

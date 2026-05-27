@@ -4,6 +4,8 @@ import Button from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useUsers } from "@/hooks/useStore";
 import {
+  type AdminExerciseTemplate,
+  type AdminExerciseTemplateAssignment,
   assignExerciseTemplateBulkAPI,
   createExerciseTemplateAPI,
   deleteExerciseTemplateAPI,
@@ -14,36 +16,8 @@ import {
 import { toast } from "sonner";
 import { Dumbbell, GripVertical, Plus, Save, Trash2, UserPlus, Youtube } from "lucide-react";
 
-type ExerciseTemplate = {
-  id: string;
-  name: string;
-  description: string;
-  category: string;
-  sets: number | null;
-  reps: number | null;
-  restSeconds: number | null;
-  durationMinutes: number | null;
-  difficulty: string;
-  equipment: string;
-  youtubeUrl: string | null;
-  proteinGrams: number | null;
-  calories: number | null;
-  mealTiming: string | null;
-  isActive: boolean;
-  createdAt: string;
-  updatedAt: string;
-};
-
-type AssignmentRow = {
-  id: string;
-  studentId: string;
-  studentName: string;
-  templateId: string;
-  templateName: string;
-  dayNumber: number;
-  sortOrder: number;
-  updatedAt: string;
-};
+type ExerciseTemplate = AdminExerciseTemplate;
+type AssignmentRow = AdminExerciseTemplateAssignment;
 
 type PlannerState = Record<number, string[]>;
 type DragPayload = {
@@ -144,6 +118,22 @@ export default function AdminTemplatesPage() {
     [templates]
   );
 
+  const filteredTemplates = useMemo(() => {
+    const search = templateSearch.trim().toLowerCase();
+    return templates.filter((template) => {
+      const matchesCategory = categoryFilter === "all" || template.category === categoryFilter;
+      const matchesActive = !showActiveOnly || template.isActive;
+      const matchesSearch =
+        search.length === 0
+          ? true
+          : [template.name, template.description, template.category, template.difficulty, template.equipment, template.mealTiming ?? ""]
+              .join(" ")
+              .toLowerCase()
+              .includes(search);
+      return matchesCategory && matchesActive && matchesSearch;
+    });
+  }, [templates, templateSearch, categoryFilter, showActiveOnly]);
+
   const categoryOptions = useMemo(() => {
     const source = templates.map((template) => template.category).filter(Boolean);
     return Array.from(new Set(source)).sort((a, b) => a.localeCompare(b));
@@ -172,22 +162,18 @@ export default function AdminTemplatesPage() {
     setLoading(true);
     try {
       const [templateRows, assignmentRows] = await Promise.all([
-        fetchExerciseTemplatesAPI({
-          q: templateSearch.trim() || undefined,
-          category: categoryFilter === "all" ? undefined : categoryFilter,
-          activeOnly: showActiveOnly,
-        }),
+        fetchExerciseTemplatesAPI(),
         fetchExerciseTemplateAssignmentsAPI(),
       ]);
 
-      setTemplates(templateRows as ExerciseTemplate[]);
-      setAssignments(assignmentRows as AssignmentRow[]);
+      setTemplates(templateRows);
+      setAssignments(assignmentRows);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to load templates");
     } finally {
       setLoading(false);
     }
-  }, [templateSearch, categoryFilter, showActiveOnly]);
+  }, []);
 
   useEffect(() => {
     void loadData();
@@ -223,7 +209,7 @@ export default function AdminTemplatesPage() {
 
     try {
       const created = await createExerciseTemplateAPI(toPayload(draft));
-      setTemplates((prev) => [created as ExerciseTemplate, ...prev]);
+      setTemplates((prev) => [created, ...prev]);
       setDraft(emptyDraft);
       toast.success("Exercise template created");
     } catch (error) {
@@ -261,7 +247,7 @@ export default function AdminTemplatesPage() {
 
     try {
       const updated = await updateExerciseTemplateAPI(editingId, toPayload(draft));
-      setTemplates((prev) => prev.map((tpl) => (tpl.id === editingId ? (updated as ExerciseTemplate) : tpl)));
+      setTemplates((prev) => prev.map((tpl) => (tpl.id === editingId ? updated : tpl)));
       setEditingId(null);
       setDraft(emptyDraft);
       toast.success("Template updated");
@@ -501,7 +487,7 @@ export default function AdminTemplatesPage() {
 
         <Card className="xl:col-span-7">
           <CardHeader>
-            <CardTitle>Template Library ({templates.length})</CardTitle>
+            <CardTitle>Template Library ({filteredTemplates.length})</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="mb-3 grid gap-2 md:grid-cols-3">
@@ -532,7 +518,7 @@ export default function AdminTemplatesPage() {
               </label>
             </div>
             <div className="space-y-3 max-h-[520px] overflow-auto pr-1">
-              {templates.map((template) => (
+              {filteredTemplates.map((template) => (
                 <div key={template.id} className="rounded-lg border p-3 space-y-2">
                   <div className="flex items-start justify-between gap-3">
                     <div>
@@ -565,8 +551,8 @@ export default function AdminTemplatesPage() {
                   )}
                 </div>
               ))}
-              {templates.length === 0 && (
-                <p className="text-sm text-muted-foreground">No templates created yet.</p>
+              {filteredTemplates.length === 0 && (
+                <p className="text-sm text-muted-foreground">No templates match the current filters.</p>
               )}
             </div>
             <div className="mt-3">
@@ -633,7 +619,7 @@ export default function AdminTemplatesPage() {
               Drag both Exercise and Nutrition templates into each day to build a complete plan (workout + diet).
             </p>
             <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3 max-h-64 overflow-auto pr-1">
-              {templates
+              {filteredTemplates
                 .filter((template) => template.isActive)
                 .map((template) => (
                   <div

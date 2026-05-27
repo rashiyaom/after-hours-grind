@@ -1,18 +1,19 @@
 import { useState, useRef, useEffect } from "react";
 import { motion } from "framer-motion";
 import {
-  Upload as UploadIcon, Camera, Video, MapPin, Footprints,
-  Hash, FileText, Check, Loader2, X, Image as ImageIcon
+  Upload as UploadIcon, MapPin, Footprints,
+  Hash, FileText, Loader2, X, Image as ImageIcon, Video
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useStore } from "@/hooks/useStore";
 import { toast } from "sonner";
-import { LUXURY_SPRING, LUXURY_TWEEN_MEDIUM } from "@/lib/motionTokens";
-import { uploadMediaFile } from "@/lib/api";
+import { LUXURY_TWEEN_MEDIUM } from "@/lib/motionTokens";
+import { ApiError, uploadMediaFile } from "@/lib/api";
 
 const suggestedTags = ["#push", "#pull", "#legs", "#discipline", "#afterhours", "#grind", "#bio_sync", "#apex"];
 
 export default function UploadPage() {
+  const requiresCloudinary = import.meta.env.PROD;
   const navigate = useNavigate();
   const { student, addPost, updateProfile } = useStore();
   const [caption, setCaption] = useState("");
@@ -20,10 +21,9 @@ export default function UploadPage() {
   const [steps, setSteps] = useState("");
   const [activeTags, setActiveTags] = useState<Set<string>>(new Set(["#afterhours"]));
   const [submitting, setSubmitting] = useState(false);
-  const [submitted, setSubmitted] = useState(false);
-  const [uploadType, setUploadType] = useState<"workout" | "meal" | null>(null);
   const [file, setFile] = useState<File | null>(null);
   const [filePreview, setFilePreview] = useState<string | null>(null);
+  const [mediaKind, setMediaKind] = useState<"image" | "video" | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -41,10 +41,9 @@ export default function UploadPage() {
     });
   };
 
-  const handleFileSelect = (type: "workout" | "meal") => {
-    setUploadType(type);
+  const handleFileSelect = () => {
     if (fileInputRef.current) {
-      fileInputRef.current.accept = type === "workout" ? "video/*" : "image/*";
+      fileInputRef.current.accept = "image/*,video/*";
       fileInputRef.current.click();
     }
   };
@@ -53,13 +52,21 @@ export default function UploadPage() {
     const selected = e.target.files?.[0];
     if (!selected) return;
     
-    // Data URLs are persisted in localStorage; keep payload bounded to avoid quota issues.
-    if (selected.size > 12 * 1024 * 1024) {
-      toast.error("File too large for durable upload. Max 12MB.");
+    const isImage = selected.type.startsWith("image/");
+    const isVideo = selected.type.startsWith("video/");
+
+    if (!isImage && !isVideo) {
+      toast.error("Only image and video files are supported.");
+      return;
+    }
+
+    if (selected.size > 25 * 1024 * 1024) {
+      toast.error("File too large. Max 25MB per upload.");
       return;
     }
 
     setFile(selected);
+    setMediaKind(isVideo ? "video" : "image");
     if (filePreview) URL.revokeObjectURL(filePreview);
     const url = URL.createObjectURL(selected);
     setFilePreview(url);
@@ -71,13 +78,13 @@ export default function UploadPage() {
     if (filePreview) URL.revokeObjectURL(filePreview);
     setFile(null);
     setFilePreview(null);
-    setUploadType(null);
+    setMediaKind(null);
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
   const handleSubmit = async () => {
-    if (!uploadType) {
-      toast.error("Please select an upload type");
+    if (!mediaKind) {
+      toast.error("Please choose a photo or video");
       return;
     }
     if (!file) {
@@ -86,11 +93,17 @@ export default function UploadPage() {
     }
     setSubmitting(true);
     try {
-      const mediaType = uploadType === "workout" ? "video" : "image";
       const uploaded = await uploadMediaFile(file);
+      if (requiresCloudinary && uploaded.provider !== "cloudinary") {
+        toast.error("Cloudinary is required in production. Please configure the backend media provider.");
+        return;
+      }
+
       const mediaUrl = uploaded.url;
       const parsedSteps = Number.parseInt(steps, 10);
       const validSteps = Number.isFinite(parsedSteps) && parsedSteps > 0 ? parsedSteps : null;
+      const tags = Array.from(activeTags).join(" ");
+      const normalizedCaption = [caption.trim(), tags].filter(Boolean).join("\n\n");
 
       await addPost({
         userId: student.id,
@@ -98,42 +111,29 @@ export default function UploadPage() {
         userAvatar: student.avatar,
         userRole: "student",
         source: "general",
-        type: mediaType,
+        type: mediaKind,
         mediaUrl,
-        caption: `${caption}\n\n${Array.from(activeTags).join(" ")}`,
+        caption: normalizedCaption,
         steps: validSteps,
-        location: location || "College Gym",
+        location: location || "After Hours Gym",
       });
 
       if (validSteps !== null) {
         updateProfile({ todaySteps: validSteps });
       }
 
-      setSubmitted(true);
       toast.success("Post shared to feed");
       navigate("/student/feed");
-    } catch {
-      toast.error("Upload failed. Please try again.");
+    } catch (error) {
+      if (error instanceof ApiError) {
+        toast.error(error.message || "Unable to upload right now. Please try again.");
+      } else {
+        toast.error("Unable to upload right now. Please try again.");
+      }
     } finally {
       setSubmitting(false);
     }
   };
-
-  if (submitted) {
-    return (
-      <div className="p-8 max-w-2xl mx-auto flex flex-col items-center justify-center min-h-[70vh] text-center">
-        <motion.div initial={{ scale: 0, rotate: -20 }} animate={{ scale: 1, rotate: 0 }} transition={{ ...LUXURY_SPRING, damping: 12 }}>
-          <div className="w-24 h-24 rounded-full bg-primary/10 flex items-center justify-center mb-8">
-            <Check className="h-12 w-12 text-primary" />
-          </div>
-        </motion.div>
-        <h2 className="text-3xl font-display font-semibold text-foreground tracking-tight mb-3">Success</h2>
-        <p className="text-sm font-medium text-muted-foreground max-w-[300px]">
-           Your progress has been submitted and shared with your trainer.
-        </p>
-      </div>
-    );
-  }
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 max-w-2xl mx-auto space-y-10 pb-28 relative">
@@ -145,16 +145,17 @@ export default function UploadPage() {
         type="file"
         className="hidden"
         onChange={handleFileChange}
+        accept="image/*,video/*"
       />
 
       <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }}>
-        <h1 className="text-3xl font-display font-semibold text-foreground tracking-tight">Daily Check-in</h1>
+        <h1 className="text-3xl font-display font-semibold text-foreground tracking-tight">Create Post</h1>
         <p className="text-sm text-muted-foreground mt-2">
-          Log your daily progress and upload your proof
+          Share a photo or video with your community.
         </p>
       </motion.div>
 
-      {/* Upload Type Selector / File Preview */}
+      {/* Media selector / preview */}
       <motion.div
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
@@ -164,10 +165,10 @@ export default function UploadPage() {
           <div className="glass-card p-6 border border-white/5 relative">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-3">
-                {uploadType === "workout" ? <Video className="h-5 w-5 text-primary" /> : <Camera className="h-5 w-5 text-primary" />}
+                {mediaKind === "video" ? <Video className="h-5 w-5 text-primary" /> : <ImageIcon className="h-5 w-5 text-primary" />}
                 <div>
                   <p className="text-sm font-semibold text-foreground">{file.name}</p>
-                  <p className="text-xs text-muted-foreground">{(file.size / (1024 * 1024)).toFixed(1)} MB</p>
+                  <p className="text-xs text-muted-foreground">{(file.size / (1024 * 1024)).toFixed(1)} MB · {mediaKind === "video" ? "Video" : "Photo"}</p>
                 </div>
               </div>
               <button onClick={clearFile} className="p-2 rounded-xl bg-white/5 hover:bg-red-500/10 hover:text-red-500 transition-all">
@@ -175,7 +176,7 @@ export default function UploadPage() {
               </button>
             </div>
             <div className="rounded-2xl overflow-hidden bg-background border border-white/5">
-              {uploadType === "workout" && file.type.startsWith("video/") ? (
+              {mediaKind === "video" && file.type.startsWith("video/") ? (
                 <video src={filePreview} controls className="w-full max-h-64 object-contain" />
               ) : (
                 <img src={filePreview} alt="Upload preview" className="w-full max-h-64 object-contain" />
@@ -183,28 +184,19 @@ export default function UploadPage() {
             </div>
           </div>
         ) : (
-          <div className="grid sm:grid-cols-2 gap-4">
-            {[
-              { type: "workout" as const, icon: Video, label: "Workout Video", desc: "Upload your workout clip" },
-              { type: "meal" as const, icon: Camera, label: "Meal Photo", desc: "Upload your nutrition photo" },
-            ].map(({ type, icon: Icon, label, desc }) => (
-              <button
-                key={type}
-                onClick={() => handleFileSelect(type)}
-                className="glass-card p-6 text-center cursor-pointer transition-all duration-300 relative overflow-hidden group hover:bg-zinc-900/40 border border-white/5 hover:border-white/10"
-              >
-                <Icon className="h-8 w-8 mx-auto mb-4 transition-colors text-muted-foreground group-hover:text-primary" />
-                <p className="text-base font-semibold mb-1 text-foreground">{label}</p>
-                <p className="text-xs text-muted-foreground">{desc}</p>
-                <div className="mt-5 border-2 border-dashed rounded-2xl p-5 transition-all border-white/5">
-                  <UploadIcon className="h-5 w-5 text-muted-foreground/30 mx-auto group-hover:scale-110 transition-transform group-hover:text-primary/50" />
-                  <p className="text-xs text-muted-foreground/50 mt-3 flex items-center justify-center gap-2">
-                    Tap to upload
-                  </p>
-                </div>
-              </button>
-            ))}
-          </div>
+          <button
+            onClick={handleFileSelect}
+            className="w-full glass-card p-8 text-center cursor-pointer transition-all duration-300 relative overflow-hidden group hover:bg-zinc-900/40 border border-white/5 hover:border-white/10"
+          >
+            <div className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-2xl border border-white/10 bg-white/5">
+              <UploadIcon className="h-6 w-6 text-primary" />
+            </div>
+            <p className="text-lg font-semibold text-foreground">Upload Photo or Video</p>
+            <p className="mt-1 text-sm text-muted-foreground">JPG, PNG, WEBP, MP4, MOV, WEBM · up to 25MB</p>
+            <div className="mt-6 rounded-2xl border border-dashed border-white/10 p-4 text-xs text-muted-foreground/70">
+              Tap to choose from your device
+            </div>
+          </button>
         )}
       </motion.div>
 
@@ -223,7 +215,7 @@ export default function UploadPage() {
         <textarea
           value={caption}
           onChange={(e) => setCaption(e.target.value.slice(0, 280))}
-          placeholder="How did the session go?"
+          placeholder="Write something about this post..."
           rows={4}
           className="w-full bg-background border border-white/5 rounded-xl px-4 py-3 text-sm font-medium text-foreground placeholder:text-muted-foreground/40 focus:outline-none focus:border-primary/50 transition-colors resize-none"
         />
@@ -244,7 +236,7 @@ export default function UploadPage() {
           <input
             value={location}
             onChange={(e) => setLocation(e.target.value)}
-            placeholder="College Gym"
+            placeholder="Add location"
             className="w-full bg-background border border-white/5 rounded-xl px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground/30 focus:outline-none focus:border-primary/30 transition-colors"
           />
         </div>
@@ -257,7 +249,7 @@ export default function UploadPage() {
             type="number"
             value={steps}
             onChange={(e) => setSteps(e.target.value)}
-            placeholder="8432"
+            placeholder="Optional"
             className="w-full bg-background border border-white/5 rounded-xl px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground/30 focus:outline-none focus:border-primary/30 transition-colors"
           />
         </div>
@@ -307,7 +299,7 @@ export default function UploadPage() {
           ) : (
             <>
               <UploadIcon className="h-5 w-5" />
-              Submit Check-in
+              Post to Feed
             </>
           )}
         </button>

@@ -187,6 +187,7 @@ const safeStudentProfileSelect = {
     id: true, userId: true, collegeId: true, heightCm: true, weightKg: true,
     fitnessGoal: true, streak: true, totalPlansCompleted: true, totalPoints: true,
     trainerId: true, currentPlanId: true, onboardingCompleted: true, onboardingStep: true,
+    onboardingDraft: true,
     sport: true, team: true,
 } as const;
 
@@ -418,6 +419,70 @@ export async function deletePostAdmin(postId: string) {
         invalidateFeedCache(),
         invalidateNotificationsCacheForUser(post.userId),
     ]);
+}
+
+export async function runDbAudit() {
+    // Perform integrity checks across key tables and return a detailed report
+    const report: Record<string, any> = {};
+
+    // 1) Orphaned posts (post.userId missing) - raw query
+    report.orphanedPosts = await prisma.$queryRaw`
+        SELECT p.id FROM "Post" p LEFT JOIN "User" u ON u.id = p."userId" WHERE u.id IS NULL LIMIT 10
+    ` as any;
+
+    // 2) Posts missing expected media for image/video types
+    report.postsMissingMedia = await prisma.$queryRaw`
+        SELECT id, "type", "mediaUrl" FROM "Post" WHERE "type" IN ('image','video') AND ("mediaUrl" IS NULL OR "mediaUrl" = '') LIMIT 20
+    ` as any;
+
+    // 3) Users without student profile but role=STUDENT
+    report.studentsWithoutProfile = await prisma.$queryRaw`
+        SELECT u.id, u.email FROM "User" u WHERE u.role = 'STUDENT' AND NOT EXISTS (SELECT 1 FROM "StudentProfile" s WHERE s."userId" = u.id) LIMIT 20
+    ` as any;
+
+    // 4) Orphaned comments / likes
+    report.orphanedComments = await prisma.$queryRaw`
+        SELECT c.id FROM "Comment" c LEFT JOIN "Post" p ON p.id = c."postId" WHERE p.id IS NULL LIMIT 20
+    ` as any;
+    report.orphanedCommentUsers = await prisma.$queryRaw`
+        SELECT c.id FROM "Comment" c LEFT JOIN "User" u ON u.id = c."userId" WHERE u.id IS NULL LIMIT 20
+    ` as any;
+
+    report.orphanedLikes = await prisma.$queryRaw`
+        SELECT l.id FROM "Like" l LEFT JOIN "Post" p ON p.id = l."postId" WHERE p.id IS NULL LIMIT 20
+    ` as any;
+    report.orphanedLikeUsers = await prisma.$queryRaw`
+        SELECT l.id FROM "Like" l LEFT JOIN "User" u ON u.id = l."userId" WHERE u.id IS NULL LIMIT 20
+    ` as any;
+
+    // 5) Submissions with missing student
+    report.orphanedSubmissions = await prisma.$queryRaw`
+        SELECT s.id FROM "Submission" s LEFT JOIN "User" u ON u.id = s."studentId" WHERE u.id IS NULL LIMIT 20
+    ` as any;
+
+    // 6) Refresh tokens orphaned
+    report.orphanedRefreshTokens = await prisma.$queryRaw`
+        SELECT r.id FROM "RefreshToken" r LEFT JOIN "User" u ON u.id = r."userId" WHERE u.id IS NULL LIMIT 20
+    ` as any;
+
+    // 7) Counts for quick sanity
+    report.counts = {};
+    report.counts.users = await prisma.user.count();
+    report.counts.posts = await prisma.post.count();
+    report.counts.comments = await prisma.comment.count();
+    report.counts.submissions = await prisma.submission.count();
+
+    // 8) Recently updated rows check (sample)
+    report.recentPosts = await prisma.post.findMany({ orderBy: { createdAt: 'desc' }, take: 5, select: { id: true, userId: true, mediaUrl: true, createdAt: true } });
+
+    // 9) Simple checksum per table (md5 of concatenated values) - useful for later comparisons
+    const md5Results = await prisma.$queryRaw`
+        SELECT 'User' as table_name, md5(string_agg(id || '|' || coalesce(email,''), ',')) as checksum FROM "User" UNION ALL
+        SELECT 'Post' as table_name, md5(string_agg(id || '|' || coalesce("mediaUrl",''), ',')) as checksum FROM "Post";
+    ` as Array<{ table_name: string; checksum: string }>;
+    report.checksums = md5Results;
+
+    return report;
 }
 
 export async function getActivityLogs() {

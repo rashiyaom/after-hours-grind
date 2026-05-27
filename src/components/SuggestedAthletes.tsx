@@ -6,6 +6,7 @@ import {
 } from "lucide-react";
 import { useStore, useAppStore } from "@/hooks/useStore";
 import { Link, useNavigate } from "react-router-dom";
+import { ApiError } from "@/lib/api";
 import { LUXURY_TWEEN_MEDIUM } from "@/lib/motionTokens";
 import { toast } from "sonner";
 import { fetchFollowingAPI } from "@/lib/api";
@@ -78,8 +79,8 @@ export default function SuggestedAthletes({
         setFollowingIds((prev) => new Set(prev).add(userId));
         toast.success("Following!");
       }
-    } catch {
-      toast.error("Could not update follow status");
+    } catch (error) {
+      toast.error(error instanceof ApiError ? error.message : "Could not update follow status");
     } finally {
       setLoadingIds((prev) => { const s = new Set(prev); s.delete(userId); return s; });
     }

@@ -31,7 +31,7 @@ function EventFormModal({ existing, onClose }: { existing?: AHGEvent; onClose: (
   const [registrationLink, setRegistrationLink] = useState(existing?.registrationLink ?? "");
   const [regOpen, setRegOpen] = useState(existing?.registrationOpen ?? true);
 
-  const handleSave = (e: React.FormEvent) => {
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim() || !date) { toast.error("Title and date are required."); return; }
     const payload = {
@@ -48,9 +48,19 @@ function EventFormModal({ existing, onClose }: { existing?: AHGEvent; onClose: (
       formFields: [],
       createdBy: currentUser?.id ?? "admin",
     };
-    if (existing) { updateEvent(existing.id, payload); toast.success("Event updated!"); }
-    else { createEvent(payload); toast.success("Event created!"); }
-    onClose();
+
+    try {
+      if (existing) {
+        await updateEvent(existing.id, payload);
+        toast.success("Event updated!");
+      } else {
+        await createEvent(payload);
+        toast.success("Event created!");
+      }
+      onClose();
+    } catch {
+      // Store handles the toast and rollback path.
+    }
   };
 
   return (
@@ -146,6 +156,23 @@ export default function AdminEventsManager() {
   const deleteEvent = useAppStore((s) => s.deleteEvent);
   const [creating, setCreating] = useState(false);
   const [editing, setEditing] = useState<AHGEvent | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  const handleDelete = async (event: AHGEvent) => {
+    if (deletingId) return;
+    const confirmed = window.confirm(`Delete "${event.title}"?`);
+    if (!confirmed) return;
+
+    try {
+      setDeletingId(event.id);
+      await deleteEvent(event.id);
+      toast.success("Event deleted.");
+    } catch {
+      // Store handles failure feedback.
+    } finally {
+      setDeletingId(null);
+    }
+  };
 
   return (
     <div style={{ padding: "clamp(1rem,4vw,2.5rem)", minHeight: "100vh", background: "radial-gradient(800px 420px at 20% 0%, rgba(201,248,90,0.14) 0%, transparent 60%), linear-gradient(180deg, #050804 0%, #040603 45%, #030502 100%)", color: "#EFEFEF", fontFamily: "'Outfit',system-ui,sans-serif" }}>
@@ -214,7 +241,23 @@ export default function AdminEventsManager() {
               </div>
               <div style={{ display: "flex", gap: "0.5rem", flexShrink: 0, flexWrap: "wrap" }}>
                 <button onClick={() => setEditing(event)} title="Edit" style={{ padding: "8px 12px", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 8, color: "rgba(239,239,239,0.6)", cursor: "pointer", display: "flex", alignItems: "center", gap: 6, fontSize: "0.78rem" }}><Edit3 size={13} />Edit</button>
-                <button onClick={() => { if (confirm(`Delete "${event.title}"?`)) deleteEvent(event.id); }} title="Delete" style={{ padding: "8px", background: "rgba(255,60,60,0.06)", border: "1px solid rgba(255,60,60,0.15)", borderRadius: 8, color: "rgba(255,100,100,0.6)", cursor: "pointer", display: "flex" }}><Trash2 size={13} /></button>
+                <button
+                  onClick={() => void handleDelete(event)}
+                  disabled={deletingId === event.id}
+                  title="Delete"
+                  style={{
+                    padding: "8px",
+                    background: deletingId === event.id ? "rgba(255,60,60,0.12)" : "rgba(255,60,60,0.06)",
+                    border: "1px solid rgba(255,60,60,0.15)",
+                    borderRadius: 8,
+                    color: "rgba(255,100,100,0.6)",
+                    cursor: deletingId === event.id ? "not-allowed" : "pointer",
+                    display: "flex",
+                    opacity: deletingId === event.id ? 0.65 : 1,
+                  }}
+                >
+                  <Trash2 size={13} />
+                </button>
               </div>
             </div>
           ))}
