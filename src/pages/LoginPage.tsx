@@ -48,16 +48,40 @@ export default function LoginPage() {
     }
     setLoading(true);
 
-    const success = await login(email, password);
-    setLoading(false);
+    try {
+      const success = await login(email, password);
+      setLoading(false);
 
-    if (!success) {
-      toast.error("Login failed. Please check your credentials.");
-      return;
+      if (!success) {
+        toast.error("Login failed. Please check your credentials.");
+        return;
+      }
+
+      toast.success("Welcome back! Live backend sync enabled.");
+      
+      // Wait a tick for state to update, then navigate based on current user
+      setTimeout(() => {
+        const { session } = useAppStore.getState();
+        const user = session.currentUser;
+        if (!user) {
+          navigate("/");
+          return;
+        }
+        
+        if (user.role === "student") {
+          navigate("/student/dashboard");
+        } else if (user.role === "trainer") {
+          navigate("/trainer/dashboard");
+        } else if (user.role === "admin") {
+          navigate("/admin/dashboard");
+        } else {
+          navigate("/");
+        }
+      }, 100);
+    } catch (err) {
+      setLoading(false);
+      toast.error("An unexpected error occurred");
     }
-
-    toast.success("Welcome back! Live backend sync enabled.");
-    navigateByRole();
   };
 
   const containerVariants = {
@@ -83,7 +107,7 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="relative min-h-screen w-full overflow-hidden bg-black">
+    <div className="relative min-h-screen w-full overflow-hidden bg-gradient-to-br from-black via-neutral-900 to-black">
       <div className="absolute inset-0 bg-grid-pattern bg-center [mask-image:linear-gradient(to_bottom,white_5%,transparent_80%)]" />
 
       <div className="relative z-10 flex min-h-screen flex-col items-center justify-center px-4">
@@ -104,7 +128,7 @@ export default function LoginPage() {
 
           <motion.div
             variants={itemVariants}
-            className="rounded-2xl border border-neutral-800 bg-neutral-950/50 p-8 backdrop-blur-md"
+            className="rounded-2xl border border-neutral-700 bg-gradient-to-br from-neutral-900 via-neutral-950 to-black p-8 backdrop-blur-xl shadow-2xl hover:border-neon-green/30 transition-colors"
           >
             <div className="text-center">
               <h1 className="text-3xl font-bold text-white font-display">

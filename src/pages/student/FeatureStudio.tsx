@@ -80,7 +80,7 @@ const itemVariants: Variants = {
 
 export default function FeatureStudioPage() {
   return (
-    <div className="relative min-h-screen w-full bg-black text-white">
+    <div className="relative min-h-screen w-full bg-gradient-to-br from-black via-neutral-900 to-black text-white">
       <div className="absolute inset-0 bg-grid-pattern bg-center [mask-image:linear-gradient(to_bottom,white_5%,transparent_80%)]" />
       <main className="relative z-10 mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
         <PageTitle

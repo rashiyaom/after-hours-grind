@@ -7,6 +7,7 @@ import { logger } from "../../lib/logger.js";
 import { deleteCacheByPattern, getJsonCache, setJsonCache } from "../../lib/cache.js";
 import { invalidateLeaderboardCache } from "../leaderboard/leaderboard.service.js";
 import { invalidateNotificationsCacheForUser } from "../notifications/notifications.service.js";
+import { randomUUID } from "node:crypto";
 
 const LATE_SUBMISSION_POINTS_MULTIPLIER = 0.7;
 const TODAY_PLAN_CACHE_TTL_MS = 15_000;
@@ -1028,6 +1029,12 @@ export async function createPlan(trainerId: string, input: {
   goalType: string; 
   difficulty: string; 
   studentIds: string[];
+  days?: Array<{
+    day: number;
+    activity: string;
+    exercises: Array<{ title: string; youtubeUrl: string | null }>;
+    meals: Array<{ title: string; youtubeUrl: string | null }>;
+  }>;
 }) {
   const plan = await prisma.$transaction(async (tx) => {
     const created = await tx.plan.create({
@@ -1040,12 +1047,73 @@ export async function createPlan(trainerId: string, input: {
       },
     });
 
-    const daysData = Array.from({ length: input.duration }, (_, i) => ({
-      planId: created.id,
-      day: i + 1,
-    }));
+    const normalizedDays = input.days ?? [];
+    const dayIdByNumber = new Map<number, string>();
+    const daysData = Array.from({ length: input.duration }, (_, i) => {
+      const day = i + 1;
+      const id = randomUUID();
+      dayIdByNumber.set(day, id);
+      return {
+        id,
+        planId: created.id,
+        day,
+      };
+    });
 
     await tx.planDay.createMany({ data: daysData });
+
+    const taskRows = normalizedDays.flatMap((dayInput) => {
+      const planDayId = dayIdByNumber.get(dayInput.day);
+      if (!planDayId) return [];
+
+      const exerciseTasks = dayInput.exercises
+        .filter((exercise) => exercise.title.trim() || (exercise.youtubeUrl?.trim() ?? ""))
+        .map((exercise, index) => ({
+          id: randomUUID(),
+          planDayId,
+          type: "workout",
+          title: exercise.title.trim() ? `Exercise ${index + 1}: ${exercise.title.trim()}` : `Exercise ${index + 1}`,
+          description: dayInput.activity.trim() ? `Focus: ${dayInput.activity.trim()}` : "",
+          youtubeUrl: exercise.youtubeUrl?.trim() || null,
+          durationMin: 0,
+          intensity: "moderate",
+          points: 10,
+        }));
+
+      const mealTasks = dayInput.meals
+        .filter((meal) => meal.title.trim() || (meal.youtubeUrl?.trim() ?? ""))
+        .map((meal, index) => ({
+          id: randomUUID(),
+          planDayId,
+          type: "nutrition",
+          title: meal.title.trim() ? `Meal ${index + 1}: ${meal.title.trim()}` : `Meal ${index + 1}`,
+          description: "",
+          youtubeUrl: meal.youtubeUrl?.trim() || null,
+          durationMin: 0,
+          intensity: "low",
+          points: 10,
+        }));
+
+      const activityTask = dayInput.activity.trim()
+        ? [{
+            id: randomUUID(),
+            planDayId,
+            type: "habit",
+            title: "Activity Goal",
+            description: dayInput.activity.trim(),
+            youtubeUrl: null,
+            durationMin: 0,
+            intensity: "low",
+            points: 5,
+          }]
+        : [];
+
+      return [...exerciseTasks, ...mealTasks, ...activityTask];
+    });
+
+    if (taskRows.length > 0) {
+      await tx.planTask.createMany({ data: taskRows });
+    }
 
     if (input.studentIds.length > 0) {
       await tx.studentProfile.updateMany({

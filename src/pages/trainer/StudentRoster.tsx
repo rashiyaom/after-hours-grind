@@ -9,7 +9,8 @@ import { RosterSkeleton } from "@/components/Skeletons";
 
 export default function StudentRoster() {
   const currentUser = useCurrentUser();
-  const users = useAppStore((s) => s.users);
+  // Defensive: ensure `users` is always an object to avoid runtime crashes
+  const users = useAppStore((s) => s.users ?? {} as Record<string, unknown>);
   const plans = useAppStore((s) => s.plans);
 
   const trainer = currentUser?.role === "trainer" ? (currentUser as Trainer) : null;
@@ -26,7 +27,7 @@ export default function StudentRoster() {
 
   const [search, setSearch] = useState("");
   const [sortBy, setSortBy] = useState<"name" | "progress" | "streak">("progress");
-  const { loading } = useAppStore((s) => ({ loading: s.loading ?? false }));
+  const loading = useAppStore((s) => s.system?.isLoading ?? false);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();

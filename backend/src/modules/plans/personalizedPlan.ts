@@ -551,6 +551,7 @@ export const createPersonalized25DayPlan = async (prisma: PrismaClient, studentI
         type: task.type,
         title: task.title,
         description: task.description,
+        youtubeUrl: null,
         durationMin: task.durationMin,
         intensity: task.intensity,
         points: task.points,

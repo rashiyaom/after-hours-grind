@@ -267,6 +267,7 @@ model PlanTask {
   type        String
   title       String
   description String  @default("")
+  youtubeUrl  String?
   durationMin Int     @default(0)
   intensity   String  @default("moderate")
   points      Int     @default(10)

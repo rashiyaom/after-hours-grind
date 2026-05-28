@@ -587,6 +587,12 @@ interface AppActions {
     goalType: string;
     difficulty: Plan['difficulty'];
     studentIds: string[];
+    days?: Array<{
+      day: number;
+      activity: string;
+      exercises: Array<{ title: string; youtubeUrl: string | null }>;
+      meals: Array<{ title: string; youtubeUrl: string | null }>;
+    }>;
   }) => Promise<void>;
   updateProfile: (payload: Record<string, unknown>) => Promise<void>;
   saveOnboardingDraft: (studentId: string, payload: FitnessQuestionnaire, step: number) => Promise<void>;
@@ -1679,10 +1685,10 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
     }
   },
 
-  createPlan: async ({ title, duration, goalType, difficulty, studentIds }) => {
+  createPlan: async ({ title, duration, goalType, difficulty, studentIds, days = [] }) => {
     try {
       set((state) => ({ system: { ...state.system, isLoading: true } }));
-      await createPlanAPI({ name: title, duration, goalType, difficulty, studentIds });
+      await createPlanAPI({ name: title, duration, goalType, difficulty, studentIds, days });
       await get().refreshData({ background: true });
       set((state) => ({ system: { ...state.system, isLoading: false } }));
     } catch (error) {

@@ -138,6 +138,7 @@ export interface PlanTaskItem {
   type: "workout" | "nutrition" | "habit";
   title: string;
   description?: string;
+  youtubeUrl?: string | null;
   durationMinutes?: number;
   intensity?: "low" | "moderate" | "high";
   points: number;

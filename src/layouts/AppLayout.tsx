@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import {
   LayoutDashboard, Calendar, BarChart3, Rss, Trophy, User, Users,
   Bell, Settings, Flame, Menu, X, ChevronLeft,
-  ClipboardList, Award, LogOut, Plus, Search, Zap, Activity, Shield
+  ClipboardList, Award, LogOut, Plus, Search, Zap, Activity, Shield, Sparkles
 } from "lucide-react";
 import { useAppStore, LegacySubmission } from "@/hooks/useStore";
 import { ChatMessage } from "@/types";
@@ -95,16 +95,16 @@ export default function AppLayout() {
           ? "admin"
           : "common";
 
-    void refreshData({ background: true, scope: liveScope });
+    void useAppStore.getState().refreshData({ background: true, scope: liveScope });
 
     let refreshTimer: number | null = null;
     let pendingScope: "common" | "student" | "student-dashboard" | "student-leaderboard" | "trainer" | "admin" = liveScope;
     const scheduleRefresh = (scope: typeof pendingScope) => {
       pendingScope = scope;
       if (refreshTimer !== null) return;
-      refreshTimer = window.setTimeout(() => {
+        refreshTimer = window.setTimeout(() => {
         refreshTimer = null;
-        void refreshData({ background: true, scope: pendingScope });
+        void useAppStore.getState().refreshData({ background: true, scope: pendingScope });
       }, REALTIME_REFRESH_DEBOUNCE_MS);
     };
 
@@ -340,7 +340,7 @@ export default function AppLayout() {
     });
 
     const intervalId = window.setInterval(() => {
-      void refreshData({ background: true, scope: liveScope });
+      void useAppStore.getState().refreshData({ background: true, scope: liveScope });
     }, PERIODIC_REFRESH_MS);
 
     return () => {
@@ -350,7 +350,7 @@ export default function AppLayout() {
       }
       unsubscribe();
     };
-  }, [isAuthenticated, refreshData, currentUser?.role, location.pathname]);
+  }, [isAuthenticated, currentUser?.role, location.pathname]);
 
 
   const rolePermissions = currentUser ? permissions[currentUser.role] : undefined;

@@ -214,7 +214,7 @@ export default function EventsPage() {
   }, [events, filter]);
 
   return (
-    <div className="relative min-h-screen w-full bg-black text-white">
+    <div className="relative min-h-screen w-full bg-gradient-to-br from-black via-neutral-900 to-black text-white">
       <div className="absolute inset-0 bg-grid-pattern bg-center [mask-image:linear-gradient(to_bottom,white_5%,transparent_80%)]" />
       <main className="relative z-10 mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
         <PageTitle
@@ -226,7 +226,7 @@ export default function EventsPage() {
           variants={itemVariants}
           initial="hidden"
           animate="visible"
-          className="my-8 flex flex-wrap items-center justify-center gap-2 rounded-full border border-neutral-800 bg-neutral-950/50 p-2 backdrop-blur-sm"
+          className="my-8 flex flex-wrap items-center justify-center gap-2 rounded-full border border-neutral-700 bg-gradient-to-r from-neutral-950 to-neutral-900 p-2 backdrop-blur-md hover:border-neutral-600 transition-colors"
         >
           {FILTERS.map((f) => (
             <button

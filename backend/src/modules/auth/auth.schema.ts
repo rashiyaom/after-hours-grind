@@ -4,7 +4,7 @@ export const signupSchema = z
   .object({
     name: z.string().trim().min(1).max(100),
     email: z.string().trim().email().max(255),
-    phoneNumber: z.string().trim().regex(/^\+?[0-9]{8,15}$/, "Invalid phone number format").optional(),
+    phoneNumber: z.string().trim().regex(/^\+?[0-9\s\-\(\)]{8,15}$/, "Invalid phone number format").optional(),
     password: z.string().min(8).max(128),
     role: z.preprocess(
       (value) => (typeof value === "string" ? value.toUpperCase() : value),

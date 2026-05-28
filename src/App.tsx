@@ -2,6 +2,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Route, Routes, Navigate } from "react-router-dom";
 import { Suspense, lazy, useEffect } from "react";
 import * as Sentry from "@sentry/react";
+import { Component, ErrorInfo } from "react";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -85,19 +86,56 @@ const ErrorFallback = () => (
   </div>
 );
 
-const App = () => {
-  const initializeSession = useAppStore((state) => state.initializeSession);
+// DEBUG: Temporary ErrorBoundary to show error details for local debugging
+class DebugErrorBoundary extends Component<{ children: React.ReactNode }, { error?: Error; info?: ErrorInfo }> {
+  constructor(props: any) {
+    super(props);
+    this.state = {};
+  }
+  componentDidCatch(error: Error, info: ErrorInfo) {
+    // Store error so we can display it
+    // Also send to Sentry for records
+    Sentry.captureException(error, { extra: info });
+    // eslint-disable-next-line react/no-unused-state
+    this.setState({ error, info });
+  }
+  render() {
+    if (this.state.error) {
+      return (
+        <div className="min-h-screen bg-red-50 p-6">
+          <div className="max-w-4xl mx-auto bg-white rounded p-6">
+            <h2 className="text-xl font-bold text-red-700 mb-2">Debug: Caught error</h2>
+            <pre className="whitespace-pre-wrap text-sm text-gray-900">{String(this.state.error.stack || this.state.error.message)}</pre>
+            <details className="mt-4">
+              <summary className="cursor-pointer text-sm text-gray-600">Component stack</summary>
+              <pre className="whitespace-pre-wrap text-xs text-gray-700">{this.state.info?.componentStack}</pre>
+            </details>
+            <div className="mt-4">
+              <button onClick={() => window.location.reload()} className="px-4 py-2 bg-red-500 text-white rounded">Reload</button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+    // Render children normally
+    // @ts-ignore
+    return this.props.children;
+  }
+}
 
+const App = () => {
+  // Use the store's getter to avoid subscribing to the function reference
+  // which can cause a changing dependency and re-run the effect repeatedly.
   useEffect(() => {
-    void initializeSession();
-  }, [initializeSession]);
+    void useAppStore.getState().initializeSession();
+  }, []);
 
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <Toaster />
         <Sonner />
-        <Sentry.ErrorBoundary fallback={<ErrorFallback />} showDialog>
+        <DebugErrorBoundary>
           <BrowserRouter>
             <Suspense fallback={<AppRouteFallback />}>
               <Routes>
@@ -179,7 +217,7 @@ const App = () => {
               </Routes>
             </Suspense>
           </BrowserRouter>
-        </Sentry.ErrorBoundary>
+        </DebugErrorBoundary>
       </TooltipProvider>
     </QueryClientProvider>
   );

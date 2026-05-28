@@ -89,6 +89,12 @@ const extractYouTubeUrl = (input: string) => {
   return match ? match[1] : null;
 };
 
+const resolveTaskYouTubeUrl = (task: Record<string, unknown>) => {
+  const explicitUrl = typeof task.youtubeUrl === "string" ? task.youtubeUrl.trim() : "";
+  if (explicitUrl) return explicitUrl;
+  return extractYouTubeUrl(String(task.description ?? ""));
+};
+
 const toYouTubeEmbedUrl = (url: string | null) => {
   if (!url) return null;
   try {
@@ -174,7 +180,7 @@ export default function DailyPlanPage() {
             return type === "workout" || type === "habit";
           })
           .map((task) => ({
-            videoUrl: extractYouTubeUrl(String(task.description ?? "")),
+            videoUrl: resolveTaskYouTubeUrl(task),
             id: String(task.id ?? ""),
             name: String(task.title ?? "Task"),
             sets: String(task.intensity ?? "moderate") === "high" ? 4 : 3,
@@ -184,7 +190,7 @@ export default function DailyPlanPage() {
             focus: removeVideoMeta(String(task.description ?? "Execute with clean form and controlled tempo.")),
             equipmentMode: "basic" as const,
             alternatives: ["Regression variant", "Tempo variant"],
-            videoEmbedUrl: toYouTubeEmbedUrl(extractYouTubeUrl(String(task.description ?? ""))),
+            videoEmbedUrl: toYouTubeEmbedUrl(resolveTaskYouTubeUrl(task)),
           })),
         diet: dayTasks
           .filter((task) => String(task.type ?? "").toLowerCase() === "nutrition")

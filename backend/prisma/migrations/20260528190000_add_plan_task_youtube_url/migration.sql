@@ -1,0 +1,2 @@
+ALTER TABLE "PlanTask"
+ADD COLUMN IF NOT EXISTS "youtubeUrl" TEXT;

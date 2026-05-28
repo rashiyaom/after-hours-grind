@@ -8,11 +8,27 @@ import { useAppStore, useCurrentUser } from "@/hooks/useStore";
 import { Student, Trainer } from "@/types";
 import { LUXURY_TWEEN_MEDIUM } from "@/lib/motionTokens";
 
+interface TaskFormData {
+  title: string;
+  youtubeUrl: string;
+}
+
 interface DayFormData {
-  workout: string;
-  diet: string;
+  exercises: TaskFormData[];
+  meals: TaskFormData[];
   activity: string;
 }
+
+const createEmptyTask = (): TaskFormData => ({
+  title: "",
+  youtubeUrl: "",
+});
+
+const createEmptyDayForm = (): DayFormData => ({
+  exercises: [createEmptyTask()],
+  meals: [createEmptyTask()],
+  activity: "",
+});
 
 export default function PlanBuilder() {
   const navigate = useNavigate();
@@ -37,7 +53,7 @@ export default function PlanBuilder() {
   const [difficulty, setDifficulty] = useState<"beginner" | "intermediate" | "advanced">("beginner");
   const [selectedStudentIds, setSelectedStudentIds] = useState<Set<string>>(new Set());
   const [dayForms, setDayForms] = useState<Record<number, DayFormData>>({
-    1: { workout: "", diet: "", activity: "" },
+    1: createEmptyDayForm(),
   });
 
   const days = Object.keys(dayForms).map(Number).sort((a, b) => a - b);
@@ -50,16 +66,49 @@ export default function PlanBuilder() {
     });
   };
 
-  const updateDayForm = (day: number, field: keyof DayFormData, value: string) => {
+  const updateDayActivity = (day: number, value: string) => {
     setDayForms((prev) => ({
       ...prev,
-      [day]: { ...prev[day], [field]: value },
+      [day]: { ...prev[day], activity: value },
+    }));
+  };
+
+  const updateTaskField = (day: number, section: "exercises" | "meals", index: number, field: keyof TaskFormData, value: string) => {
+    setDayForms((prev) => ({
+      ...prev,
+      [day]: {
+        ...prev[day],
+        [section]: prev[day][section].map((task, taskIndex) => (taskIndex === index ? { ...task, [field]: value } : task)),
+      },
+    }));
+  };
+
+  const addTaskRow = (day: number, section: "exercises" | "meals") => {
+    setDayForms((prev) => ({
+      ...prev,
+      [day]: {
+        ...prev[day],
+        [section]: [...prev[day][section], createEmptyTask()],
+      },
+    }));
+  };
+
+  const removeTaskRow = (day: number, section: "exercises" | "meals", index: number) => {
+    setDayForms((prev) => {
+      if ((prev[day]?.[section].length ?? 0) <= 1) return prev;
+      return {
+        ...prev,
+        [day]: {
+          ...prev[day],
+          [section]: prev[day][section].filter((_, taskIndex) => taskIndex !== index),
+        },
+      };
     }));
   };
 
   const addDay = () => {
     const nextDay = days.length > 0 ? Math.max(...days) + 1 : 1;
-    setDayForms((prev) => ({ ...prev, [nextDay]: { workout: "", diet: "", activity: "" } }));
+    setDayForms((prev) => ({ ...prev, [nextDay]: createEmptyDayForm() }));
   };
 
   const removeDay = (day: number) => {
@@ -82,6 +131,19 @@ export default function PlanBuilder() {
     }
     setPublishing(true);
 
+    const planDays = days.map((day) => ({
+      day,
+      activity: dayForms[day]?.activity.trim() ?? "",
+      exercises: (dayForms[day]?.exercises ?? []).map((exercise) => ({
+        title: exercise.title.trim(),
+        youtubeUrl: exercise.youtubeUrl.trim() || null,
+      })),
+      meals: (dayForms[day]?.meals ?? []).map((meal) => ({
+        title: meal.title.trim(),
+        youtubeUrl: meal.youtubeUrl.trim() || null,
+      })),
+    }));
+
     try {
       await createPlan({
         title: planTitle.trim(),
@@ -89,6 +151,7 @@ export default function PlanBuilder() {
         goalType: primaryGoal,
         difficulty,
         studentIds: Array.from(selectedStudentIds),
+        days: planDays,
       });
       toast.success(`Plan assigned to ${selectedStudentIds.size} student${selectedStudentIds.size > 1 ? "s" : ""}!`);
       navigate("/trainer/dashboard");
@@ -209,47 +272,108 @@ export default function PlanBuilder() {
                 </div>
 
                 <div className="space-y-4">
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-2">
-                      <Dumbbell className="h-3.5 w-3.5 text-[#C9F85A]" />
-                      <label className="text-[10px] font-semibold text-white/50 uppercase tracking-wider">Workout (one exercise per line)</label>
+                  <div className="space-y-3 rounded-2xl border border-white/5 bg-[#1A1A1A]/60 p-4">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-2">
+                        <Dumbbell className="h-3.5 w-3.5 text-[#C9F85A]" />
+                        <label className="text-[10px] font-semibold text-white/50 uppercase tracking-wider">Exercises</label>
+                      </div>
+                      <button
+                        onClick={() => addTaskRow(day, "exercises")}
+                        className="text-[10px] font-semibold uppercase tracking-wider text-[#C9F85A] hover:text-[#d4ff60]"
+                      >
+                        + Add Exercise
+                      </button>
                     </div>
-                    <textarea
-                      value={dayForms[day]?.workout ?? ""}
-                      onChange={(e) => updateDayForm(day, "workout", e.target.value)}
-                      placeholder={"Incline Dumbbell Press 4x12\nCable Fly 3x15\nOverhead Triceps Extension 3x12"}
-                      rows={4}
-                      className="w-full bg-[#1A1A1A] border border-white/8 rounded-xl px-4 py-3 text-sm text-white placeholder:text-white/20 focus:outline-none focus:border-[#C9F85A]/30 transition-all resize-none font-mono text-xs leading-relaxed"
-                    />
+                    <div className="space-y-3">
+                      {(dayForms[day]?.exercises ?? []).map((exercise, index) => (
+                        <div key={`day-${day}-exercise-${index}`} className="rounded-xl border border-white/6 bg-[#151515] p-3 space-y-3">
+                          <div className="flex items-center justify-between gap-3">
+                            <p className="text-[10px] font-semibold uppercase tracking-wider text-white/45">Exercise {index + 1}</p>
+                            {(dayForms[day]?.exercises.length ?? 0) > 1 && (
+                              <button
+                                onClick={() => removeTaskRow(day, "exercises", index)}
+                                className="text-[10px] font-semibold uppercase tracking-wider text-white/30 hover:text-red-400"
+                              >
+                                Remove
+                              </button>
+                            )}
+                          </div>
+                          <input
+                            value={exercise.title}
+                            onChange={(e) => updateTaskField(day, "exercises", index, "title", e.target.value)}
+                            placeholder="Incline Dumbbell Press"
+                            className="w-full bg-[#1A1A1A] border border-white/8 rounded-xl px-4 py-3 text-sm text-white placeholder:text-white/20 focus:outline-none focus:border-[#C9F85A]/30 transition-all"
+                          />
+                          <input
+                            type="url"
+                            value={exercise.youtubeUrl}
+                            onChange={(e) => updateTaskField(day, "exercises", index, "youtubeUrl", e.target.value)}
+                            placeholder="YouTube video link"
+                            className="w-full bg-[#1A1A1A] border border-white/8 rounded-xl px-4 py-3 text-sm text-white placeholder:text-white/20 focus:outline-none focus:border-[#C9F85A]/30 transition-all"
+                          />
+                        </div>
+                      ))}
+                    </div>
                   </div>
 
-                  <div className="grid sm:grid-cols-2 gap-4">
-                    <div className="space-y-2">
+                  <div className="space-y-3 rounded-2xl border border-white/5 bg-[#1A1A1A]/60 p-4">
+                    <div className="flex items-center justify-between gap-3">
                       <div className="flex items-center gap-2">
                         <Utensils className="h-3.5 w-3.5 text-[#4DD2FF]" />
-                        <label className="text-[10px] font-semibold text-white/50 uppercase tracking-wider">Nutrition</label>
+                        <label className="text-[10px] font-semibold text-white/50 uppercase tracking-wider">Meals</label>
                       </div>
-                      <textarea
-                        value={dayForms[day]?.diet ?? ""}
-                        onChange={(e) => updateDayForm(day, "diet", e.target.value)}
-                        placeholder="High protein, 2200 cal target"
-                        rows={2}
-                        className="w-full bg-[#1A1A1A] border border-white/8 rounded-xl px-4 py-3 text-sm text-white placeholder:text-white/20 focus:outline-none focus:border-[#4DD2FF]/30 transition-all resize-none font-mono text-xs"
-                      />
+                      <button
+                        onClick={() => addTaskRow(day, "meals")}
+                        className="text-[10px] font-semibold uppercase tracking-wider text-[#4DD2FF] hover:text-[#8fe3ff]"
+                      >
+                        + Add Meal
+                      </button>
                     </div>
-                    <div className="space-y-2">
-                      <div className="flex items-center gap-2">
-                        <Target className="h-3.5 w-3.5 text-[#A78BFA]" />
-                        <label className="text-[10px] font-semibold text-white/50 uppercase tracking-wider">Activity Goal</label>
-                      </div>
-                      <textarea
-                        value={dayForms[day]?.activity ?? ""}
-                        onChange={(e) => updateDayForm(day, "activity", e.target.value)}
-                        placeholder="10k steps + 7h sleep"
-                        rows={2}
-                        className="w-full bg-[#1A1A1A] border border-white/8 rounded-xl px-4 py-3 text-sm text-white placeholder:text-white/20 focus:outline-none focus:border-[#A78BFA]/30 transition-all resize-none font-mono text-xs"
-                      />
+                    <div className="space-y-3">
+                      {(dayForms[day]?.meals ?? []).map((meal, index) => (
+                        <div key={`day-${day}-meal-${index}`} className="rounded-xl border border-white/6 bg-[#151515] p-3 space-y-3">
+                          <div className="flex items-center justify-between gap-3">
+                            <p className="text-[10px] font-semibold uppercase tracking-wider text-white/45">Meal {index + 1}</p>
+                            {(dayForms[day]?.meals.length ?? 0) > 1 && (
+                              <button
+                                onClick={() => removeTaskRow(day, "meals", index)}
+                                className="text-[10px] font-semibold uppercase tracking-wider text-white/30 hover:text-red-400"
+                              >
+                                Remove
+                              </button>
+                            )}
+                          </div>
+                          <input
+                            value={meal.title}
+                            onChange={(e) => updateTaskField(day, "meals", index, "title", e.target.value)}
+                            placeholder="Meal 1: High Protein Breakfast"
+                            className="w-full bg-[#1A1A1A] border border-white/8 rounded-xl px-4 py-3 text-sm text-white placeholder:text-white/20 focus:outline-none focus:border-[#4DD2FF]/30 transition-all"
+                          />
+                          <input
+                            type="url"
+                            value={meal.youtubeUrl}
+                            onChange={(e) => updateTaskField(day, "meals", index, "youtubeUrl", e.target.value)}
+                            placeholder="Recipe or prep video link"
+                            className="w-full bg-[#1A1A1A] border border-white/8 rounded-xl px-4 py-3 text-sm text-white placeholder:text-white/20 focus:outline-none focus:border-[#4DD2FF]/30 transition-all"
+                          />
+                        </div>
+                      ))}
                     </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <Target className="h-3.5 w-3.5 text-[#A78BFA]" />
+                      <label className="text-[10px] font-semibold text-white/50 uppercase tracking-wider">Activity Goal</label>
+                    </div>
+                    <textarea
+                      value={dayForms[day]?.activity ?? ""}
+                      onChange={(e) => updateDayActivity(day, e.target.value)}
+                      placeholder="10k steps + 7h sleep"
+                      rows={2}
+                      className="w-full bg-[#1A1A1A] border border-white/8 rounded-xl px-4 py-3 text-sm text-white placeholder:text-white/20 focus:outline-none focus:border-[#A78BFA]/30 transition-all resize-none font-mono text-xs"
+                    />
                   </div>
                 </div>
               </motion.div>
@@ -324,6 +448,8 @@ export default function PlanBuilder() {
               {[
                 { label: "Duration", value: `${cycleDuration} days` },
                 { label: "Day templates", value: days.length.toString() },
+                { label: "Exercises", value: days.reduce((total, day) => total + (dayForms[day]?.exercises.length ?? 0), 0).toString() },
+                { label: "Meals", value: days.reduce((total, day) => total + (dayForms[day]?.meals.length ?? 0), 0).toString() },
                 { label: "Students", value: selectedStudentIds.size.toString() },
               ].map((row) => (
                 <div key={row.label} className="flex justify-between text-xs">

@@ -71,12 +71,23 @@ export async function markSubmissionWhatsAppReceivedHandler(req: Request, res: R
 }
 
 export async function createPlanHandler(req: Request, res: Response) {
+  const planTaskSchema = z.object({
+    title: z.string().trim().max(120).optional().default(""),
+    youtubeUrl: z.string().url().nullable().optional().default(null),
+  });
+  const planDaySchema = z.object({
+    day: z.number().int().min(1),
+    activity: z.string().trim().max(250).optional().default(""),
+    exercises: z.array(planTaskSchema).optional().default([]),
+    meals: z.array(planTaskSchema).optional().default([]),
+  });
   const schema = z.object({
     name: z.string().min(1),
     duration: z.number().min(1).max(100),
     goalType: z.string().default("General"),
     difficulty: z.string().default("beginner"),
-    studentIds: z.array(z.string())
+    studentIds: z.array(z.string()),
+    days: z.array(planDaySchema).optional().default([]),
   });
   const data = schema.parse(req.body);
   const plan = await svc.createPlan(req.user!.userId, data);

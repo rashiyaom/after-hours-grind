@@ -939,6 +939,7 @@ const syncPlanDayTasksFromAssignments = async (studentId: string, dayNumber: num
                 type: taskType,
                 title: `${template.sort_order}. ${template.name}`,
                 description: buildTemplateTaskDescription(template),
+                youtubeUrl: template.youtube_url ?? null,
                 durationMin: Number(template.duration_minutes ?? (taskType === "nutrition" ? 15 : 30)),
                 intensity: String(taskType === "nutrition" ? "low" : (template.difficulty ?? "moderate")),
                 points: taskType === "nutrition" ? 30 : 45,
