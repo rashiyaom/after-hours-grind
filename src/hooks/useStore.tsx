@@ -188,6 +188,8 @@ const cloneTodayTask = (): LegacyTodayTask => ({
   })),
 });
 
+const DUMMY_ACHIEVEMENTS: Record<string, { id: string; name: string; description: string; threshold: number; points: number; icon: string }> = {};
+
 const adaptTodayTaskForProfile = (baseTask: LegacyTodayTask, student: Student): LegacyTodayTask => {
   const draft = student.onboardingDraft;
   if (!draft) return cloneTodayTask();
@@ -500,6 +502,7 @@ interface AppState {
   users: Record<string, User>;
   posts: Record<string, Post>;
   plans: Record<string, Plan>;
+  achievements: Record<string, { id: string; name: string; description: string; threshold: number; points: number; icon: string; }>;
 
   // System State
   system: {
@@ -891,6 +894,14 @@ const normalizeBackendUser = (input: unknown, existingUser?: User): User | null 
           : existingStudent?.onboardingDraft,
       taskCompletions: existingStudent?.taskCompletions ?? {},
       totalPoints: asNumber(profile.totalPoints, existingStudent?.totalPoints ?? 0),
+      completedAchievements: asStringArray(
+        Array.isArray(raw.achievements)
+          ? (raw.achievements as unknown[])
+              .filter((a: unknown) => asBoolean((a as Record<string, unknown>).completed))
+              .map((a: unknown) => asString((a as Record<string, unknown>).achievementId, ''))
+          : [],
+        []
+      ),
     } as Student;
   }
 
@@ -1262,6 +1273,7 @@ const initialState: AppState = {
   users: initialUsers,
   posts: {},
   plans: {},
+  achievements: DUMMY_ACHIEVEMENTS,
   system: {
     notifications: [],
     activityLogs: [],
@@ -1596,7 +1608,7 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
       await verifyTrainerAPI(trainerId);
       await get().refreshData();
     } catch (error) {
-      Sentry.captureException(error, { tags: { action: "verify_trainer" }, extra: { userId } });
+      Sentry.captureException(error, { tags: { action: "verify_trainer" }, extra: { trainerId } });
       toast.error("Failed to verify trainer");
     }
   },
@@ -3728,14 +3740,14 @@ export const useStore = () => {
         toast.error("Failed to mark notification as read");
       });
 
-      useAppStore.setState((prev) => ({
+      useAppStore.setState((prev: any) => ({
         ...prev,
         system: {
           ...prev.system,
-          legacyNotifications: prev.system.legacyNotifications.map((notification) =>
+          legacyNotifications: prev.system.legacyNotifications.map((notification: NotificationItem) =>
             notification.id === notificationId ? { ...notification, read: true } : notification
           ),
-          notifications: prev.system.notifications.map((notification) =>
+          notifications: prev.system.notifications.map((notification: SystemNotification) =>
             notification.id === notificationId ? { ...notification, read: true } : notification
           ),
         },

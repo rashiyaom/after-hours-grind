@@ -16,6 +16,7 @@ const PERIODIC_REFRESH_MS = 300000;
 
 const studentNav = [
   { label: "Dashboard", path: "/student/dashboard", icon: LayoutDashboard },
+  { label: "Features", path: "/student/features", icon: Sparkles },
   { label: "Daily Plan", path: "/student/daily-plan", icon: Calendar },
   { label: "Progress", path: "/student/progress", icon: BarChart3 },
   { label: "Feed", path: "/student/feed", icon: Rss },
@@ -28,7 +29,7 @@ const studentNav = [
 
 const mobileStudentBottomNav = [
   { label: "Home", path: "/student/dashboard", icon: LayoutDashboard },
-  { label: "Explore", path: "/student/explore", icon: Search },
+  { label: "Features", path: "/student/features", icon: Sparkles },
   { label: "Upload", path: "/student/upload", icon: Plus, isAction: true },
   { label: "DMs", path: "/student/community", icon: Users },
   { label: "Profile", path: "/student/profile", icon: User },

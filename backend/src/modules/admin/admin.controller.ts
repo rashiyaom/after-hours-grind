@@ -36,6 +36,27 @@ export async function assignStudentTrainerHandler(req: Request, res: Response) {
     res.json(result);
 }
 
+export async function awardPointsHandler(req: Request, res: Response) {
+    const payload = z.object({
+        userId: z.string().min(1),
+        points: z.coerce.number().int().refine((value) => value !== 0, "Points cannot be zero"),
+        reason: z.string().trim().optional().default("Admin adjustment"),
+    }).parse(req.body);
+
+    const result = await svc.awardPointsToUser(payload.userId, payload.points, payload.reason);
+    res.json(result);
+}
+
+export async function markAchievementCompleteHandler(req: Request, res: Response) {
+    const payload = z.object({
+        userId: z.string().min(1),
+        achievementId: z.string().min(1),
+    }).parse(req.body);
+
+    const result = await svc.markAchievementCompleteForUser(payload.userId, payload.achievementId);
+    res.json(result);
+}
+
 export async function updatePostModerationHandler(req: Request, res: Response) {
     const { status } = z
       .object({ status: z.enum(["visible", "hidden", "under-review"]) })

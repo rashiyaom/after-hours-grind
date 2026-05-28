@@ -1,11 +1,10 @@
 import { Link, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Eye, EyeOff, Loader2 } from "lucide-react";
+import { ArrowRight, Eye, EyeOff, Loader2 } from "lucide-react";
 import { useState } from "react";
 import { useAppStore } from "@/hooks/useStore";
 import { toast } from "sonner";
 import { Student } from "@/types";
-import { LUXURY_TWEEN_SLOW } from "@/lib/motionTokens";
 
 export default function LoginPage() {
   const navigate = useNavigate();
@@ -61,98 +60,152 @@ export default function LoginPage() {
     navigateByRole();
   };
 
+  const containerVariants = {
+    hidden: { opacity: 0 },
+    visible: {
+      opacity: 1,
+      transition: {
+        staggerChildren: 0.1,
+      },
+    },
+  };
+
+  const itemVariants = {
+    hidden: { y: 20, opacity: 0 },
+    visible: {
+      y: 0,
+      opacity: 1,
+      transition: {
+        type: "spring",
+        stiffness: 100,
+      },
+    },
+  };
+
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center section-padding py-16 relative overflow-hidden">
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(255,165,0,0.1),transparent_70%)]" />
-      <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] opacity-10 pointer-events-none" />
-      
-      <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={LUXURY_TWEEN_SLOW} className="w-full max-w-md relative z-10">
-        <div className="text-center mb-12">
-          <div className="inline-flex items-center justify-center p-2 rounded-2xl bg-[#4DD2FF]/10 mb-6 group transition-all overflow-hidden border border-[#4DD2FF]/20 shadow-[0_0_15px_rgba(77,210,255,0.15)]">
-             <img src="/logo.jpg" alt="THE afterhour socials" className="h-14 w-14 object-cover rounded-xl" />
-          </div>
-          <h1 className="text-4xl font-display font-semibold text-foreground tracking-tight">Sign In</h1>
-          <p className="text-xs text-muted-foreground mt-4">Welcome back to THE afterhour socials</p>
-          <p className="text-[11px] text-muted-foreground/80 mt-2">Role is detected automatically from your account (student, trainer, or admin).</p>
-        </div>
+    <div className="relative min-h-screen w-full overflow-hidden bg-black">
+      <div className="absolute inset-0 bg-grid-pattern bg-center [mask-image:linear-gradient(to_bottom,white_5%,transparent_80%)]" />
 
-        <form onSubmit={handleSubmit} className="glass-card p-8 space-y-6 relative border border-white/5">
+      <div className="relative z-10 flex min-h-screen flex-col items-center justify-center px-4">
+        <motion.div
+          variants={containerVariants}
+          initial="hidden"
+          animate="visible"
+          className="w-full max-w-md"
+        >
+          <motion.div variants={itemVariants} className="flex justify-center mb-8">
+            <Link to="/" className="flex items-center gap-3">
+              <img src="/logo.jpg" alt="THE afterhour socials" className="h-14 w-14 rounded-full border-2 border-neon-green" />
+              <span className="text-2xl font-bold tracking-tighter text-white font-display">
+                After-Hours Grind
+              </span>
+            </Link>
+          </motion.div>
 
-          <div className="space-y-4">
-            <div>
-              <label className="text-xs font-medium text-muted-foreground mb-1.5 block">
-                 Email
-              </label>
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="you@example.com"
-                required
-                className="w-full bg-background border border-white/10 rounded-xl px-4 py-3 text-sm text-foreground focus:outline-none focus:border-primary transition-colors"
-              />
-            </div>
-
-            <div>
-              <label className="text-xs font-medium text-muted-foreground mb-1.5 block">
-                 Password
-              </label>
-              <div className="relative">
-                <input
-                  type={showPassword ? "text" : "password"}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••••"
-                  required
-                  minLength={1}
-                  className="w-full bg-background border border-white/10 rounded-xl px-4 py-3 text-sm text-foreground focus:outline-none focus:border-primary transition-colors pr-12"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-primary transition-colors"
-                >
-                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                </button>
-              </div>
-            </div>
-          </div>
-
-          <div className="flex justify-end">
-            <button
-              type="button"
-              onClick={() => navigate("/reset-password")}
-              className="text-xs font-medium text-muted-foreground hover:text-primary transition-colors"
-            >
-              Forgot password?
-            </button>
-          </div>
-
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full h-14 relative overflow-hidden rounded-xl bg-primary text-black font-semibold transition-all hover:opacity-90 active:scale-95 flex items-center justify-center disabled:opacity-50"
+          <motion.div
+            variants={itemVariants}
+            className="rounded-2xl border border-neutral-800 bg-neutral-950/50 p-8 backdrop-blur-md"
           >
-            {loading ? (
-              <div className="flex items-center gap-2">
-                <Loader2 className="h-4 w-4 animate-spin" />
-                Signing in...
-              </div>
-            ) : (
-              "Sign In"
-            )}
-          </button>
+            <div className="text-center">
+              <h1 className="text-3xl font-bold text-white font-display">
+                Secure Sign In
+              </h1>
+              <p className="mt-2 text-sm text-neutral-400">
+                Access your personalized dashboard.
+              </p>
+            </div>
 
-          <div className="pt-4 text-center">
-            <p className="text-xs text-muted-foreground">
-              Need access?{" "}
-              <Link to="/request-access" className="text-primary font-medium hover:underline underline-offset-4">
-                Request Access
-              </Link>
-            </p>
-          </div>
-        </form>
-      </motion.div>
+            <form onSubmit={handleSubmit} className="mt-8 space-y-6">
+              <div className="space-y-2">
+                <label
+                  htmlFor="email"
+                  className="text-sm font-medium text-neutral-300"
+                >
+                  Email
+                </label>
+                <input
+                  id="email"
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="you@example.com"
+                  required
+                  className="h-12 w-full rounded-lg border border-neutral-700 bg-neutral-900 px-4 text-white placeholder-neutral-500 transition-colors focus:border-neon-green focus:outline-none focus:ring-2 focus:ring-neon-green/50"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <label
+                    htmlFor="password"
+                    className="text-sm font-medium text-neutral-300"
+                  >
+                    Password
+                  </label>
+                  <Link
+                    to="/reset-password"
+                    className="text-xs text-neon-yellow hover:underline"
+                  >
+                    Forgot password?
+                  </Link>
+                </div>
+                <div className="relative">
+                  <input
+                    id="password"
+                    type={showPassword ? "text" : "password"}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="••••••••"
+                    required
+                    minLength={1}
+                    className="h-12 w-full rounded-lg border border-neutral-700 bg-neutral-900 px-4 pr-12 text-white placeholder-neutral-500 transition-colors focus:border-neon-green focus:outline-none focus:ring-2 focus:ring-neon-green/50"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-white"
+                  >
+                    {showPassword ? (
+                      <EyeOff className="h-5 w-5" />
+                    ) : (
+                      <Eye className="h-5 w-5" />
+                    )}
+                  </button>
+                </div>
+              </div>
+
+              <button
+                type="submit"
+                disabled={loading}
+                className="group relative flex h-12 w-full items-center justify-center rounded-lg bg-neon-green text-black font-bold transition-transform active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {loading ? (
+                  <>
+                    <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                    Authenticating...
+                  </>
+                ) : (
+                  <>
+                    Sign In
+                    <ArrowRight className="ml-2 h-5 w-5 transition-transform group-hover:translate-x-1" />
+                  </>
+                )}
+              </button>
+            </form>
+          </motion.div>
+
+          <motion.p variants={itemVariants} className="mt-8 text-center text-sm text-neutral-400">
+            Don't have an account?{" "}
+            <Link
+              to="/request-access"
+              className="font-medium text-neon-yellow hover:underline"
+            >
+              Request Access
+            </Link>
+          </motion.p>
+        </motion.div>
+      </div>
     </div>
   );
 }
+

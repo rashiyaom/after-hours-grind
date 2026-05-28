@@ -15,6 +15,7 @@ const PASSWORD_RESET_TTL_MS = env.RESET_PASSWORD_TTL_MINUTES * 60 * 1000;
 const FORGOT_PASSWORD_CODE_TTL_SECONDS = 10 * 60;
 const FORGOT_PASSWORD_CODE_TTL_MS = FORGOT_PASSWORD_CODE_TTL_SECONDS * 1000;
 const FORGOT_PASSWORD_MAX_VERIFY_ATTEMPTS = 5;
+const PASSWORD_RESET_TOKEN_TABLE = "PasswordResetToken";
 
 function refreshTokenExpiry(): Date {
   return new Date(Date.now() + REFRESH_TOKEN_TTL_MS);
@@ -51,6 +52,28 @@ const isBannedUser = (user: unknown): boolean => {
   if (!user || typeof user !== "object") return false;
   if (!("isBanned" in user)) return false;
   return user.isBanned === true;
+};
+
+const isMissingTableError = (error: unknown, tableName: string): boolean => {
+  if (!error || typeof error !== "object") return false;
+
+  const candidate = error as {
+    code?: unknown;
+    message?: unknown;
+    meta?: {
+      table?: unknown;
+    };
+  };
+
+  if (candidate.code === "P2021" && candidate.meta?.table === tableName) {
+    return true;
+  }
+
+  if (typeof candidate.message === "string") {
+    return candidate.message.includes(tableName) && candidate.message.includes("does not exist");
+  }
+
+  return false;
 };
 
 export async function signup(input: SignupInput) {
@@ -226,14 +249,21 @@ export async function changePassword(userId: string, currentPassword: string, ne
 export async function cleanupExpiredResetTokens() {
   const now = new Date();
   const usedBefore = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
-  await prisma.passwordResetToken.deleteMany({
-    where: {
-      OR: [
-        { expiresAt: { lt: now } },
-        { usedAt: { not: null, lt: usedBefore } },
-      ],
-    },
-  });
+  try {
+    await prisma.passwordResetToken.deleteMany({
+      where: {
+        OR: [
+          { expiresAt: { lt: now } },
+          { usedAt: { not: null, lt: usedBefore } },
+        ],
+      },
+    });
+  } catch (error) {
+    if (isMissingTableError(error, PASSWORD_RESET_TOKEN_TABLE)) {
+      return;
+    }
+    throw error;
+  }
 }
 
 async function issueTokens(userId: string, role: string) {

@@ -6,7 +6,9 @@ import { publishUserEvent } from "../../lib/realtime.js";
 import { randomUUID } from "node:crypto";
 import { getSmartPlanExerciseTemplateSeeds } from "../plans/personalizedPlan.js";
 import { invalidateFeedCache } from "../feed/feed.service.js";
+import { createNotification } from "../notifications/notifications.service.js";
 import { invalidateNotificationsCacheForUser } from "../notifications/notifications.service.js";
+import { invalidateLeaderboardCache } from "../leaderboard/leaderboard.service.js";
 import { getJsonCache, setJsonCache } from "../../lib/cache.js";
 
 const ADMIN_ACTIVITY_CACHE_TTL_SECONDS = 12;
@@ -201,6 +203,7 @@ const safeUserSelect = {
     createdAt: true, updatedAt: true, isBanned: true,
     studentProfile: { select: safeStudentProfileSelect },
     trainerProfile: { select: safeTrainerProfileSelect },
+    achievements: { select: { achievementId: true } },
 } as const;
 
 export async function getAllUsersAdmin() {
@@ -333,6 +336,107 @@ export async function assignTrainerToStudent(studentId: string, trainerId: strin
     });
 
     return { userId: updated.userId, trainerId: updated.trainerId };
+}
+
+export async function awardPointsToUser(userId: string, points: number, reason: string) {
+    const user = await prisma.user.findUnique({
+        where: { id: userId },
+        include: { studentProfile: true },
+    });
+
+    if (!user) throw HttpError.notFound("User not found");
+    if (user.role !== "STUDENT" || !user.studentProfile) {
+        throw HttpError.badRequest("Points can only be awarded to student accounts");
+    }
+
+    const note = reason.trim() || "Admin adjustment";
+
+    const updatedProfile = await prisma.studentProfile.update({
+        where: { userId },
+        data: { totalPoints: { increment: points } },
+    });
+
+    const notification = await createNotification({
+        userId,
+        type: "system",
+        title: points >= 0 ? "Points Awarded" : "Points Adjusted",
+        message: points >= 0
+            ? `You were awarded ${points} points. Reason: ${note}`
+            : `Your points were adjusted by ${points}. Reason: ${note}`,
+    });
+
+    publishUserEvent(userId, "notification.created", {
+        notificationId: notification.id,
+        type: notification.type,
+        title: notification.title,
+        createdAt: notification.createdAt.toISOString(),
+    });
+
+    await invalidateLeaderboardCache();
+
+    return {
+        userId,
+        totalPoints: updatedProfile.totalPoints,
+        pointsDelta: points,
+        reason: note,
+    };
+}
+
+export async function markAchievementCompleteForUser(userId: string, achievementId: string) {
+    const user = await prisma.user.findUnique({
+        where: { id: userId },
+        include: { studentProfile: true, achievements: true },
+    });
+    if (!user) throw HttpError.notFound("User not found");
+    if (user.role !== "STUDENT" || !user.studentProfile) {
+        throw HttpError.badRequest("Achievements can only be marked for student accounts");
+    }
+
+    const achievement = await prisma.achievementDef.findUnique({ where: { id: achievementId } });
+    if (!achievement) throw HttpError.notFound("Achievement not found");
+
+    const existing = await prisma.userAchievement.findUnique({
+        where: { userId_achievementId: { userId, achievementId } },
+    });
+
+    if (!existing) {
+        await prisma.userAchievement.create({
+            data: { userId, achievementId },
+        });
+
+        if (achievement.points !== 0) {
+            await prisma.studentProfile.update({
+                where: { userId },
+                data: { totalPoints: { increment: achievement.points } },
+            });
+        }
+
+        const notification = await createNotification({
+            userId,
+            type: "system",
+            title: "Achievement Completed",
+            message: achievement.points !== 0
+                ? `An admin completed "${achievement.name}" for you and awarded ${achievement.points} points.`
+                : `An admin completed "${achievement.name}" for you.`,
+        });
+
+        publishUserEvent(userId, "notification.created", {
+            notificationId: notification.id,
+            type: notification.type,
+            title: notification.title,
+            createdAt: notification.createdAt.toISOString(),
+        });
+
+        await invalidateLeaderboardCache();
+    }
+
+    return {
+        userId,
+        achievementId,
+        achievementName: achievement.name,
+        pointsAwarded: existing ? 0 : achievement.points,
+        alreadyCompleted: Boolean(existing),
+    };
 }
 
 // Content moderation

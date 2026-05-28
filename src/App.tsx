@@ -34,6 +34,7 @@ const Achievements = lazy(() => import("@/pages/student/Achievements"));
 const FitnessOnboardingPage = lazy(() => import("@/pages/student/FitnessOnboarding"));
 const PlanApprovalStatusPage = lazy(() => import("@/pages/student/PlanApprovalStatus"));
 const Explore = lazy(() => import("@/pages/student/Explore"));
+const FeatureStudioPage = lazy(() => import("@/pages/student/FeatureStudio"));
 
 const TrainerDashboard = lazy(() => import("@/pages/trainer/Dashboard"));
 const PlanBuilder = lazy(() => import("@/pages/trainer/PlanBuilder"));
@@ -49,6 +50,7 @@ const Permissions = lazy(() => import("@/pages/admin/Permissions"));
 const AdminEventsManager = lazy(() => import("@/pages/admin/EventsManager"));
 const AdminTemplates = lazy(() => import("@/pages/admin/Templates"));
 const AdminAchievementsManager = lazy(() => import("@/pages/admin/AchievementsManager"));
+const PointsManagerPage = lazy(() => import("@/pages/admin/PointsManager"));
 
 const EventsPage = lazy(() => import("@/pages/EventsPage"));
 const AthletesPage = lazy(() => import("@/pages/AthletesPage"));
@@ -133,6 +135,7 @@ const App = () => {
               <Route path="settings" element={<Settings />} />
               <Route path="achievements" element={<Achievements />} />
               <Route path="explore" element={<Explore />} />
+              <Route path="features" element={<FeatureStudioPage />} />
             </Route>
           </Route>
 
@@ -167,6 +170,7 @@ const App = () => {
               </Route>
               <Route path="events" element={<AdminEventsManager />} />
               <Route path="achievements" element={<AdminAchievementsManager />} />
+              <Route path="points" element={<PointsManagerPage />} />
             </Route>
           </Route>
 

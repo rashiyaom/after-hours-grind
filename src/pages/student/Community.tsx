@@ -23,9 +23,10 @@ const relativeTime = (iso: string) => {
   return `${Math.floor(hours / 24)}d`;
 };
 
-const formatSeconds = (seconds: number) => {
-  const mins = Math.floor(seconds / 60);
-  const rem = seconds % 60;
+const formatSeconds = (seconds: number | null | undefined) => {
+  const totalSeconds = seconds ?? 0;
+  const mins = Math.floor(totalSeconds / 60);
+  const rem = totalSeconds % 60;
   return `${mins}:${String(rem).padStart(2, "0")}`;
 };
 
@@ -87,7 +88,7 @@ export default function CommunityPage() {
       const peers = allUsers.filter(
         (user) => user.role === "student" && user.id !== currentUser.id
       );
-      base = [trainerContact, ...peers].filter((item): item is User => Boolean(item));
+      base = [trainerContact, ...peers].filter(Boolean) as User[];
     } else if (isTrainer) {
       base = allUsers.filter(
         (user) => user.role === "student" && (user as import("@/types").Student).trainerId === currentUser.id

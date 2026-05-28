@@ -923,3 +923,17 @@ export async function bulkDeleteUsersAPI(userIds: string[]): Promise<ApiRecord> 
     body: JSON.stringify({ userIds }),
   });
 }
+
+export async function awardPointsAPI(userId: string, points: number, reason?: string): Promise<ApiRecord> {
+  return authedRequest<ApiRecord>("/admin/points/award", {
+    method: "POST",
+    body: JSON.stringify({ userId, points, reason }),
+  });
+}
+
+export async function markAchievementCompleteAPI(userId: string, achievementId: string): Promise<ApiRecord> {
+  return authedRequest<ApiRecord>("/admin/points/achievements", {
+    method: "POST",
+    body: JSON.stringify({ userId, achievementId }),
+  });
+}

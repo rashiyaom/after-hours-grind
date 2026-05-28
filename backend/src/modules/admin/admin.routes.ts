@@ -15,6 +15,8 @@ router.patch("/users/:userId/verify-trainer", asyncHandler(ctrl.verifyTrainerHan
 router.patch("/users/:userId/trainer", asyncHandler(ctrl.assignStudentTrainerHandler));
 router.post("/users", asyncHandler(ctrl.createAccountHandler));
 router.delete("/users/bulk", asyncHandler(ctrl.bulkDeleteUsersHandler));
+router.post("/points/award", asyncHandler(ctrl.awardPointsHandler));
+router.post("/points/achievements", asyncHandler(ctrl.markAchievementCompleteHandler));
 router.get("/stats", asyncHandler(ctrl.getAdminStatsHandler));
 router.get("/permissions", asyncHandler(ctrl.getPermissionsHandler));
 router.patch("/permissions", asyncHandler(ctrl.setPermissionHandler));

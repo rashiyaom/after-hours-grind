@@ -6,9 +6,14 @@ import {
   Calendar,
   Check,
   Flame,
+  LineChart,
+  ScrollText,
   Search,
+  Sparkles,
   Target,
   Trophy,
+  Utensils,
+  Dumbbell,
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Navigate } from "react-router-dom";
@@ -22,6 +27,14 @@ type DashboardPill = "All" | "Workout" | "Nutrition" | "Recovery";
 
 const DASHBOARD_TABS: DashboardTab[] = ["Overview", "Training", "Nutrition", "Progress", "Reports"];
 const DASHBOARD_PILLS: DashboardPill[] = ["All", "Workout", "Nutrition", "Recovery"];
+
+const TAB_TO_PILL: Record<DashboardTab, DashboardPill> = {
+  Overview: "All",
+  Training: "Workout",
+  Nutrition: "Nutrition",
+  Progress: "Recovery",
+  Reports: "All",
+};
 
 const formatRelativeTime = (timestamp: string, nowMs: number): string => {
   const parsed = new Date(timestamp).getTime();
@@ -81,6 +94,17 @@ export default function StudentDashboard() {
   const [streakWindow, setStreakWindow] = useState<"5w" | "10w">("5w");
   const [nowMs, setNowMs] = useState(() => Date.now());
   const searchInputRef = useRef<HTMLInputElement>(null);
+
+  const handleTabSelect = (tab: DashboardTab) => {
+    setActiveTab(tab);
+    setActivePill(TAB_TO_PILL[tab]);
+    if (tab === "Progress") {
+      setTimeframe("Weekly");
+    }
+    if (tab === "Reports") {
+      setTimeframe("Monthly");
+    }
+  };
 
   const notificationCount = notifications.filter((n) => !n.read).length;
 
@@ -283,6 +307,37 @@ export default function StudentDashboard() {
     },
   ];
 
+  const featureTiles = [
+    {
+      title: "Training Engine",
+      subtitle: "Open your task system and keep execution tight.",
+      to: "/student/daily-plan",
+      icon: Dumbbell,
+      tone: "from-[#7DE3FF]/20 to-transparent",
+    },
+    {
+      title: "Nutrition Stack",
+      subtitle: "Track meal tasks and completion in one tap.",
+      to: "/student/daily-plan",
+      icon: Utensils,
+      tone: "from-[#FFD18A]/20 to-transparent",
+    },
+    {
+      title: "Progress Lens",
+      subtitle: "Review growth with live analytics.",
+      to: "/student/progress",
+      icon: LineChart,
+      tone: "from-[#C9F85A]/20 to-transparent",
+    },
+    {
+      title: "Reports Hub",
+      subtitle: "Generate and export your summary quickly.",
+      to: "/student/features",
+      icon: ScrollText,
+      tone: "from-[#D1B9FF]/20 to-transparent",
+    },
+  ];
+
   useEffect(() => {
     void refreshData({ background: true, scope: "student-dashboard" });
   }, [refreshData]);
@@ -365,7 +420,7 @@ export default function StudentDashboard() {
               <button
                 key={tab}
                 type="button"
-                onClick={() => setActiveTab(tab)}
+                onClick={() => handleTabSelect(tab)}
                 className={`rounded-full px-4 py-2 text-sm font-semibold transition-colors ${
                   activeTab === tab
                     ? "bg-[#C9F85A] text-[#0F0F0F]"
@@ -529,10 +584,60 @@ export default function StudentDashboard() {
               onClick={handleDownloadSummary}
               className="rounded-full bg-[#1D1D1D] px-4 py-2 text-sm font-semibold text-white"
             >
-              Download summary
+              {activeTab === "Reports" ? "Export monthly report" : "Download summary"}
             </button>
           </div>
         </div>
+
+        <motion.div
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ ...LUXURY_TWEEN_MEDIUM, delay: 0.12 }}
+          className="mt-5 rounded-3xl border border-white/10 bg-[#131313] p-4 sm:p-5"
+        >
+          <div className="mb-4 flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <span className="rounded-lg border border-[#7DE3FF]/30 bg-[#7DE3FF]/10 p-1.5">
+                <Sparkles className="h-4 w-4 text-[#7DE3FF]" />
+              </span>
+              <div>
+                <p className="text-sm font-semibold text-white">Features</p>
+                <p className="text-[11px] text-white/45">Now linked and fully interactive</p>
+              </div>
+            </div>
+            <Link
+              to="/student/features"
+              className="rounded-full border border-[#7DE3FF]/35 bg-[#7DE3FF]/12 px-3 py-1.5 text-[11px] font-bold uppercase tracking-[0.12em] text-[#7DE3FF] transition hover:bg-[#7DE3FF] hover:text-black"
+            >
+              Open Studio
+            </Link>
+          </div>
+
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            {featureTiles.map((tile) => {
+              const Icon = tile.icon;
+              return (
+                <Link
+                  key={tile.title}
+                  to={tile.to}
+                  className="group relative overflow-hidden rounded-2xl border border-white/10 bg-[#181818] p-4 transition-colors hover:border-white/20"
+                >
+                  <div className={`pointer-events-none absolute inset-0 bg-gradient-to-br ${tile.tone}`} />
+                  <div className="relative z-10">
+                    <span className="inline-flex rounded-xl border border-white/10 bg-[#121212] p-2 text-white/80">
+                      <Icon className="h-4 w-4" />
+                    </span>
+                    <p className="mt-3 text-sm font-semibold text-white">{tile.title}</p>
+                    <p className="mt-1 text-xs leading-relaxed text-white/55">{tile.subtitle}</p>
+                    <span className="mt-3 inline-flex items-center gap-1 text-[11px] font-semibold text-[#C9F85A]">
+                      Launch <ArrowUpRight className="h-3.5 w-3.5 transition group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
+                    </span>
+                  </div>
+                </Link>
+              );
+            })}
+          </div>
+        </motion.div>
       </motion.section>
 
       <section className="grid gap-6 lg:grid-cols-12">
