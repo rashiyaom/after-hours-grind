@@ -103,7 +103,7 @@ export default function PlanBuilder() {
           [section]: prev[day][section].filter((_, taskIndex) => taskIndex !== index),
         },
       };
-    }));
+    });
   };
 
   const addDay = () => {

@@ -95,7 +95,8 @@ class DebugErrorBoundary extends Component<{ children: React.ReactNode }, { erro
   componentDidCatch(error: Error, info: ErrorInfo) {
     // Store error so we can display it
     // Also send to Sentry for records
-    Sentry.captureException(error, { extra: info });
+    // Attach only serializable details from ErrorInfo to satisfy Sentry typings
+    Sentry.captureException(error, { extra: { componentStack: info.componentStack } });
     // eslint-disable-next-line react/no-unused-state
     this.setState({ error, info });
   }
