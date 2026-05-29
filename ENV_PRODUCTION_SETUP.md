@@ -82,6 +82,17 @@ VITE_API_BASE_URL=https://api.example.com/api
 VITE_SENTRY_DSN=https://your_frontend_key@sentry.io/your_frontend_project_id
 ```
 
+## Vercel Deployment
+
+This repository is split into two deployable parts:
+
+1. Frontend: deploy the root Vite app to Vercel.
+2. Backend: deploy the Express app in `backend/` to Render, Fly.io, Railway, or another long-running Node host.
+
+For Vercel, use the root `vercel.json` in this repo. It serves the SPA correctly on refresh and deep links. Set `VITE_API_BASE_URL` in Vercel to the separate backend URL, for example `https://api.example.com/api`.
+
+Do not try to deploy the Express backend itself to Vercel as a single always-on server. This codebase expects a persistent Node process for the API, Prisma migrations, cookies, and media handling.
+
 ## Important Security Notes
 
 1. **NEVER commit .env files** - they contain secrets
