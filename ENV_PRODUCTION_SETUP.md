@@ -82,16 +82,28 @@ VITE_API_BASE_URL=https://api.example.com/api
 VITE_SENTRY_DSN=https://your_frontend_key@sentry.io/your_frontend_project_id
 ```
 
-## Vercel Deployment
+## Railway Deployment
 
-This repository is split into two deployable parts:
+This repository is intended to run as two Railway services in the same Railway project:
 
-1. Frontend: deploy the root Vite app to Vercel.
-2. Backend: deploy the Express app in `backend/` to Render, Fly.io, Railway, or another long-running Node host.
+1. Frontend service at the repo root.
+2. Backend service with root directory set to `backend/`.
 
-For Vercel, use the root `vercel.json` in this repo. It serves the SPA correctly on refresh and deep links. Set `VITE_API_BASE_URL` in Vercel to the separate backend URL, for example `https://api.example.com/api`.
+Frontend service settings:
 
-Do not try to deploy the Express backend itself to Vercel as a single always-on server. This codebase expects a persistent Node process for the API, Prisma migrations, cookies, and media handling.
+1. Build command: `npm run build`
+2. Start command: `npm start`
+3. Public root: `dist`
+4. Set `VITE_API_BASE_URL` to the backend Railway URL plus `/api`, for example `https://your-backend.up.railway.app/api`.
+
+Backend service settings:
+
+1. Build command: `npm run build`
+2. Start command: `npm start`
+3. Set `NODE_ENV=production`
+4. Set `DATABASE_URL`, `REDIS_URL`, `JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET`, `CORS_ORIGINS`, and cookie settings for your frontend domain.
+
+Do not point the frontend directly at localhost in production. The frontend must call the backend Railway URL.
 
 ## Important Security Notes
 

@@ -6,14 +6,20 @@ This checklist covers infrastructure provisioning and deployment steps for the f
 
 1. Provision PostgreSQL (recommended: Neon managed Postgres).
 2. Provision Redis for shared rate limiting and cache behavior (recommended: Upstash/Redis Cloud).
-3. Provision frontend hosting (Vercel/Netlify/Cloudflare Pages).
-4. Provision backend hosting (Render/Fly.io/Railway/VM + reverse proxy).
+3. Provision Railway project with two services: frontend and backend.
+4. If you prefer separate hosting, backend can still run on Railway/Render/Fly.io/VM + reverse proxy.
 
 ## 2) Create Production URLs
 
 1. Frontend URL, e.g. `https://app.example.com`.
 2. Backend URL, e.g. `https://api.example.com`.
 3. Configure frontend `VITE_API_BASE_URL` to backend URL + `/api`.
+
+## 2a) Railway Service Layout
+
+1. Root service: frontend app, build with `npm run build`, start with `npm start`.
+2. Backend service: set root directory to `backend/`, build with `npm run build`, start with `npm start`.
+3. Point the frontend service at the backend Railway URL using `VITE_API_BASE_URL`.
 
 ## 3) Configure Backend Environment Variables
 
