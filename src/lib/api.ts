@@ -24,6 +24,17 @@ const getApiBaseUrl = (): string => {
 
 const API_BASE_URL = getApiBaseUrl();
 let inMemoryAccessToken: string | null = null;
+const ACCESS_TOKEN_STORAGE_KEY = "ahg_access_token";
+
+// Restore persisted access token (if any) so sessions survive full page reloads
+if (typeof window !== "undefined") {
+  try {
+    const persisted = window.localStorage.getItem(ACCESS_TOKEN_STORAGE_KEY);
+    if (persisted) inMemoryAccessToken = persisted;
+  } catch {
+    // ignore localStorage errors (e.g., in private mode)
+  }
+}
 
 type BackendAuthResponse = {
   accessToken: string;
@@ -181,10 +192,12 @@ const toFrontendPost = (item: BackendFeedResponse["data"][number]): Post => ({
 
 export class ApiError extends Error {
   status: number;
+  details?: unknown;
 
-  constructor(message: string, status: number) {
+  constructor(message: string, status: number, details?: unknown) {
     super(message);
     this.status = status;
+    this.details = details;
   }
 }
 
@@ -212,10 +225,24 @@ const wait = (ms: number): Promise<void> =>
 
 const setAccessToken = (token: string): void => {
   inMemoryAccessToken = token;
+  if (typeof window !== "undefined") {
+    try {
+      window.localStorage.setItem(ACCESS_TOKEN_STORAGE_KEY, token);
+    } catch {
+      // ignore storage failures
+    }
+  }
 };
 
 const clearAccessToken = (): void => {
   inMemoryAccessToken = null;
+  if (typeof window !== "undefined") {
+    try {
+      window.localStorage.removeItem(ACCESS_TOKEN_STORAGE_KEY);
+    } catch {
+      // ignore
+    }
+  }
 };
 
 async function apiRequest<T>(path: string, init: RequestInit = {}, token?: string): Promise<T> {
@@ -272,12 +299,14 @@ async function apiRequest<T>(path: string, init: RequestInit = {}, token?: strin
     }
 
     let message = `Request failed: ${response.status}`;
+    let details: unknown;
     try {
       const raw = await response.text();
       if (raw) {
         try {
-          const parsed = JSON.parse(raw) as { error?: string; message?: string };
+          const parsed = JSON.parse(raw) as { error?: string; message?: string; details?: unknown };
           message = parsed.error || parsed.message || raw;
+          details = parsed.details;
         } catch {
           message = raw;
         }
@@ -285,7 +314,7 @@ async function apiRequest<T>(path: string, init: RequestInit = {}, token?: strin
     } catch {
       // Keep default message when response body cannot be read.
     }
-    throw new ApiError(message, response.status);
+    throw new ApiError(message, response.status, details);
   }
 
   return (await response.json()) as T;
@@ -931,9 +960,9 @@ export async function awardPointsAPI(userId: string, points: number, reason?: st
   });
 }
 
-export async function markAchievementCompleteAPI(userId: string, achievementId: string): Promise<ApiRecord> {
+export async function markAchievementCompleteAPI(userId: string, achievementId: string, points?: number): Promise<ApiRecord> {
   return authedRequest<ApiRecord>("/admin/points/achievements", {
     method: "POST",
-    body: JSON.stringify({ userId, achievementId }),
+    body: JSON.stringify({ userId, achievementId, points }),
   });
 }

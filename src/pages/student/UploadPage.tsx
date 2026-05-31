@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { motion } from "framer-motion";
 import {
-  Upload as UploadIcon, MapPin, Footprints,
+  Upload as UploadIcon, MapPin, Activity,
   Hash, FileText, Loader2, X, Image as ImageIcon, Video
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
@@ -18,7 +18,6 @@ export default function UploadPage() {
   const { student, addPost, updateProfile } = useStore();
   const [caption, setCaption] = useState("");
   const [location, setLocation] = useState("");
-  const [steps, setSteps] = useState("");
   const [activeTags, setActiveTags] = useState<Set<string>>(new Set(["#afterhours"]));
   const [submitting, setSubmitting] = useState(false);
   const [file, setFile] = useState<File | null>(null);
@@ -100,8 +99,6 @@ export default function UploadPage() {
       }
 
       const mediaUrl = uploaded.url;
-      const parsedSteps = Number.parseInt(steps, 10);
-      const validSteps = Number.isFinite(parsedSteps) && parsedSteps > 0 ? parsedSteps : null;
       const tags = Array.from(activeTags).join(" ");
       const normalizedCaption = [caption.trim(), tags].filter(Boolean).join("\n\n");
 
@@ -114,13 +111,8 @@ export default function UploadPage() {
         type: mediaKind,
         mediaUrl,
         caption: normalizedCaption,
-        steps: validSteps,
         location: location || "After Hours Gym",
       });
-
-      if (validSteps !== null) {
-        updateProfile({ todaySteps: validSteps });
-      }
 
       toast.success("Post shared to feed");
       navigate("/student/feed");
@@ -240,18 +232,14 @@ export default function UploadPage() {
             className="w-full bg-background border border-white/5 rounded-xl px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground/30 focus:outline-none focus:border-primary/30 transition-colors"
           />
         </div>
-        <div className="glass-card p-5 focus-within:border-primary/40 transition-colors group border border-white/5">
+        <div className="glass-card p-5 border border-white/5">
           <div className="flex items-center gap-2 mb-3">
-            <Footprints className="h-4 w-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
-            <label className="text-xs font-semibold text-muted-foreground group-focus-within:text-foreground transition-colors">Steps</label>
+            <Activity className="h-4 w-4 text-muted-foreground" />
+            <label className="text-xs font-semibold text-muted-foreground">Post Focus</label>
           </div>
-          <input
-            type="number"
-            value={steps}
-            onChange={(e) => setSteps(e.target.value)}
-            placeholder="Optional"
-            className="w-full bg-background border border-white/5 rounded-xl px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground/30 focus:outline-none focus:border-primary/30 transition-colors"
-          />
+          <p className="text-sm text-muted-foreground/80 leading-6">
+            Share your workout, meal prep, or recovery win. Keep the context in the caption and tags.
+          </p>
         </div>
       </motion.div>
 

@@ -105,6 +105,7 @@ const UserManagement = () => {
   const assignTrainer = useAppStore((state) => state.assignTrainer);
   const bulkDeleteUsers = useAppStore((state) => state.bulkDeleteUsers);
   const createAccount = useAppStore((state) => state.createAccount);
+  const adminAwardPoints = useAppStore((state) => state.adminAwardPoints);
   const currentUser = useAppStore((state) => state.session.currentUser);
   const navigate = useNavigate();
 
@@ -654,6 +655,29 @@ const UserManagement = () => {
                           onClick={() => navigate(`/admin/users/${user.id}/questionnaire`)}
                         >
                           View questionnaire
+                        </Button>
+                      )}
+
+                      {normalizedRole === "student" && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 text-[10px]"
+                          onClick={async () => {
+                            const pts = window.prompt(`Award points to ${user.name} (enter integer, use negative to deduct):`);
+                            if (!pts) return;
+                            const parsed = parseInt(pts, 10);
+                            if (!Number.isFinite(parsed) || parsed === 0) { toast.error('Invalid points'); return; }
+                            const reason = window.prompt('Reason (optional):') || 'Admin adjustment';
+                            try {
+                              await adminAwardPoints(user.id, parsed, reason);
+                              toast.success(`Awarded ${parsed} pts to ${user.name}`);
+                            } catch (err) {
+                              toast.error('Failed to award points');
+                            }
+                          }}
+                        >
+                          Award
                         </Button>
                       )}
 

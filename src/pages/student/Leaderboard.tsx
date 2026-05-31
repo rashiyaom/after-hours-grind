@@ -10,14 +10,13 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { LUXURY_TWEEN_MEDIUM, LUXURY_TWEEN_SLOW } from "@/lib/motionTokens";
 import { Link } from "react-router-dom";
 
-const filters = ["Weekly", "Monthly", "Streak", "Steps", "Uploads"] as const;
+const filters = ["Weekly", "Monthly", "Streak", "Uploads"] as const;
 type Filter = (typeof filters)[number];
 
 const filterIcons: Record<Filter, React.ElementType> = {
   Weekly: Trophy,
   Monthly: Target,
   Streak: Flame,
-  Steps: Footprints,
   Uploads: Zap,
 };
 
@@ -25,7 +24,6 @@ const filterColors: Record<Filter, string> = {
   Weekly: "#C9F85A",
   Monthly: "#4DD2FF",
   Streak: "#FF4D00",
-  Steps: "#A78BFA",
   Uploads: "#FFD36E",
 };
 
@@ -33,8 +31,6 @@ function getSortedData(data: LeaderboardEntry[], filter: Filter) {
   switch (filter) {
     case "Streak":
       return [...data].sort((a, b) => b.streak - a.streak).map((e, i) => ({ ...e, rank: i + 1 }));
-    case "Steps":
-      return [...data].sort((a, b) => b.steps - a.steps).map((e, i) => ({ ...e, rank: i + 1 }));
     case "Uploads":
       return [...data].sort((a, b) => b.uploads - a.uploads).map((e, i) => ({ ...e, rank: i + 1 }));
     case "Monthly":
@@ -48,7 +44,6 @@ function getScoreLabel(entry: LeaderboardEntry, filter: Filter) {
   switch (filter) {
     case "Monthly": return `${entry.completionPercentage}%`;
     case "Streak":  return `${entry.streak} days`;
-    case "Steps":   return `${(entry.steps / 1000).toFixed(1)}k`;
     case "Uploads": return `${entry.uploads} logs`;
     default:        return entry.score.toLocaleString();
   }

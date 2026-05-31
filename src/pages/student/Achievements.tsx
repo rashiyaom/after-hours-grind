@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  Award, Flame, Footprints, Trophy, Star, Sun, Leaf,
+  Award, Flame, Trophy, Star, Sun, Leaf,
   Lock, Zap, Activity, CheckCircle2, ArrowUpRight,
   Sparkles, Shield, Crown, Target, Heart, Dumbbell,
   Clock, Camera, Users, TrendingUp,
@@ -14,7 +14,7 @@ import { AchievementGridSkeleton, HeaderSkeleton } from "@/components/Skeletons"
 
 const iconMap: Record<string, React.ElementType> = {
   flame: Flame,
-  footprints: Footprints,
+  footprints: Activity,
   trophy: Trophy,
   star: Star,
   sunrise: Sun,
@@ -59,7 +59,7 @@ export default function AchievementsPage() {
     { id: "b8", name: "Community Anchor", description: "Follow 20 athletes", icon: "users", earned: false, date: "" },
     { id: "b9", name: "Early Riser", description: "Complete a workout before 7am", icon: "sunrise", earned: false, date: "" },
     { id: "b10", name: "Iron Will", description: "Complete 30-day plan without missing a day", icon: "shield", earned: false, date: "" },
-    { id: "b11", name: "Step Master", description: "Walk 10,000+ steps for 14 consecutive days", icon: "footprints", earned: false, date: "" },
+    { id: "b11", name: "Workout Master", description: "Complete 14 consecutive days of training", icon: "dumbbell", earned: false, date: "" },
     { id: "b12", name: "Nutrition Ninja", description: "Log all meals for 21 days straight", icon: "salad", earned: false, date: "" },
     { id: "b13", name: "Peak Performer", description: "Reach #1 on any leaderboard category", icon: "crown", earned: false, date: "" },
     { id: "b14", name: "Social Butterfly", description: "Get 50 likes on your posts", icon: "heart", earned: false, date: "" },
@@ -70,7 +70,7 @@ export default function AchievementsPage() {
   const milestones = useMemo(() => [
     { label: "7-Day Streak", current: s.streak, target: 7, done: s.streak >= 7, color: "#C9F85A" },
     { label: "14-Day Streak", current: s.streak, target: 14, done: s.streak >= 14, color: "#4DD2FF" },
-    { label: "10k Steps Day", current: 8432, target: 10000, done: false, color: "#FFD36E" },
+    { label: "Workout Day", current: s.streak, target: 14, done: s.streak >= 14, color: "#FFD36E" },
     { label: "50 Check-Ins", current: 30, target: 50, done: false, color: "#A78BFA" },
     { label: "Plan Mastery", current: s.completionPercentage, target: 100, done: s.completionPercentage >= 100, color: "#FF4D00" },
   ], [s.streak, s.completionPercentage]);

@@ -6,7 +6,6 @@ import { LUXURY_TWEEN_MEDIUM } from "@/lib/motionTokens";
 
 const navLinks = [
   { label: "Home", path: "/" },
-  { label: "Features", path: "/#features" },
   { label: "Events", path: "/events" },
 ];
 

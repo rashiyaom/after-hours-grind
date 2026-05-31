@@ -1,4 +1,4 @@
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import {
   motion,
   useMotionValue,
@@ -181,6 +181,7 @@ function PillarCard({ p, idx }: { p: (typeof pillars)[number]; idx: number }) {
 
 /* ─── Main component ─────────────────────────────────── */
 export default function LandingPage() {
+  const location = useLocation();
   const { scrollYProgress: pageProgress } = useScroll();
   const scaleX = useSpring(pageProgress, { stiffness: 200, damping: 30, mass: 0.5 });
 
@@ -200,6 +201,28 @@ export default function LandingPage() {
 
   const { count: count94, ref: ref94 } = useCounter(94);
   const { count: count100, ref: ref100 } = useCounter(100, 1.6);
+
+  useEffect(() => {
+    const hash = location.hash.replace(/^#/, "");
+    if (!hash) return;
+
+    const scrollToHash = () => {
+      const target = document.getElementById(hash);
+      if (!target) return false;
+
+      const offsetTop = target.getBoundingClientRect().top + window.scrollY - 72;
+      window.scrollTo({ top: Math.max(0, offsetTop), behavior: "smooth" });
+      return true;
+    };
+
+    if (scrollToHash()) return;
+
+    const retryId = window.setTimeout(() => {
+      void scrollToHash();
+    }, 120);
+
+    return () => window.clearTimeout(retryId);
+  }, [location.hash]);
 
   return (
     <div
@@ -235,8 +258,10 @@ export default function LandingPage() {
 
       {/* ── HERO ─────────────────────────────────────────── */}
       <div
+        id="home"
         ref={heroRef}
         className="relative flex flex-col justify-start overflow-hidden sm:min-h-screen"
+        style={{ scrollMarginTop: "6rem" }}
       >
         <div style={{
           position: "absolute", inset: 0, zIndex: 0,
@@ -367,7 +392,7 @@ export default function LandingPage() {
       </div>
 
       {/* ── PILLARS ──────────────────────────────────────── */}
-      <section style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}>
+      <section id="features" style={{ borderTop: "1px solid rgba(255,255,255,0.06)", scrollMarginTop: "6rem" }}>
         <motion.div {...revealLeft(0)} style={{ display: "flex", alignItems: "center", gap: "1rem", padding: "2.5rem clamp(1.5rem,6vw,6vw) 0", marginBottom: "2.5rem" }}>
           <motion.span initial={{ scaleX: 0 }} whileInView={{ scaleX: 1 }} viewport={{ once: true, amount: 0.5 }} transition={{ duration: 0.5, ease: snappyEase }} style={{ width: 32, height: 1, background: "#C9F85A", display: "inline-block", transformOrigin: "left" }} />
           <span style={{ fontSize: "0.65rem", letterSpacing: "0.25em", color: "rgba(255,255,255,0.35)", textTransform: "uppercase" }}>The System</span>

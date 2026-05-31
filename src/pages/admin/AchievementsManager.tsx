@@ -12,7 +12,7 @@ import { toast } from "sonner";
 /* ── Icon options for badge creation ─────────────────── */
 const ICON_OPTIONS: { key: string; label: string; component: React.ElementType }[] = [
   { key: "flame", label: "Flame", component: Flame },
-  { key: "footprints", label: "Steps", component: Footprints },
+  { key: "footprints", label: "Activity", component: Footprints },
   { key: "trophy", label: "Trophy", component: Trophy },
   { key: "star", label: "Star", component: Star },
   { key: "sunrise", label: "Sunrise", component: Sun },
@@ -51,8 +51,6 @@ type AchievementMetric =
 
 const METRIC_OPTIONS: { value: AchievementMetric; label: string; description: string }[] = [
   { value: "streak_days", label: "Streak (Days)", description: "Number of consecutive active days" },
-  { value: "total_steps", label: "Total Steps", description: "Cumulative steps across all time" },
-  { value: "steps_per_day", label: "Steps Per Day", description: "Steps in a single day" },
   { value: "completion_pct", label: "Completion %", description: "Overall plan completion percentage" },
   { value: "total_uploads", label: "Total Uploads", description: "Number of proof uploads submitted" },
   { value: "total_followers", label: "Followers Count", description: "Total followers on profile" },
@@ -113,12 +111,12 @@ const DEFAULT_ACHIEVEMENTS: AchievementDef[] = [
   },
   {
     id: "ach-3",
-    name: "10K Club",
-    description: "Walk 10,000+ steps in a single day for 10 days total",
-    icon: "footprints",
-    metric: "steps_per_day",
+    name: "Proof Collector",
+    description: "Submit 10 verified uploads to the community",
+    icon: "camera",
+    metric: "total_uploads",
     comparison: "gte",
-    threshold: 10000,
+    threshold: 10,
     active: true,
     createdAt: new Date().toISOString(),
   },

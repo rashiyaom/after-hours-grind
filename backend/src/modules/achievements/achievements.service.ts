@@ -1,4 +1,5 @@
 import { prisma } from "../../config/prisma.js";
+import { recordRewardTransaction } from "../rewards/rewards.service.js";
 
 export async function getAllAchievementDefs() {
   return prisma.achievementDef.findMany({ orderBy: { category: "asc" } });
@@ -66,6 +67,19 @@ export async function checkAndAwardAchievements(userId: string) {
         data: { totalPoints: { increment: def.points } },
       });
     }
+
+    await recordRewardTransaction({
+      userId,
+      delta: def.points,
+      kind: "achievement_auto",
+      reason: `Automatic milestone unlocked: ${def.name}`,
+      achievementId: def.id,
+      metadata: {
+        achievementKey: def.key,
+        achievementName: def.name,
+        pointsAwarded: def.points,
+      },
+    });
 
     awarded.push(def.name);
   }

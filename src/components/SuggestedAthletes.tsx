@@ -1,11 +1,11 @@
 import { useMemo, useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  UserPlus, CheckCircle2, MessageCircle, X, Sparkles,
+  UserPlus, CheckCircle2, X, Sparkles,
   Flame, ChevronRight, Users,
 } from "lucide-react";
 import { useStore, useAppStore } from "@/hooks/useStore";
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { ApiError } from "@/lib/api";
 import { LUXURY_TWEEN_MEDIUM } from "@/lib/motionTokens";
 import { toast } from "sonner";
@@ -39,8 +39,6 @@ export default function SuggestedAthletes({
   showViewAll = true,
 }: SuggestedAthletesProps) {
   const { student, suggestedUsers, followUser, unfollowUser } = useStore();
-  const createOrGetChatThread = useAppStore((state) => state.createOrGetChatThread);
-  const navigate = useNavigate();
   const [followingIds, setFollowingIds] = useState<Set<string>>(new Set());
   const [dismissedIds, setDismissedIds] = useState<Set<string>>(new Set());
   const [loadingIds, setLoadingIds] = useState<Set<string>>(new Set());
@@ -84,11 +82,6 @@ export default function SuggestedAthletes({
     } finally {
       setLoadingIds((prev) => { const s = new Set(prev); s.delete(userId); return s; });
     }
-  };
-
-  const handleMessage = (userId: string) => {
-    createOrGetChatThread(userId);
-    navigate("/student/community");
   };
 
   const handleDismiss = (userId: string) => {
@@ -196,12 +189,6 @@ export default function SuggestedAthletes({
                         ? <><CheckCircle2 className="h-3 w-3" />Following</>
                         : <><UserPlus className="h-3 w-3" />Follow</>
                       }
-                    </button>
-                    <button
-                      onClick={() => handleMessage(user.id)}
-                      className="w-8 rounded-xl bg-[#1D1D1D] border border-white/10 flex items-center justify-center text-white/40 hover:text-[#4DD2FF] hover:border-[#4DD2FF]/25 transition-all"
-                    >
-                      <MessageCircle className="h-3 w-3" />
                     </button>
                   </div>
                 </motion.div>

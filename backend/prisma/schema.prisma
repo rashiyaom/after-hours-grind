@@ -73,6 +73,8 @@ model User {
   passwordResetTokens PasswordResetToken[]
   achievements  UserAchievement[]
   progress      ProgressEntry[]
+  rewardTransactions RewardTransaction[] @relation("RewardRecipient")
+  createdRewardTransactions RewardTransaction[] @relation("RewardCreatedBy")
 
   @@index([role])
   @@index([createdAt(sort: Desc)])
@@ -87,6 +89,26 @@ model RefreshToken {
   createdAt DateTime @default(now())
 
   @@index([userId])
+}
+
+model RewardTransaction {
+  id           String   @id @default(cuid())
+  userId       String
+  user         User     @relation("RewardRecipient", fields: [userId], references: [id], onDelete: Cascade)
+  delta        Int
+  kind         String
+  reason       String
+  createdById  String?
+  createdBy    User?    @relation("RewardCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  achievementId String?
+  submissionId String?
+  metadata     Json?
+  createdAt    DateTime @default(now())
+
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([kind])
+  @@index([achievementId])
+  @@index([submissionId])
 }
 
 model PasswordResetToken {

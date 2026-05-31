@@ -1,6 +1,6 @@
 import { motion } from "framer-motion";
 import {
-  Flame, TrendingUp, Upload, Footprints, Award, Activity,
+  Flame, TrendingUp, Upload, Award, Activity,
   ShieldCheck, Zap, ChevronRight,
 } from "lucide-react";
 import ProgressRing from "@/components/ProgressRing";
@@ -28,16 +28,16 @@ export default function ProgressPage() {
   ];
 
   const monthlyBars = monthlyData.length > 0 ? monthlyData : fallbackMonthly;
-  const stepData = progressWeekly.length > 0
-    ? progressWeekly.map((item) => ({ day: item.day, steps: item.steps }))
-    : weeklyData.map((item) => ({ day: item.name, steps: 0 }));
-  const maxSteps = Math.max(1, ...stepData.map((d) => d.steps));
+  const activityData = progressWeekly.length > 0
+    ? progressWeekly.map((item) => ({ day: item.day, minutes: item.workoutMinutes }))
+    : weeklyData.map((item) => ({ day: item.name, minutes: 0 }));
+  const maxMinutes = Math.max(1, ...activityData.map((d) => d.minutes));
 
   const kpis = [
     { label: "Current Streak", value: `${progressOverview?.streak ?? s.streak}`, unit: "days", icon: Flame, color: "#FF4D00", bg: "bg-[#FF4D00]", dark: false },
     { label: "Plans Done", value: String(s.totalPlansCompleted), unit: "plans", icon: ShieldCheck, color: "#C9F85A", bg: "bg-[#1A1A1A]", dark: false },
     { label: "Check-Ins", value: String(progressOverview?.checkInsLast30Days ?? 0), unit: "sessions", icon: Upload, color: "#4DD2FF", bg: "bg-[#1A1A1A]", dark: false },
-    { label: "Total Steps", value: `${Math.round((progressOverview?.totalStepsLast30Days ?? 0) / 100) / 10}k`, unit: "steps", icon: Footprints, color: "#A78BFA", bg: "bg-[#1A1A1A]", dark: false },
+    { label: "Calories Burned", value: `${Math.round((progressOverview?.totalCaloriesBurnedLast30Days ?? 0) / 100) / 10}k`, unit: "calories", icon: Award, color: "#A78BFA", bg: "bg-[#1A1A1A]", dark: false },
   ];
 
   return (
@@ -153,7 +153,7 @@ export default function ProgressPage() {
           >
             <div className="mb-6">
               <p className="text-[10px] font-semibold text-white/30 uppercase tracking-wider mb-1">28-day view</p>
-              <h2 className="text-base font-semibold text-white">Activity Map</h2>
+              <h2 className="text-base font-semibold text-white">Workout Activity Map</h2>
             </div>
 
             <div className="grid grid-cols-7 sm:grid-cols-14 gap-1.5">
@@ -204,7 +204,7 @@ export default function ProgressPage() {
             </div>
           </motion.div>
 
-          {/* Step activity */}
+          {/* Workout activity */}
           <motion.div
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
@@ -212,12 +212,12 @@ export default function ProgressPage() {
             className="rounded-[32px] border border-white/10 bg-[#121212] p-6 shadow-[0_20px_60px_rgba(0,0,0,0.4)]"
           >
             <div className="flex items-center gap-2 mb-5">
-              <Footprints className="h-4 w-4 text-[#A78BFA]" />
-              <h2 className="text-sm font-semibold text-white">Step Activity</h2>
+              <Flame className="h-4 w-4 text-[#A78BFA]" />
+              <h2 className="text-sm font-semibold text-white">Workout Activity</h2>
             </div>
             <div className="space-y-3">
-              {stepData.map((d) => {
-                const pct = (d.steps / maxSteps) * 100;
+              {activityData.map((d) => {
+                const pct = (d.minutes / maxMinutes) * 100;
                 return (
                   <div key={d.day} className="flex items-center gap-3">
                     <span className="text-[10px] font-semibold text-white/40 w-8 uppercase">{d.day}</span>
@@ -230,7 +230,7 @@ export default function ProgressPage() {
                       />
                     </div>
                     <span className="text-[10px] font-bold text-white/50 tabular-nums w-12 text-right">
-                      {d.steps.toLocaleString()}
+                      {d.minutes} min
                     </span>
                   </div>
                 );

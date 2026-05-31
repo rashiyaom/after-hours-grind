@@ -46,6 +46,7 @@ import {
   fetchLeaderboardAPI,
   fetchTrainerStudentsAPI,
   fetchAdminUsersAPI,
+  awardPointsAPI,
   registerForEventAPI,
   fetchSubmissionsAPI,
   updateProfileAPI,
@@ -137,6 +138,7 @@ type PlanUpdateNotification = {
 type ProgressOverview = {
   streak: number;
   totalPoints: number;
+  totalCaloriesBurnedLast30Days: number;
   weeklyAvgWorkoutMinutes: number;
   totalStepsLast30Days: number;
   checkInsLast30Days: number;
@@ -579,6 +581,7 @@ interface AppActions {
   banUser: (userId: string) => void;
   bulkDeleteUsers: (userIds: string[]) => Promise<void>;
   verifyTrainer: (trainerId: string) => Promise<void>;
+  adminAwardPoints: (userId: string, points: number, reason?: string) => Promise<void>;
   followUser: (userId: string) => Promise<void>;
   unfollowUser: (userId: string) => Promise<void>;
   createPlan: (payload: {
@@ -763,6 +766,20 @@ const asNumber = (value: unknown, fallback = 0): number =>
 
 const asBoolean = (value: unknown, fallback = false): boolean =>
   typeof value === 'boolean' ? value : fallback;
+
+const formatApiErrorDetails = (details: unknown): string | null => {
+  if (!details || typeof details !== 'object') return null;
+
+  const entries = Object.entries(details as Record<string, unknown>)
+    .flatMap(([field, value]) => {
+      if (!Array.isArray(value) || value.length === 0) return [];
+      const messages = value.filter((item): item is string => typeof item === 'string' && item.trim().length > 0);
+      if (messages.length === 0) return [];
+      return messages.map((message) => `${field}: ${message}`);
+    });
+
+  return entries.length > 0 ? entries.join(' • ') : null;
+};
 
 const asStringArray = (value: unknown, fallback: string[] = []): string[] =>
   Array.isArray(value) ? value.filter((item): item is string => typeof item === 'string') : fallback;
@@ -1618,6 +1635,40 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
       toast.error("Failed to verify trainer");
     }
   },
+
+  // Admin: award points to a user and update local state + leaderboard
+  adminAwardPoints: async (userId, points, reason) => {
+    try {
+      await awardPointsAPI(userId, points, reason);
+
+      // Eagerly update user's totalPoints in local state so changes are visible immediately
+      set((state) => {
+        const user = state.users[userId];
+        if (!user) return state;
+        const updatedUser = { ...user, totalPoints: (user as any).totalPoints ? (user as any).totalPoints + points : points } as typeof user;
+
+        let nextSession = state.session;
+        if (state.session.currentUser?.id === userId) {
+          nextSession = { ...state.session, currentUser: updatedUser as User };
+        }
+
+        return { ...state, users: { ...state.users, [userId]: updatedUser }, session: nextSession };
+      });
+
+      // Refresh leaderboard to ensure ranking is consistent app-wide
+      try {
+        const lb = await fetchLeaderboardAPI();
+        set((state) => ({ system: { ...state.system, leaderboardEntries: lb } } as any));
+      } catch (err) {
+        // Non-fatal - we already updated the user locally
+        Sentry.captureException(err, { tags: { feature: 'admin_award_points', action: 'refresh_leaderboard' } });
+      }
+    } catch (error) {
+      Sentry.captureException(error, { tags: { feature: 'admin_award_points' } });
+      toast.error('Failed to award points');
+      throw error;
+    }
+  },
   
   followUser: async (userId) => {
     try {
@@ -1949,25 +2000,40 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
   createAccount: async (payload) => {
     set((state) => ({ ...state, system: { ...state.system, isLoading: true } }));
     try {
-      await createAdminAccountAPI(payload);
-      const adminUsers = await fetchAdminUsersAPI();
-      set((state) => {
-        const nextUsers = { ...state.users };
-        adminUsers.forEach((u) => {
-          nextUsers[u.id] = u;
-        });
-        return {
-          ...state,
-          users: nextUsers,
-          system: { ...state.system, isLoading: false },
-        };
+      const createdAccount = await createAdminAccountAPI(payload);
+      const createdId = typeof createdAccount?.id === 'string' ? createdAccount.id : null;
+
+      // Refresh in the background so a transient fetch failure doesn't block the success path.
+      void get().refreshData({ background: true, scope: 'admin' }).catch((error) => {
+        Sentry.captureException(error, { tags: { action: "refresh_after_admin_create_account" } });
       });
+
+      if (createdId) {
+        set((state) => {
+          const nextUsers = { ...state.users };
+          nextUsers[createdId] = {
+            ...(nextUsers[createdId] ?? {}),
+            ...(createdAccount as User),
+          } as User;
+
+          return {
+            ...state,
+            users: nextUsers,
+            system: { ...state.system, isLoading: false },
+          };
+        });
+      } else {
+        set((state) => ({ ...state, system: { ...state.system, isLoading: false } }));
+      }
       toast.success('Account created successfully');
     } catch (err) {
       set((state) => ({ ...state, system: { ...state.system, isLoading: false } }));
-      toast.error('Failed to create account');
+      const apiDetails = err && typeof err === 'object' && 'details' in err
+        ? formatApiErrorDetails((err as { details?: unknown }).details)
+        : null;
+      const message = err instanceof Error ? err.message : 'Failed to create account';
+      toast.error(apiDetails ? `${message}: ${apiDetails}` : (message || 'Failed to create account'));
       Sentry.captureException(err, { tags: { action: "create_account" } });
-      toast.error("Failed to create account");
       throw err;
     }
   },
@@ -2735,6 +2801,7 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
               progressOverview = {
                 streak: asNumber(overallRecord.streak),
                 totalPoints: asNumber(overallRecord.totalPoints),
+                totalCaloriesBurnedLast30Days: asNumber(overallRecord.totalCaloriesBurnedLast30Days),
                 weeklyAvgWorkoutMinutes: asNumber(overallRecord.weeklyAvgWorkoutMinutes),
                 totalStepsLast30Days: asNumber(overallRecord.totalStepsLast30Days),
                 checkInsLast30Days: asNumber(overallRecord.checkInsLast30Days),
@@ -3347,6 +3414,7 @@ export const useStore = () => {
   const marketingProgressOverview: ProgressOverview = {
     streak: 19,
     totalPoints: 14250,
+    totalCaloriesBurnedLast30Days: 18450,
     weeklyAvgWorkoutMinutes: 47,
     totalStepsLast30Days: 356400,
     checkInsLast30Days: 58,

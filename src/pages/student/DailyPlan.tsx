@@ -130,7 +130,7 @@ export default function DailyPlanPage() {
   const [selectedDay, setSelectedDay] = useState(backendCurrentDay);
   const fallbackTask = getDayTask(selectedDay);
   const normalizedFallbackTask = useMemo<TodayTaskViewModel>(() => ({
-    stepTarget: Number(fallbackTask.stepTarget ?? 0),
+    stepTarget: 9000,
     hydrationGoal: String(fallbackTask.hydrationGoal ?? ""),
     workout: fallbackTask.workout.map((task) => ({
       id: task.id,
@@ -172,7 +172,7 @@ export default function DailyPlanPage() {
 
   const todayTask: TodayTaskViewModel = dayTasks.length
     ? {
-        stepTarget: 9000,
+      stepTarget: Number(fallbackTask.stepTarget ?? 0),
         hydrationGoal: "3L",
         workout: dayTasks
           .filter((task) => {
@@ -1098,7 +1098,7 @@ export default function DailyPlanPage() {
         transition={{ ...LUXURY_TWEEN_MEDIUM, delay: 0.25 }}
         className="grid grid-cols-1 sm:grid-cols-2 gap-4"
       >
-        {/* Steps */}
+        {/* Workout load */}
         <div className="rounded-[24px] bg-[#121212] border border-white/8 p-6 relative overflow-hidden">
           <div className="absolute top-0 right-0 w-32 h-32 rounded-full bg-[#C9F85A]/4 translate-x-8 -translate-y-8 blur-xl" />
           <div className="relative z-10">
@@ -1107,22 +1107,22 @@ export default function DailyPlanPage() {
                 <div className="w-8 h-8 rounded-xl bg-[#C9F85A]/10 border border-[#C9F85A]/20 flex items-center justify-center">
                   <Activity className="h-4 w-4 text-[#C9F85A]" />
                 </div>
-                <span className="text-sm font-semibold text-white">Steps</span>
+                <span className="text-sm font-semibold text-white">Workout Load</span>
               </div>
-              <span className="text-[10px] font-semibold text-white/30 uppercase tracking-wider">Daily Target</span>
+              <span className="text-[10px] font-semibold text-white/30 uppercase tracking-wider">Daily Focus</span>
             </div>
-            <p className="text-4xl font-bold text-white tracking-tight">{s.todaySteps.toLocaleString()}</p>
-            <p className="text-xs text-white/40 mt-1">Target: {todayTask.stepTarget.toLocaleString()}</p>
+            <p className="text-4xl font-bold text-white tracking-tight">{todayTask.workout.length}</p>
+            <p className="text-xs text-white/40 mt-1">Workout blocks today</p>
             <div className="mt-4 h-1.5 bg-[#1D1D1D] rounded-full overflow-hidden border border-white/5">
               <motion.div
                 initial={{ width: 0 }}
-                animate={{ width: `${Math.min(100, (s.todaySteps / todayTask.stepTarget) * 100)}%` }}
+                animate={{ width: `${Math.min(100, (todayTask.workout.filter((task) => task.completed).length / Math.max(1, todayTask.workout.length)) * 100)}%` }}
                 transition={LUXURY_TWEEN_SLOW}
                 className="h-full bg-[#C9F85A] rounded-full"
               />
             </div>
             <p className="text-[10px] text-[#C9F85A] font-bold mt-2">
-              {Math.round(Math.min(100, (s.todaySteps / todayTask.stepTarget) * 100))}% of goal
+              {Math.round(Math.min(100, (todayTask.workout.filter((task) => task.completed).length / Math.max(1, todayTask.workout.length)) * 100))}% complete
             </p>
           </div>
         </div>

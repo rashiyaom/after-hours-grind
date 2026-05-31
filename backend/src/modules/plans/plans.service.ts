@@ -18,6 +18,12 @@ const SUBMISSIONS_LIST_CACHE_TTL_SECONDS = 10;
 // Safety limit: evict oldest entries when either cache exceeds this size.
 const PLAN_CACHE_MAX_SIZE = 2_000;
 
+const estimateCaloriesBurned = (task: { durationMin: number; intensity: string; points: number }) => {
+  const duration = Math.max(1, task.durationMin || 0);
+  const intensityFactor = task.intensity === "high" ? 8 : task.intensity === "low" ? 5 : 6;
+  return Math.max(20, Math.round(duration * intensityFactor + task.points * 2));
+};
+
 const STUDENT_NOTE_PREFIX = "Student note:";
 const TRAINER_NOTE_PREFIX = "Trainer note:";
 const WHATSAPP_RECEIVED_PREFIX = "WhatsApp received at:";
@@ -839,6 +845,38 @@ export async function approveSubmission(
           data: { totalPoints: { increment: resolvedPoints } },
         });
         timings.incrementPointsMs = elapsedMs(incrementPointsStartedAt);
+
+        const caloriesBurned = estimateCaloriesBurned(task);
+        const progressDate = new Date(sub.createdAt.getFullYear(), sub.createdAt.getMonth(), sub.createdAt.getDate());
+        await tx.progressEntry.upsert({
+          where: { userId_date: { userId: sub.studentId, date: progressDate } },
+          create: {
+            userId: sub.studentId,
+            date: progressDate,
+            caloriesBurned,
+          },
+          update: {
+            caloriesBurned: { increment: caloriesBurned },
+          },
+        });
+
+        await tx.rewardTransaction.create({
+          data: {
+            userId: sub.studentId,
+            delta: resolvedPoints,
+            kind: "submission_approval",
+            reason: note?.trim() ? `Submission approved: ${note.trim()}` : `Submission approved for ${task.title}`,
+            createdById: reviewerId,
+            submissionId: sub.id,
+            metadata: {
+              taskTitle: task.title,
+              taskPoints: task.points,
+              resolvedPoints,
+              caloriesBurned,
+              lateSubmission: isLateSubmission,
+            },
+          },
+        });
       }
     }
 

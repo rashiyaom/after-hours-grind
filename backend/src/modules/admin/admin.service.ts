@@ -338,7 +338,7 @@ export async function assignTrainerToStudent(studentId: string, trainerId: strin
     return { userId: updated.userId, trainerId: updated.trainerId };
 }
 
-export async function awardPointsToUser(userId: string, points: number, reason: string) {
+export async function awardPointsToUser(userId: string, points: number, reason: string, createdById?: string) {
     const user = await prisma.user.findUnique({
         where: { id: userId },
         include: { studentProfile: true },
@@ -351,10 +351,41 @@ export async function awardPointsToUser(userId: string, points: number, reason: 
 
     const note = reason.trim() || "Admin adjustment";
 
-    const updatedProfile = await prisma.studentProfile.update({
-        where: { userId },
-        data: { totalPoints: { increment: points } },
-    });
+    let updatedProfile;
+    try {
+        updatedProfile = await prisma.$transaction(async (tx) => {
+            const profile = await tx.studentProfile.update({
+                where: { userId },
+                data: { totalPoints: { increment: points } },
+            });
+
+            await (tx as typeof tx & { rewardTransaction: { create: (args: unknown) => Promise<unknown> } }).rewardTransaction.create({
+                data: {
+                    userId,
+                    delta: points,
+                    kind: "admin_adjustment",
+                    reason: note,
+                    createdById,
+                },
+            });
+
+            return profile;
+        });
+    } catch (error: unknown) {
+        // Detect missing table errors and give a clearer message so operators can run the migration.
+        const msg = typeof (error as any)?.message === 'string' ? (error as any).message as string : '';
+        const code = (error as any)?.code as string | undefined;
+        const isMissing = code === 'P2021' || msg.includes('RewardTransaction') || msg.includes('rewardtransaction');
+        if (isMissing) {
+            throw new HttpError(
+                500,
+                "Database schema out of date: table 'RewardTransaction' is missing. " +
+                "Run the Prisma migration in backend/prisma/migrations (or run `npx prisma migrate deploy` / `npx prisma db push`) and restart the server."
+            );
+        }
+
+        throw error;
+    }
 
     const notification = await createNotification({
         userId,
@@ -382,7 +413,12 @@ export async function awardPointsToUser(userId: string, points: number, reason: 
     };
 }
 
-export async function markAchievementCompleteForUser(userId: string, achievementId: string) {
+export async function markAchievementCompleteForUser(
+    userId: string,
+    achievementId: string,
+    pointsOverride?: number,
+    createdById?: string,
+) {
     const user = await prisma.user.findUnique({
         where: { id: userId },
         include: { studentProfile: true, achievements: true },
@@ -404,19 +440,36 @@ export async function markAchievementCompleteForUser(userId: string, achievement
             data: { userId, achievementId },
         });
 
-        if (achievement.points !== 0) {
+        const pointsToAward = typeof pointsOverride === "number" ? pointsOverride : achievement.points;
+        if (pointsToAward !== 0) {
             await prisma.studentProfile.update({
                 where: { userId },
-                data: { totalPoints: { increment: achievement.points } },
+                data: { totalPoints: { increment: pointsToAward } },
             });
         }
+
+        await (prisma as typeof prisma & { rewardTransaction: { create: (args: unknown) => Promise<unknown> } }).rewardTransaction.create({
+            data: {
+                userId,
+                delta: pointsToAward,
+                kind: "milestone_override",
+                reason: `Milestone completed: ${achievement.name}`,
+                createdById,
+                achievementId: achievement.id,
+                metadata: {
+                    achievementKey: achievementId,
+                    pointsAwarded: pointsToAward,
+                    overridden: typeof pointsOverride === "number",
+                },
+            },
+        });
 
         const notification = await createNotification({
             userId,
             type: "system",
             title: "Achievement Completed",
-            message: achievement.points !== 0
-                ? `An admin completed "${achievement.name}" for you and awarded ${achievement.points} points.`
+            message: pointsToAward !== 0
+                ? `An admin completed "${achievement.name}" for you and awarded ${pointsToAward} points.`
                 : `An admin completed "${achievement.name}" for you.`,
         });
 
@@ -434,7 +487,7 @@ export async function markAchievementCompleteForUser(userId: string, achievement
         userId,
         achievementId,
         achievementName: achievement.name,
-        pointsAwarded: existing ? 0 : achievement.points,
+        pointsAwarded: existing ? 0 : (typeof pointsOverride === "number" ? pointsOverride : achievement.points),
         alreadyCompleted: Boolean(existing),
     };
 }

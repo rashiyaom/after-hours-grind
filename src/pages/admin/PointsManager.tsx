@@ -1,17 +1,20 @@
 import { useMemo, useState } from "react";
 import { useAppStore } from "@/hooks/useStore";
-import { awardPointsAPI, markAchievementCompleteAPI } from "@/lib/api";
+import { markAchievementCompleteAPI } from "@/lib/api";
 import { toast } from "sonner";
 
 export default function PointsManagerPage() {
   const usersMap = useAppStore((s) => s.users);
   const achievements = useAppStore((s) => s.achievements);
   const refreshData = useAppStore((s) => s.refreshData);
+  const adminAwardPoints = useAppStore((s) => s.adminAwardPoints);
 
   const [search, setSearch] = useState("");
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const [pointsInput, setPointsInput] = useState("");
   const [reasonInput, setReasonInput] = useState("");
+  const [milestonePointsInput, setMilestonePointsInput] = useState("");
+  const [selectedAchievementId, setSelectedAchievementId] = useState<string>("");
   const [isLoading, setIsLoading] = useState(false);
 
   const users = useMemo(() =>
@@ -30,12 +33,10 @@ export default function PointsManagerPage() {
     
     setIsLoading(true);
     try {
-      await awardPointsAPI(selectedUser.id, parsed, reasonInput || "Admin adjustment");
+      await adminAwardPoints(selectedUser.id, parsed, reasonInput || "Admin adjustment");
       toast.success(`Awarded ${parsed} points to ${selectedUser.name}`);
       setPointsInput("");
       setReasonInput("");
-      // Refresh admin data to reflect new user state and leaderboard
-      await refreshData({ scope: 'admin' });
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Failed to award points";
       toast.error(msg);
@@ -49,10 +50,17 @@ export default function PointsManagerPage() {
     
     setIsLoading(true);
     try {
-      await markAchievementCompleteAPI(selectedUser.id, achievementId);
+      const overridePoints = milestonePointsInput.trim() ? Number.parseInt(milestonePointsInput, 10) : undefined;
+      if (milestonePointsInput.trim() && (!Number.isFinite(overridePoints) || overridePoints === 0)) {
+        toast.error("Enter a valid milestone points override");
+        return;
+      }
+
+      await markAchievementCompleteAPI(selectedUser.id, achievementId, overridePoints);
       toast.success(`Achievement marked complete for ${selectedUser.name}`);
       // Refresh admin data to reflect achievement and points changes
       await refreshData({ scope: 'admin' });
+      setMilestonePointsInput("");
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Failed to mark achievement";
       toast.error(msg);
@@ -85,7 +93,7 @@ export default function PointsManagerPage() {
                     <p className="text-xs text-white/40">{u.role}</p>
                   </div>
                   <div className="text-right">
-                    <p className="text-sm font-semibold text-white">{(u as any).points ?? 0} pts</p>
+                    <p className="text-sm font-semibold text-white">{(u as any).totalPoints ?? 0} pts</p>
                   </div>
                 </div>
               </button>
@@ -105,7 +113,7 @@ export default function PointsManagerPage() {
                 </div>
                 <div>
                   <p className="text-xs text-white/30">Current Points</p>
-                  <p className="text-xl font-bold text-white">{(selectedUser as any).points ?? 0}</p>
+                  <p className="text-xl font-bold text-white">{(selectedUser as any).totalPoints ?? 0}</p>
                 </div>
               </div>
 
@@ -137,6 +145,58 @@ export default function PointsManagerPage() {
                   className="rounded-xl border border-white/10 px-4 py-2 text-white/70 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Clear
+                </button>
+              </div>
+
+              <div className="rounded-2xl border border-white/8 bg-[#121212] p-4">
+                <div className="mb-3 flex items-center justify-between gap-3">
+                  <div>
+                    <h3 className="text-sm font-semibold text-white">Milestone Awards</h3>
+                    <p className="text-xs text-white/40">Complete a milestone and optionally override the points.</p>
+                  </div>
+                  <input
+                    value={milestonePointsInput}
+                    onChange={(e) => setMilestonePointsInput(e.target.value)}
+                    placeholder="Override points"
+                    className="h-10 w-36 rounded-xl border border-white/10 bg-[#171717] px-3 text-sm text-white placeholder:text-white/35"
+                  />
+                </div>
+
+                <div className="mb-3 max-h-48 space-y-2 overflow-y-auto pr-1">
+                  {Object.entries(achievements).map(([id, def]) => {
+                    const completed = (selectedUser.completedAchievements ?? []).includes(id);
+                    const isSelected = selectedAchievementId === id;
+                    return (
+                      <button
+                        key={id}
+                        type="button"
+                        onClick={() => setSelectedAchievementId(id)}
+                        className={`flex w-full items-center justify-between rounded-xl border px-3 py-2 text-left transition-all ${
+                          isSelected ? "border-[#4DD2FF]/50 bg-[#13222A]" : "border-white/8 bg-[#111111] hover:border-white/20"
+                        }`}
+                      >
+                        <div>
+                          <p className="text-sm font-semibold text-white">{def.name}</p>
+                          <p className="text-xs text-white/40">{def.description}</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-xs text-white/45">{def.points} pts</p>
+                          <p className={`text-[10px] font-semibold ${completed ? "text-[#C9F85A]" : "text-white/30"}`}>
+                            {completed ? "Completed" : "Available"}
+                          </p>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <button
+                  type="button"
+                  disabled={isLoading || !selectedAchievementId}
+                  onClick={() => handleMarkAchievement(selectedAchievementId)}
+                  className="rounded-xl bg-[#4DD2FF] px-4 py-2 text-sm font-semibold text-black disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  Award Selected Milestone
                 </button>
               </div>
 

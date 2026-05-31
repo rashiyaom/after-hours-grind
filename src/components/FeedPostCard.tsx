@@ -1,4 +1,4 @@
-import { Heart, MessageCircle, Share2, Bookmark, MoreHorizontal, Play, Image as ImageIcon } from "lucide-react";
+import { Heart, MessageCircle, Share2, Bookmark, MoreHorizontal, Play, Image as ImageIcon, X } from "lucide-react";
 import { Post } from "@/types";
 import { motion, AnimatePresence } from "framer-motion";
 import { useState } from "react";
@@ -93,6 +93,7 @@ export default function FeedPostCard({ post, onClick, isFollowed = false, onTogg
   const gradIdx = post.userId.charCodeAt(0) % AVATAR_GRADIENTS.length;
   const hasRenderableMedia = /^https?:\/\//i.test(post.mediaUrl);
   const isVideoPost = post.type === "video" || post.type === "reel";
+  const [showLightbox, setShowLightbox] = useState(false);
 
   const handleLike = (e: React.MouseEvent) => { e.stopPropagation(); likePost(post.id); };
   const stop = (e: React.MouseEvent) => e.stopPropagation();
@@ -188,7 +189,7 @@ export default function FeedPostCard({ post, onClick, isFollowed = false, onTogg
               controls
               preload="metadata"
               playsInline
-              onClick={stop}
+              onClick={(e) => { stop(e); setShowLightbox(true); }}
             />
           ) : (
             <img
@@ -196,7 +197,7 @@ export default function FeedPostCard({ post, onClick, isFollowed = false, onTogg
               alt={`${post.userName} post`}
               className="h-full w-full object-cover"
               loading="lazy"
-              onClick={stop}
+              onClick={(e) => { stop(e); setShowLightbox(true); }}
             />
           )}
 
@@ -363,6 +364,44 @@ export default function FeedPostCard({ post, onClick, isFollowed = false, onTogg
           )}
         </AnimatePresence>
       </div>
+      {/* Lightbox modal */}
+      <AnimatePresence>
+        {showLightbox && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.18 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-6"
+            onClick={() => setShowLightbox(false)}
+            role="dialog"
+            aria-modal="true"
+          >
+            <motion.div
+              initial={{ scale: 0.98 }}
+              animate={{ scale: 1 }}
+              exit={{ scale: 0.98 }}
+              transition={{ duration: 0.18 }}
+              className="max-w-[96%] max-h-[96%] w-full h-full relative flex items-center justify-center"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <button
+                onClick={() => setShowLightbox(false)}
+                className="absolute top-4 right-4 z-50 w-10 h-10 rounded-full bg-black/50 flex items-center justify-center border border-white/10"
+                aria-label="Close media preview"
+              >
+                <X className="h-5 w-5 text-white/90" />
+              </button>
+
+              {isVideoPost ? (
+                <video src={post.mediaUrl} controls autoPlay className="max-w-full max-h-full object-contain rounded-xl" />
+              ) : (
+                <img src={post.mediaUrl} alt="Preview" className="max-w-full max-h-full object-contain rounded-xl" />
+              )}
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </motion.div>
   );
 }

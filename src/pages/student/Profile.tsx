@@ -67,7 +67,6 @@ export default function ProfilePage() {
   const users = useAppStore((state) => state.users);
   const [activeTab, setActiveTab] = useState<Tab>("Posts");
   const [isFollowing, setIsFollowing] = useState(false);
-  const createOrGetChatThread = useAppStore((state) => state.createOrGetChatThread);
   const navigate = useNavigate();
   const [socialLoading, setSocialLoading] = useState(false);
   const [socialOpen, setSocialOpen] = useState<"followers" | "following" | null>(null);
@@ -76,7 +75,6 @@ export default function ProfilePage() {
   const [fetchedProfile, setFetchedProfile] = useState<Record<string, unknown> | null>(null);
 
   const isMe = !userId || userId === me.id;
-      toast.error(error instanceof ApiError ? error.message : "Could not update follow status");
   useEffect(() => {
     let isMounted = true;
 
@@ -131,6 +129,7 @@ export default function ProfilePage() {
         followers: fetchedProfile.followersCount ?? 0,
         following: fetchedProfile.followingCount ?? 0,
         collegeId: fetchedProfile.studentProfile?.collegeId,
+        totalPoints: fetchedProfile.studentProfile?.totalPoints ?? 0,
       };
     }
 
@@ -148,6 +147,7 @@ export default function ProfilePage() {
           followers: selected.role === "student" ? selected.followers : 0,
           following: selected.role === "student" ? selected.following : 0,
           collegeId: selected.collegeId,
+          totalPoints: (selected as any).totalPoints ?? 0,
         };
       }
     }
@@ -165,6 +165,16 @@ export default function ProfilePage() {
   );
   const followersCount = followersList.length > 0 ? followersList.length : s.followers;
   const followingCount = followingList.length > 0 ? followingList.length : s.following;
+  const recentRewards = useMemo(() => {
+    const rewards = (fetchedProfile?.rewardTransactions as Array<Record<string, unknown>> | undefined) ?? [];
+    return rewards.map((reward) => ({
+      id: String(reward.id ?? reward.createdAt ?? Math.random()),
+      kind: typeof reward.kind === "string" ? reward.kind : "reward",
+      reason: typeof reward.reason === "string" ? reward.reason : "Reward recorded",
+      delta: Number(reward.delta ?? 0),
+      createdAt: typeof reward.createdAt === "string" ? reward.createdAt : "",
+    }));
+  }, [fetchedProfile]);
 
   const handleFollow = async () => {
     try {
@@ -302,15 +312,6 @@ export default function ProfilePage() {
                     {isFollowing ? <><CheckCircle2 className="h-3.5 w-3.5" />Following</> : <><UserPlus className="h-3.5 w-3.5" />Follow</>}
                   </motion.button>
                   <button
-                    onClick={() => {
-                      createOrGetChatThread(s.id);
-                      navigate("/student/community");
-                    }}
-                    className="w-10 h-10 rounded-full bg-[#1D1D1D] border border-white/10 flex items-center justify-center text-white/50 hover:text-[#4DD2FF] hover:border-[#4DD2FF]/30 transition-all"
-                  >
-                    <MessageCircle className="h-4 w-4" />
-                  </button>
-                  <button
                     onClick={() => { navigator.clipboard.writeText(window.location.href); toast.success("Link copied!"); }}
                     className="w-10 h-10 rounded-full bg-[#1D1D1D] border border-white/10 flex items-center justify-center text-white/50 hover:text-white transition-all"
                   >
@@ -328,7 +329,7 @@ export default function ProfilePage() {
         {[
           { label: "Streak", value: s.streak, unit: "days", color: "#FF4D00", icon: Flame, glow: "rgba(255,77,0,0.1)" },
           { label: "Day", value: s.currentDay, unit: "of plan", color: "#4DD2FF", icon: Calendar, glow: "rgba(77,210,255,0.1)" },
-          { label: "Level", value: `${s.completionPercentage}%`, unit: "complete", color: "#C9F85A", icon: TrendingUp, glow: "rgba(201,248,90,0.1)" },
+          { label: "Points", value: (s.totalPoints ?? 0).toLocaleString(), unit: "earned", color: "#C9F85A", icon: Award, glow: "rgba(201,248,90,0.1)" },
         ].map((st, i) => (
           <motion.div
             key={st.label}
@@ -433,6 +434,38 @@ export default function ProfilePage() {
                   <p className="text-sm font-semibold text-white">{stat.value}</p>
                 </div>
               ))}
+            </div>
+          </div>
+
+          <div className="rounded-[32px] border border-white/10 bg-[#121212] p-6 sm:p-8 shadow-[0_20px_60px_rgba(0,0,0,0.4)]">
+            <div className="flex items-center gap-2 mb-6">
+              <div className="w-1 h-5 rounded-full bg-[#4DD2FF]" />
+              <h2 className="text-sm font-semibold text-white">Points Activity</h2>
+            </div>
+            <div className="space-y-3">
+              <div className="flex items-center justify-between rounded-2xl border border-white/8 bg-[#0D0D0D] px-4 py-3">
+                <div>
+                  <p className="text-xs uppercase tracking-wider text-white/35">Total Points</p>
+                  <p className="text-lg font-semibold text-white">{(s.totalPoints ?? 0).toLocaleString()}</p>
+                </div>
+                <Award className="h-5 w-5 text-[#C9F85A]" />
+              </div>
+              {recentRewards.slice(0, 4).map((reward) => (
+                <div key={reward.id} className="flex items-center justify-between rounded-2xl border border-white/8 bg-[#0F0F0F] px-4 py-3">
+                  <div>
+                    <p className="text-sm font-semibold text-white">{reward.reason}</p>
+                    <p className="text-xs text-white/35">{reward.kind.replace(/_/g, " ")}</p>
+                  </div>
+                  <p className={`text-sm font-bold ${reward.delta >= 0 ? "text-[#C9F85A]" : "text-[#FF7A7A]"}`}>
+                    {reward.delta >= 0 ? `+${reward.delta}` : reward.delta}
+                  </p>
+                </div>
+              ))}
+              {recentRewards.length === 0 && (
+                <p className="rounded-2xl border border-dashed border-white/15 px-4 py-8 text-center text-xs text-white/40">
+                  No reward activity yet.
+                </p>
+              )}
             </div>
           </div>
 

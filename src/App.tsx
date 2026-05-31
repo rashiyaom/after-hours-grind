@@ -28,14 +28,13 @@ const Feed = lazy(() => import("@/pages/student/Feed"));
 const UploadPage = lazy(() => import("@/pages/student/UploadPage"));
 const Leaderboard = lazy(() => import("@/pages/student/Leaderboard"));
 const Profile = lazy(() => import("@/pages/student/Profile"));
-const Community = lazy(() => import("@/pages/student/Community"));
 const Notifications = lazy(() => import("@/pages/student/Notifications"));
 const Settings = lazy(() => import("@/pages/student/Settings"));
 const Achievements = lazy(() => import("@/pages/student/Achievements"));
 const FitnessOnboardingPage = lazy(() => import("@/pages/student/FitnessOnboarding"));
 const PlanApprovalStatusPage = lazy(() => import("@/pages/student/PlanApprovalStatus"));
 const Explore = lazy(() => import("@/pages/student/Explore"));
-const FeatureStudioPage = lazy(() => import("@/pages/student/FeatureStudio"));
+// FeatureStudioPage removed — Features section is deprecated
 
 const TrainerDashboard = lazy(() => import("@/pages/trainer/Dashboard"));
 const PlanBuilder = lazy(() => import("@/pages/trainer/PlanBuilder"));
@@ -169,12 +168,10 @@ const App = () => {
               <Route path="leaderboard" element={<Leaderboard />} />
               <Route path="profile" element={<Profile />} />
               <Route path="profile/:userId" element={<Profile />} />
-              <Route path="community" element={<Community />} />
               <Route path="notifications" element={<Notifications />} />
               <Route path="settings" element={<Settings />} />
               <Route path="achievements" element={<Achievements />} />
               <Route path="explore" element={<Explore />} />
-              <Route path="features" element={<FeatureStudioPage />} />
             </Route>
           </Route>
 
@@ -186,7 +183,6 @@ const App = () => {
               <Route path="auto-plans" element={<AutoPlansQueuePage />} />
               <Route path="students" element={<StudentRoster />} />
               <Route path="students/:studentId" element={<StudentDetail />} />
-              <Route path="community" element={<Community />} />
               <Route element={<ProtectedRoute allowedRoles={["trainer"]} requiredPermission="build_plans" />}>
                 <Route path="plan-builder" element={<PlanBuilder />} />
               </Route>

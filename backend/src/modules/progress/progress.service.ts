@@ -160,6 +160,7 @@ export async function getProgressSummary(userId: string) {
       weeklyEntries: weekEntries.length,
       streak: profile?.streak ?? 0,
       totalPoints: profile?.totalPoints ?? 0,
+      totalCaloriesBurnedLast30Days: weekEntries.reduce((sum, entry) => sum + (entry.caloriesBurned ?? 0), 0),
     };
   });
 }
@@ -189,11 +190,13 @@ export async function getOverallProgress(userId: string) {
 
     const totalWorkoutMinutes = recentEntries.reduce((sum, entry) => sum + (entry.workoutMinutes ?? 0), 0);
     const totalSteps = recentEntries.reduce((sum, entry) => sum + (entry.stepCount ?? 0), 0);
+    const totalCaloriesBurned = recentEntries.reduce((sum, entry) => sum + (entry.caloriesBurned ?? 0), 0);
     const adherence = recentEntries.length === 0 ? 0 : Math.round((approvedSubmissions / recentEntries.length) * 100);
 
     return {
       streak: profile?.streak ?? 0,
       totalPoints: profile?.totalPoints ?? 0,
+      totalCaloriesBurnedLast30Days: totalCaloriesBurned,
       weeklyAvgWorkoutMinutes:
         recentEntries.length === 0 ? 0 : Math.round(totalWorkoutMinutes / Math.min(7, recentEntries.length)),
       totalStepsLast30Days: totalSteps,

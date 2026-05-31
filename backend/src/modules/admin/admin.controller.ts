@@ -43,7 +43,7 @@ export async function awardPointsHandler(req: Request, res: Response) {
         reason: z.string().trim().optional().default("Admin adjustment"),
     }).parse(req.body);
 
-    const result = await svc.awardPointsToUser(payload.userId, payload.points, payload.reason);
+    const result = await svc.awardPointsToUser(payload.userId, payload.points, payload.reason, req.user!.userId);
     res.json(result);
 }
 
@@ -51,9 +51,15 @@ export async function markAchievementCompleteHandler(req: Request, res: Response
     const payload = z.object({
         userId: z.string().min(1),
         achievementId: z.string().min(1),
+        points: z.coerce.number().int().optional(),
     }).parse(req.body);
 
-    const result = await svc.markAchievementCompleteForUser(payload.userId, payload.achievementId);
+    const result = await svc.markAchievementCompleteForUser(
+        payload.userId,
+        payload.achievementId,
+        payload.points,
+        req.user!.userId,
+    );
     res.json(result);
 }
 

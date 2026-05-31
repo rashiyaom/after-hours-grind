@@ -31,6 +31,19 @@ export async function getUser(id: string, currentUserId?: string) {
           team: true,
         },
       },
+      rewardTransactions: {
+        orderBy: { createdAt: "desc" },
+        take: 6,
+        select: {
+          id: true,
+          delta: true,
+          kind: true,
+          reason: true,
+          achievementId: true,
+          submissionId: true,
+          createdAt: true,
+        },
+      },
       trainerProfile: {
         select: {
           specialization: true,

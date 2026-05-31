@@ -16,29 +16,24 @@ const PERIODIC_REFRESH_MS = 300000;
 
 const studentNav = [
   { label: "Dashboard", path: "/student/dashboard", icon: LayoutDashboard },
-  { label: "Features", path: "/student/features", icon: Sparkles },
   { label: "Daily Plan", path: "/student/daily-plan", icon: Calendar },
   { label: "Progress", path: "/student/progress", icon: BarChart3 },
   { label: "Feed", path: "/student/feed", icon: Rss },
   { label: "Explore", path: "/student/explore", icon: Search },
-  { label: "Community", path: "/student/community", icon: Users },
   { label: "Leaderboard", path: "/student/leaderboard", icon: Trophy },
   { label: "Profile", path: "/student/profile", icon: User },
   { label: "Achievements", path: "/student/achievements", icon: Award },
 ];
 
 const mobileStudentBottomNav = [
-  { label: "Home", path: "/student/dashboard", icon: LayoutDashboard },
-  { label: "Features", path: "/student/features", icon: Sparkles },
+  { label: "Home", path: "/#home", icon: LayoutDashboard },
   { label: "Upload", path: "/student/upload", icon: Plus, isAction: true },
-  { label: "DMs", path: "/student/community", icon: Users },
   { label: "Profile", path: "/student/profile", icon: User },
 ];
 
 const mobileTrainerBottomNav = [
   { label: "Home", path: "/trainer/dashboard", icon: LayoutDashboard },
   { label: "Students", path: "/trainer/students", icon: Users },
-  { label: "Chats", path: "/trainer/community", icon: Search },
   { label: "Verify", path: "/trainer/auto-plans", icon: Zap, isAction: true },
   { label: "Builder", path: "/trainer/plan-builder", icon: ClipboardList },
   { label: "Stats", path: "/trainer/dashboard", icon: Activity },
@@ -47,7 +42,6 @@ const mobileTrainerBottomNav = [
 const trainerNav = [
   { label: "Dashboard", path: "/trainer/dashboard", icon: LayoutDashboard },
   { label: "Students", path: "/trainer/students", icon: Users },
-  { label: "Community", path: "/trainer/community", icon: Rss },
   { label: "Auto Plans Queue", path: "/trainer/auto-plans", icon: Zap },
   { label: "Plan Builder", path: "/trainer/plan-builder", icon: ClipboardList },
 ];
@@ -57,6 +51,7 @@ const adminNav = [
   { label: "Users", path: "/admin/users", icon: Users },
   { label: "Templates", path: "/admin/templates", icon: ClipboardList },
   { label: "Achievements", path: "/admin/achievements", icon: Award },
+  { label: "Points", path: "/admin/points", icon: Trophy },
   { label: "Events", path: "/admin/events", icon: Calendar },
   { label: "Content", path: "/admin/content", icon: Rss },
   { label: "Permissions", path: "/admin/permissions", icon: Shield },
@@ -401,7 +396,7 @@ export default function AppLayout() {
       <aside className={`hidden lg:flex flex-col fixed top-0 left-0 h-screen border-r border-white/5 bg-sidebar transition-all duration-300 z-40 ${collapsed ? "w-[80px]" : "w-64"}`}>
         <div className="flex items-center justify-between h-20 px-6 border-b border-white/5">
           {!collapsed && (
-            <Link to="/" className="flex items-center gap-3 group">
+            <Link to="/#home" className="flex items-center gap-3 group">
               <div className="w-8 h-8 rounded-lg bg-[#C9F85A]/15 flex items-center justify-center border border-[#C9F85A]/25 transition-transform group-hover:scale-105 overflow-hidden">
                  <img src="/logo.jpg" alt="Logo" className="w-full h-full object-cover" />
               </div>
@@ -463,7 +458,7 @@ export default function AppLayout() {
 
       {/* Mobile Header */}
       <div className="lg:hidden fixed top-0 left-0 right-0 h-16 bg-[#0D0D0D]/90 backdrop-blur-2xl border-b border-white/5 z-40 flex items-center justify-between px-6">
-        <Link to="/" className="flex items-center gap-3">
+            <Link to="/#home" className="flex items-center gap-3">
           <div className="w-8 h-8 rounded-lg bg-[#C9F85A]/15 flex items-center justify-center border border-[#C9F85A]/25 overflow-hidden">
              <img src="/logo.jpg" alt="Logo" className="w-full h-full object-cover" />
           </div>
@@ -497,8 +492,6 @@ export default function AppLayout() {
               transition={LUXURY_TWEEN_MEDIUM}
               className="lg:hidden fixed inset-0 bg-background/90 backdrop-blur-md z-[100]"
               onClick={closeMobileMenu}
-              onPointerUp={closeMobileMenu}
-              onTouchEnd={closeMobileMenu}
             />
             <motion.div
               initial={{ x: "100%" }}

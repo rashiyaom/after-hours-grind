@@ -107,8 +107,10 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="relative min-h-screen w-full overflow-hidden bg-gradient-to-br from-black via-neutral-900 to-black">
-      <div className="absolute inset-0 bg-grid-pattern bg-center [mask-image:linear-gradient(to_bottom,white_5%,transparent_80%)]" />
+    <div className="relative min-h-screen w-full overflow-hidden bg-[radial-gradient(circle_at_top,rgba(201,248,90,0.12),transparent_28%),linear-gradient(180deg,#040404_0%,#090909_45%,#050505_100%)] text-white">
+      <div className="absolute inset-0 bg-grid-pattern bg-center opacity-[0.35] [mask-image:linear-gradient(to_bottom,white_8%,transparent_82%)]" />
+      <div className="absolute -top-24 right-[-8rem] h-80 w-80 rounded-full bg-[#C9F85A]/20 blur-[120px]" />
+      <div className="absolute -bottom-28 left-[-8rem] h-96 w-96 rounded-full bg-[#4DD2FF]/10 blur-[140px]" />
 
       <div className="relative z-10 flex min-h-screen flex-col items-center justify-center px-4">
         <motion.div
@@ -119,8 +121,8 @@ export default function LoginPage() {
         >
           <motion.div variants={itemVariants} className="flex justify-center mb-8">
             <Link to="/" className="flex items-center gap-3">
-              <img src="/logo.jpg" alt="THE afterhour socials" className="h-14 w-14 rounded-full border-2 border-neon-green" />
-              <span className="text-2xl font-bold tracking-tighter text-white font-display">
+              <img src="/logo.jpg" alt="THE afterhour socials" className="h-14 w-14 rounded-full border-2 border-[#C9F85A] shadow-[0_0_40px_rgba(201,248,90,0.25)]" />
+              <span className="text-2xl font-bold tracking-tighter text-white font-display drop-shadow-[0_0_16px_rgba(201,248,90,0.18)]">
                 After-Hours Grind
               </span>
             </Link>
@@ -128,13 +130,16 @@ export default function LoginPage() {
 
           <motion.div
             variants={itemVariants}
-            className="rounded-2xl border border-neutral-700 bg-gradient-to-br from-neutral-900 via-neutral-950 to-black p-8 backdrop-blur-xl shadow-2xl hover:border-neon-green/30 transition-colors"
+            className="rounded-[28px] border border-white/10 bg-white/[0.04] p-8 backdrop-blur-2xl shadow-[0_30px_120px_rgba(0,0,0,0.55)] hover:border-[#C9F85A]/35 transition-colors"
           >
             <div className="text-center">
+              <div className="mx-auto mb-4 inline-flex items-center gap-2 rounded-full border border-[#C9F85A]/20 bg-[#C9F85A]/10 px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.28em] text-[#C9F85A]">
+                Secure access
+              </div>
               <h1 className="text-3xl font-bold text-white font-display">
                 Secure Sign In
               </h1>
-              <p className="mt-2 text-sm text-neutral-400">
+              <p className="mt-2 text-sm text-white/60">
                 Access your personalized dashboard.
               </p>
             </div>
@@ -143,7 +148,7 @@ export default function LoginPage() {
               <div className="space-y-2">
                 <label
                   htmlFor="email"
-                  className="text-sm font-medium text-neutral-300"
+                  className="text-sm font-medium text-white/75"
                 >
                   Email
                 </label>
@@ -154,7 +159,7 @@ export default function LoginPage() {
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="you@example.com"
                   required
-                  className="h-12 w-full rounded-lg border border-neutral-700 bg-neutral-900 px-4 text-white placeholder-neutral-500 transition-colors focus:border-neon-green focus:outline-none focus:ring-2 focus:ring-neon-green/50"
+                  className="h-12 w-full rounded-2xl border border-white/10 bg-black/35 px-4 text-white placeholder:text-white/30 transition-colors focus:border-[#C9F85A]/60 focus:outline-none focus:ring-2 focus:ring-[#C9F85A]/20"
                 />
               </div>
 
@@ -162,13 +167,13 @@ export default function LoginPage() {
                 <div className="flex items-center justify-between">
                   <label
                     htmlFor="password"
-                    className="text-sm font-medium text-neutral-300"
+                    className="text-sm font-medium text-white/75"
                   >
                     Password
                   </label>
                   <Link
                     to="/reset-password"
-                    className="text-xs text-neon-yellow hover:underline"
+                    className="text-xs text-[#C9F85A] hover:underline"
                   >
                     Forgot password?
                   </Link>
@@ -182,12 +187,12 @@ export default function LoginPage() {
                     placeholder="••••••••"
                     required
                     minLength={1}
-                    className="h-12 w-full rounded-lg border border-neutral-700 bg-neutral-900 px-4 pr-12 text-white placeholder-neutral-500 transition-colors focus:border-neon-green focus:outline-none focus:ring-2 focus:ring-neon-green/50"
+                    className="h-12 w-full rounded-2xl border border-white/10 bg-black/35 px-4 pr-12 text-white placeholder:text-white/30 transition-colors focus:border-[#C9F85A]/60 focus:outline-none focus:ring-2 focus:ring-[#C9F85A]/20"
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-white"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-white/40 hover:text-[#C9F85A]"
                   >
                     {showPassword ? (
                       <EyeOff className="h-5 w-5" />
@@ -201,7 +206,7 @@ export default function LoginPage() {
               <button
                 type="submit"
                 disabled={loading}
-                className="group relative flex h-12 w-full items-center justify-center rounded-lg bg-neon-green text-black font-bold transition-transform active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
+                className="group relative flex h-12 w-full items-center justify-center rounded-2xl bg-[#C9F85A] text-[#081100] font-black shadow-[0_10px_40px_rgba(201,248,90,0.22)] transition-transform active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {loading ? (
                   <>
@@ -222,7 +227,7 @@ export default function LoginPage() {
             Don't have an account?{" "}
             <Link
               to="/request-access"
-              className="font-medium text-neon-yellow hover:underline"
+              className="font-medium text-[#C9F85A] hover:underline"
             >
               Request Access
             </Link>

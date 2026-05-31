@@ -1,15 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import {
-  ArrowUpRight,
   Bell,
   Calendar,
   Check,
   Flame,
   LineChart,
   ScrollText,
+  ArrowUpRight,
   Search,
-  Sparkles,
   Target,
   Trophy,
   Utensils,
@@ -18,6 +17,7 @@ import {
 import { Link } from "react-router-dom";
 import { Navigate } from "react-router-dom";
 import { useAppStore, useCurrentUser, usePermissions, useStore } from "@/hooks/useStore";
+import type { LegacySubmission } from "@/hooks/useStore";
 import { Skeleton } from "@/components/ui/skeleton";
 import { LUXURY_TWEEN_MEDIUM } from "@/lib/motionTokens";
 import { toast } from "sonner";
@@ -54,12 +54,29 @@ const formatRelativeTime = (timestamp: string, nowMs: number): string => {
   return `${diffDay}d ago`;
 };
 
+const getSubmissionDayNumber = (submission: LegacySubmission, currentDay: number, todayKey: string): number | null => {
+  if (typeof submission.dayNumber === "number" && Number.isFinite(submission.dayNumber)) {
+    return submission.dayNumber;
+  }
+
+  const parsed = new Date(submission.timestamp);
+  if (Number.isFinite(parsed.getTime()) && parsed.toDateString() === todayKey) {
+    return currentDay;
+  }
+
+  return null;
+};
+
+const estimateWorkoutCalories = (submission: LegacySubmission): number => {
+  const basePoints = Math.max(10, submission.points ?? 10);
+  return Math.max(120, Math.round(basePoints * 4));
+};
+
 export default function StudentDashboard() {
   const {
     student: s,
     leaderboard,
     todayTask,
-    getDayTask,
     loading,
     onboardingRequired,
     notifications,
@@ -67,6 +84,7 @@ export default function StudentDashboard() {
     progressOverview,
     progressLoading,
     planLoading,
+    submissions,
   } = useStore();
   const refreshData = useAppStore((state) => state.refreshData);
   const users = useAppStore((state) => state.users);
@@ -110,6 +128,57 @@ export default function StudentDashboard() {
 
   const activityMultiplier =
     activePill === "All" ? 1 : activePill === "Workout" ? 1.08 : activePill === "Nutrition" ? 0.96 : 0.9;
+
+  const currentDateKey = useMemo(() => new Date(nowMs).toDateString(), [nowMs]);
+
+  const studentSubmissions = useMemo(
+    () => submissions.filter((submission) => submission.studentId === s.id),
+    [submissions, s.id]
+  );
+
+  const approvalsByDay = useMemo(() => {
+    const map = new Map<number, number>();
+
+    studentSubmissions.forEach((submission) => {
+      if (submission.status !== "approved") return;
+      const dayNumber = getSubmissionDayNumber(submission, s.currentDay, currentDateKey);
+      if (!dayNumber) return;
+      map.set(dayNumber, (map.get(dayNumber) ?? 0) + 1);
+    });
+
+    return map;
+  }, [studentSubmissions, s.currentDay, currentDateKey]);
+
+  const liveStreak = useMemo(() => {
+    if (approvalsByDay.size === 0) return s.streak;
+
+    let streak = 0;
+    const startDay = Math.max(1, Math.min(s.totalDays, s.currentDay));
+
+    for (let day = startDay; day >= 1; day -= 1) {
+      if (!approvalsByDay.has(day)) break;
+      streak += 1;
+    }
+
+    return streak > 0 ? streak : s.streak;
+  }, [approvalsByDay, s.currentDay, s.streak, s.totalDays]);
+
+  const todayApprovedCount = useMemo(() => {
+    return studentSubmissions.filter((submission) => {
+      if (submission.status !== "approved") return false;
+      const dayNumber = getSubmissionDayNumber(submission, s.currentDay, currentDateKey);
+      return dayNumber === s.currentDay;
+    }).length;
+  }, [studentSubmissions, s.currentDay, currentDateKey]);
+
+  const approvedWorkoutCaloriesToday = useMemo(() => {
+    return studentSubmissions.reduce((total, submission) => {
+      if (submission.status !== "approved" || submission.taskType !== "workout") return total;
+      const dayNumber = getSubmissionDayNumber(submission, s.currentDay, currentDateKey);
+      if (dayNumber !== s.currentDay) return total;
+      return total + estimateWorkoutCalories(submission);
+    }, 0);
+  }, [studentSubmissions, s.currentDay, currentDateKey]);
 
   const backendPlan = backendTodayPlan as Record<string, unknown> | null;
   const backendTodaysTasks = useMemo(() => {
@@ -192,19 +261,12 @@ export default function StudentDashboard() {
     const startDay = Math.max(1, boundedCurrentDay - streakCellCount + 1);
     const generated = Array.from({ length: boundedCurrentDay - startDay + 1 }).map((_, idx) => {
       const day = startDay + idx;
-      const dayTask = getDayTask(day);
-      const total = dayTask.workout.length + dayTask.diet.length;
-      if (total === 0) return 0;
+      const approvals = approvalsByDay.get(day) ?? 0;
 
-      const completed =
-        dayTask.workout.filter((item) => item.completed).length +
-        dayTask.diet.filter((item) => item.completed).length;
-      const ratio = completed / total;
-
-      if (ratio === 0) return 0;
-      if (ratio < 0.35) return 1;
-      if (ratio < 0.7) return 2;
-      if (ratio < 1) return 3;
+      if (approvals === 0) return 0;
+      if (approvals === 1) return 1;
+      if (approvals === 2) return 2;
+      if (approvals === 3) return 3;
       return 4;
     });
 
@@ -213,9 +275,8 @@ export default function StudentDashboard() {
     }
 
     return [...Array.from({ length: streakCellCount - generated.length }, () => 0), ...generated];
-  }, [getDayTask, s.currentDay, s.totalDays, streakCellCount]);
+  }, [approvalsByDay, s.currentDay, s.totalDays, streakCellCount]);
 
-  const activeStreakDays = streakCells.filter((cell) => cell > 0).length;
   const longestStreak = useMemo(() => {
     let currentRun = 0;
     let maxRun = 0;
@@ -273,10 +334,6 @@ export default function StudentDashboard() {
     }
   }, [notifications, currentUser]);
 
-  const dailySteps = progressOverview?.totalStepsLast30Days
-    ? Math.round(progressOverview.totalStepsLast30Days / 30)
-    : s.todaySteps;
-
   const kpiCards = [
     {
       title: "Workout Completion",
@@ -289,54 +346,25 @@ export default function StudentDashboard() {
     },
     {
       title: "Calories Burned",
-      value: `${Math.round(dailySteps * 0.045 * activityMultiplier).toLocaleString()}`,
-      delta: "+3.1% vs yesterday",
+      value: `${approvedWorkoutCaloriesToday.toLocaleString()}`,
+      delta: `Approved workouts today · ${todayApprovedCount}`,
       icon: Flame,
       accent: "bg-[#202020] text-white",
       link: "/student/daily-plan",
       spanClass: "lg:col-span-2",
     },
     {
-      title: "Daily Steps",
-      value: `${Math.round(dailySteps * activityMultiplier).toLocaleString()}`,
-      delta: `Goal 10,000 · ${Math.round((Math.min(100, (dailySteps / 10000) * 100)))}% complete`,
+      title: "Live Streak",
+      value: `${liveStreak}d`,
+      delta: `Approved today · ${todayApprovedCount} task${todayApprovedCount === 1 ? "" : "s"}`,
       icon: Flame,
-      accent: "bg-[#202020] text-white",
+      accent: "bg-[#C9F85A] text-[#121212]",
       link: "/student/daily-plan",
       spanClass: "lg:col-span-2",
     },
   ];
 
-  const featureTiles = [
-    {
-      title: "Training Engine",
-      subtitle: "Open your task system and keep execution tight.",
-      to: "/student/daily-plan",
-      icon: Dumbbell,
-      tone: "from-[#7DE3FF]/20 to-transparent",
-    },
-    {
-      title: "Nutrition Stack",
-      subtitle: "Track meal tasks and completion in one tap.",
-      to: "/student/daily-plan",
-      icon: Utensils,
-      tone: "from-[#FFD18A]/20 to-transparent",
-    },
-    {
-      title: "Progress Lens",
-      subtitle: "Review growth with live analytics.",
-      to: "/student/progress",
-      icon: LineChart,
-      tone: "from-[#C9F85A]/20 to-transparent",
-    },
-    {
-      title: "Reports Hub",
-      subtitle: "Generate and export your summary quickly.",
-      to: "/student/features",
-      icon: ScrollText,
-      tone: "from-[#D1B9FF]/20 to-transparent",
-    },
-  ];
+  
 
   useEffect(() => {
     void refreshData({ background: true, scope: "student-dashboard" });
@@ -365,7 +393,7 @@ export default function StudentDashboard() {
       `Filter: ${activePill}`,
       `Timeframe: ${timeframe}`,
       `Completion: ${s.completionPercentage}%`,
-      `Steps: ${s.todaySteps}`,
+      `Calories Burned: ${progressOverview?.totalCaloriesBurnedLast30Days ?? 0}`,
       `Streak: ${s.streak}`,
       `Plan Day: ${s.currentDay}/${s.totalDays}`,
     ];
@@ -589,55 +617,7 @@ export default function StudentDashboard() {
           </div>
         </div>
 
-        <motion.div
-          initial={{ opacity: 0, y: 8 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ ...LUXURY_TWEEN_MEDIUM, delay: 0.12 }}
-          className="mt-5 rounded-3xl border border-white/10 bg-[#131313] p-4 sm:p-5"
-        >
-          <div className="mb-4 flex items-center justify-between gap-3">
-            <div className="flex items-center gap-2">
-              <span className="rounded-lg border border-[#7DE3FF]/30 bg-[#7DE3FF]/10 p-1.5">
-                <Sparkles className="h-4 w-4 text-[#7DE3FF]" />
-              </span>
-              <div>
-                <p className="text-sm font-semibold text-white">Features</p>
-                <p className="text-[11px] text-white/45">Now linked and fully interactive</p>
-              </div>
-            </div>
-            <Link
-              to="/student/features"
-              className="rounded-full border border-[#7DE3FF]/35 bg-[#7DE3FF]/12 px-3 py-1.5 text-[11px] font-bold uppercase tracking-[0.12em] text-[#7DE3FF] transition hover:bg-[#7DE3FF] hover:text-black"
-            >
-              Open Studio
-            </Link>
-          </div>
-
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            {featureTiles.map((tile) => {
-              const Icon = tile.icon;
-              return (
-                <Link
-                  key={tile.title}
-                  to={tile.to}
-                  className="group relative overflow-hidden rounded-2xl border border-white/10 bg-[#181818] p-4 transition-colors hover:border-white/20"
-                >
-                  <div className={`pointer-events-none absolute inset-0 bg-gradient-to-br ${tile.tone}`} />
-                  <div className="relative z-10">
-                    <span className="inline-flex rounded-xl border border-white/10 bg-[#121212] p-2 text-white/80">
-                      <Icon className="h-4 w-4" />
-                    </span>
-                    <p className="mt-3 text-sm font-semibold text-white">{tile.title}</p>
-                    <p className="mt-1 text-xs leading-relaxed text-white/55">{tile.subtitle}</p>
-                    <span className="mt-3 inline-flex items-center gap-1 text-[11px] font-semibold text-[#C9F85A]">
-                      Launch <ArrowUpRight className="h-3.5 w-3.5 transition group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
-                    </span>
-                  </div>
-                </Link>
-              );
-            })}
-          </div>
-        </motion.div>
+        
       </motion.section>
 
       <section className="grid gap-6 lg:grid-cols-12">
@@ -775,20 +755,21 @@ export default function StudentDashboard() {
           <div className="mt-auto grid grid-cols-2 gap-2 pt-4">
             <div className="rounded-2xl bg-[#C9F85A]/8 border border-[#C9F85A]/20 p-3">
               <p className="text-[10px] text-[#C9F85A]/60 uppercase tracking-wider">Current streak</p>
-              <p className="mt-1 text-xl font-bold text-[#C9F85A]">{s.streak} <span className="text-sm font-normal">days</span></p>
+              <p className="mt-1 text-xl font-bold text-[#C9F85A]">{liveStreak} <span className="text-sm font-normal">days</span></p>
             </div>
             <div className="rounded-2xl bg-[#1D1D1D] border border-white/5 p-3">
               <p className="text-[10px] text-white/30 uppercase tracking-wider">Longest</p>
               <p className="mt-1 text-xl font-bold text-white">{longestStreak} <span className="text-sm font-normal text-white/40">days</span></p>
             </div>
             <div className="rounded-2xl bg-[#1D1D1D] border border-white/5 p-3 col-span-2">
-              <p className="text-[10px] text-white/30 uppercase tracking-wider">Active days in view</p>
+              <p className="text-[10px] text-white/30 uppercase tracking-wider">Calories milestone</p>
               <div className="mt-1 flex items-center justify-between">
-                <p className="text-xl font-bold text-white">{activeStreakDays} <span className="text-sm font-normal text-white/40">/ {streakCellCount}</span></p>
+                <p className="text-xl font-bold text-white">{approvedWorkoutCaloriesToday.toLocaleString()} <span className="text-sm font-normal text-white/40">kcal</span></p>
                 <div className="h-1.5 w-24 bg-[#1A1A1A] rounded-full overflow-hidden border border-white/5">
-                  <div className="h-full bg-[#C9F85A] rounded-full transition-all" style={{ width: `${Math.round((activeStreakDays / streakCellCount) * 100)}%` }} />
+                  <div className="h-full bg-[#C9F85A] rounded-full transition-all" style={{ width: `${Math.min(100, Math.round((approvedWorkoutCaloriesToday / 600) * 100))}%` }} />
                 </div>
               </div>
+              <p className="mt-2 text-[11px] text-white/45">Approved workout calories from today&apos;s submissions.</p>
             </div>
           </div>
         </motion.div>

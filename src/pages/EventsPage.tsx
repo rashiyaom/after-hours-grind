@@ -13,7 +13,6 @@ import {
 } from "lucide-react";
 import { useAppStore } from "@/hooks/useStore";
 import { AHGEvent } from "@/types";
-import { PageTitle } from "@/components/ui/PageTitle";
 
 const FILTERS = ["all", "upcoming", "live", "completed"] as const;
 type EventFilter = (typeof FILTERS)[number];
@@ -44,7 +43,7 @@ function StatusBadge({ status }: { status: AHGEvent["status"] }) {
   const statusConfig = {
     upcoming: {
       label: "Upcoming",
-      className: "border-blue-500/50 bg-blue-500/10 text-blue-400",
+      className: "border-white/10 bg-white/5 text-white/70",
     },
     live: {
       label: "Live",
@@ -52,7 +51,7 @@ function StatusBadge({ status }: { status: AHGEvent["status"] }) {
     },
     completed: {
       label: "Completed",
-      className: "border-neutral-700 bg-neutral-800/50 text-neutral-400",
+      className: "border-white/10 bg-black/30 text-white/55",
     },
   };
 
@@ -147,11 +146,11 @@ function EventCard({ event, idx }: { event: AHGEvent; idx: number }) {
   return (
     <motion.div
       variants={itemVariants}
-      className="group overflow-hidden rounded-xl border border-neutral-800 bg-neutral-900/50 transition-all duration-300 hover:border-neon-green/50 hover:bg-neutral-900"
+      className="group overflow-hidden rounded-[28px] border border-white/10 bg-white/[0.04] transition-all duration-300 hover:border-[#C9F85A]/35 hover:bg-white/[0.06] shadow-[0_18px_60px_rgba(0,0,0,0.28)]"
     >
       <div className="relative h-48">
         {renderMedia()}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/30 to-transparent" />
         <div className="absolute top-4 left-4">
           <StatusBadge status={event.status} />
         </div>
@@ -163,20 +162,20 @@ function EventCard({ event, idx }: { event: AHGEvent; idx: number }) {
         )}
       </div>
       <div className="p-5">
-        <p className="text-xs font-semibold uppercase tracking-wider text-neon-green">
+        <p className="text-xs font-semibold uppercase tracking-[0.24em] text-[#C9F85A]">
           {event.category}
         </p>
         <h3 className="mt-2 text-lg font-bold text-white">{event.title}</h3>
-        <p className="mt-2 text-sm text-neutral-400 line-clamp-3">
+        <p className="mt-2 text-sm text-white/60 line-clamp-3">
           {event.description}
         </p>
-        <div className="mt-4 space-y-2 text-sm text-neutral-300">
+        <div className="mt-4 space-y-2 text-sm text-white/75">
           <p className="flex items-center gap-2">
-            <MapPin className="h-4 w-4 text-neutral-500" />
+            <MapPin className="h-4 w-4 text-[#C9F85A]/70" />
             <span>{event.location}</span>
           </p>
           <p className="flex items-center gap-2">
-            <Calendar className="h-4 w-4 text-neutral-500" />
+            <Calendar className="h-4 w-4 text-[#C9F85A]/70" />
             <span>
               {eventDate.toLocaleDateString(undefined, {
                 weekday: "long",
@@ -187,7 +186,7 @@ function EventCard({ event, idx }: { event: AHGEvent; idx: number }) {
             </span>
           </p>
           <p className="flex items-center gap-2">
-            <Clock className="h-4 w-4 text-neutral-500" />
+            <Clock className="h-4 w-4 text-[#C9F85A]/70" />
             <span>
               {eventDate.toLocaleTimeString(undefined, {
                 hour: "2-digit",
@@ -196,7 +195,7 @@ function EventCard({ event, idx }: { event: AHGEvent; idx: number }) {
             </span>
           </p>
         </div>
-        <div className="mt-6 border-t border-neutral-800 pt-4 text-sm font-semibold">
+        <div className="mt-6 border-t border-white/10 pt-4 text-sm font-semibold">
           {renderRegistration()}
         </div>
       </div>
@@ -208,25 +207,38 @@ export default function EventsPage() {
   const events = useAppStore((s) => s.system.events);
   const [filter, setFilter] = useState<EventFilter>("all");
 
+  const liveCount = events.filter((event) => event.status === "live").length;
+  const upcomingCount = events.filter((event) => event.status === "upcoming").length;
+  const registrationCount = events.filter((event) => Boolean(event.registrationOpen)).length;
+
   const filteredEvents = useMemo(() => {
     if (filter === "all") return events;
     return events.filter((e) => e.status === filter);
   }, [events, filter]);
 
   return (
-    <div className="relative min-h-screen w-full bg-gradient-to-br from-black via-neutral-900 to-black text-white">
-      <div className="absolute inset-0 bg-grid-pattern bg-center [mask-image:linear-gradient(to_bottom,white_5%,transparent_80%)]" />
+    <div className="relative min-h-screen w-full bg-[radial-gradient(circle_at_top,rgba(201,248,90,0.1),transparent_24%),linear-gradient(180deg,#040404_0%,#080808_100%)] text-white">
+      <div className="absolute inset-0 bg-grid-pattern bg-center opacity-[0.28] [mask-image:linear-gradient(to_bottom,white_5%,transparent_80%)]" />
+      <div className="absolute -top-24 right-[-7rem] h-80 w-80 rounded-full bg-[#C9F85A]/15 blur-[120px]" />
+      <div className="absolute bottom-[-8rem] left-[-5rem] h-96 w-96 rounded-full bg-[#4DD2FF]/10 blur-[130px]" />
       <main className="relative z-10 mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
-        <PageTitle
-          title="Company Events"
-          subtitle="Discover workshops, competitions, and meetups."
-        />
+        <motion.div
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="mb-8 rounded-[28px] border border-white/10 bg-white/[0.04] p-6 sm:p-8 backdrop-blur-xl shadow-[0_18px_60px_rgba(0,0,0,0.18)]"
+        >
+          <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-[#C9F85A]">Events</p>
+          <h1 className="mt-2 text-3xl sm:text-4xl font-black tracking-tight text-white">Live Events & Competitions</h1>
+          <p className="mt-2 max-w-2xl text-sm text-white/60">
+            Browse upcoming sessions, live competitions, and completed community events.
+          </p>
+        </motion.div>
 
         <motion.div
           variants={itemVariants}
           initial="hidden"
           animate="visible"
-          className="my-8 flex flex-wrap items-center justify-center gap-2 rounded-full border border-neutral-700 bg-gradient-to-r from-neutral-950 to-neutral-900 p-2 backdrop-blur-md hover:border-neutral-600 transition-colors"
+          className="my-8 flex flex-wrap items-center justify-center gap-2 rounded-full border border-white/10 bg-white/[0.04] p-2 backdrop-blur-xl shadow-[0_18px_60px_rgba(0,0,0,0.18)] transition-colors"
         >
           {FILTERS.map((f) => (
             <button
@@ -235,8 +247,8 @@ export default function EventsPage() {
               className={`rounded-full px-4 py-2 text-sm font-semibold transition-colors capitalize
                 ${
                   filter === f
-                    ? "bg-neon-green text-black"
-                    : "text-neutral-400 hover:bg-neutral-800 hover:text-white"
+                    ? "bg-[#C9F85A] text-[#081100] shadow-[0_8px_24px_rgba(201,248,90,0.18)]"
+                    : "text-white/55 hover:bg-white/8 hover:text-white"
                 }`}
             >
               {f}
@@ -261,11 +273,11 @@ export default function EventsPage() {
             animate={{ opacity: 1, y: 0 }}
             className="mt-16 flex flex-col items-center justify-center gap-4 text-center"
           >
-            <div className="rounded-full bg-neutral-900 p-4">
-              <Calendar className="h-12 w-12 text-neutral-600" />
+            <div className="rounded-full border border-white/10 bg-white/[0.04] p-4">
+              <Calendar className="h-12 w-12 text-[#C9F85A]/50" />
             </div>
             <h3 className="text-xl font-bold">No Events Found</h3>
-            <p className="text-neutral-400">
+            <p className="text-white/55">
               There are no events matching the "{filter}" filter.
             </p>
           </motion.div>
