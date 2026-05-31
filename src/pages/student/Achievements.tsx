@@ -77,7 +77,10 @@ export default function AchievementsPage() {
 
   if (loading) {
     return (
-      <div className="mx-auto max-w-4xl space-y-6 p-4 sm:p-6 lg:p-8 pb-10">
+      <div
+        className="mx-auto max-w-4xl space-y-6 overflow-x-hidden p-4 sm:p-6 lg:p-8 pb-28 sm:pb-10 touch-manipulation"
+        style={{ touchAction: "manipulation", WebkitTextSizeAdjust: "100%" }}
+      >
         <HeaderSkeleton />
         <AchievementGridSkeleton count={16} />
       </div>
@@ -91,7 +94,10 @@ export default function AchievementsPage() {
   const earnedPct = allBadges.length > 0 ? Math.round((earned.length / allBadges.length) * 100) : 0;
 
   return (
-    <div className="mx-auto max-w-4xl space-y-6 p-4 sm:p-6 lg:p-8 pb-10">
+    <div
+      className="mx-auto max-w-4xl space-y-6 overflow-x-hidden p-4 sm:p-6 lg:p-8 pb-28 sm:pb-10 touch-manipulation"
+      style={{ touchAction: "manipulation", WebkitTextSizeAdjust: "100%" }}
+    >
 
       {/* ── Hero header ────────────────────────────────── */}
       <motion.div
@@ -127,7 +133,7 @@ export default function AchievementsPage() {
               <Sparkles className="h-3.5 w-3.5 text-[#C9F85A]" />
               <span className="text-[11px] font-bold text-[#C9F85A] uppercase tracking-[0.15em]">Achievements</span>
             </div>
-            <h1 className="text-4xl sm:text-5xl font-bold text-white tracking-tight leading-none">Your Badges</h1>
+            <h1 className="text-3xl sm:text-5xl font-bold text-white tracking-tight leading-none">Your Badges</h1>
             <p className="text-sm text-white/35 mt-2">
               <span className="text-[#C9F85A] font-bold text-base">{earned.length}</span>
               <span className="text-white/25"> / {allBadges.length} unlocked</span>
@@ -135,7 +141,7 @@ export default function AchievementsPage() {
           </div>
 
           {/* Stats pills */}
-          <div className="flex flex-row sm:flex-col gap-3">
+          <div className="flex flex-row sm:flex-col gap-3 flex-wrap sm:flex-nowrap justify-center sm:justify-start">
             <div className="rounded-2xl bg-[#C9F85A] px-5 py-3 text-center min-w-[80px] shadow-[0_4px_20px_rgba(201,248,90,0.3)]">
               <p className="text-2xl font-black text-black">{earned.length}</p>
               <p className="text-[10px] font-semibold text-black/60 uppercase tracking-[0.12em]">Earned</p>
@@ -170,13 +176,13 @@ export default function AchievementsPage() {
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ ...LUXURY_TWEEN_MEDIUM, delay: 0.06 }}
-        className="flex gap-2"
+        className="flex gap-2 overflow-x-auto pb-1 -mx-4 px-4 sm:mx-0 sm:px-0 scrollbar-hide"
       >
         {(["All", "Earned", "Locked"] as TabFilter[]).map((t) => (
           <button
             key={t}
             onClick={() => setActiveTab(t)}
-            className={`px-5 py-2.5 rounded-full text-xs font-semibold transition-all border ${
+            className={`flex-shrink-0 px-5 py-2.5 rounded-full text-xs font-semibold whitespace-nowrap transition-all border ${
               activeTab === t
                 ? "bg-[#C9F85A] text-black border-transparent shadow-[0_4px_20px_rgba(201,248,90,0.3)]"
                 : "bg-[#1A1A1A] border-white/8 text-white/50 hover:text-white hover:bg-[#202020]"
@@ -198,7 +204,7 @@ export default function AchievementsPage() {
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: -8 }}
           transition={LUXURY_TWEEN_MEDIUM}
-          className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4"
+          className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4"
         >
           {displayed.map((badge, i) => {
             const Icon = iconMap[badge.icon] || Award;

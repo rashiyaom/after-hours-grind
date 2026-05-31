@@ -26,8 +26,10 @@ const studentNav = [
 ];
 
 const mobileStudentBottomNav = [
-  { label: "Home", path: "/#home", icon: LayoutDashboard },
+  { label: "Dashboard", path: "/student/dashboard", icon: LayoutDashboard },
+  { label: "Plan", path: "/student/daily-plan", icon: Calendar },
   { label: "Upload", path: "/student/upload", icon: Plus, isAction: true },
+  { label: "Rank", path: "/student/leaderboard", icon: Trophy },
   { label: "Profile", path: "/student/profile", icon: User },
 ];
 
@@ -74,6 +76,20 @@ export default function AppLayout() {
   const closeMobileMenu = () => {
     setMobileOpen(false);
   };
+
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    const body = document.body;
+    const previousOverflow = body.style.overflow;
+
+    if (mobileOpen) {
+      body.style.overflow = "hidden";
+    }
+
+    return () => {
+      body.style.overflow = previousOverflow;
+    };
+  }, [mobileOpen]);
 
   useEffect(() => {
     setMobileOpen(false);
@@ -491,30 +507,33 @@ export default function AppLayout() {
               exit={{ opacity: 0 }}
               transition={LUXURY_TWEEN_MEDIUM}
               className="lg:hidden fixed inset-0 bg-background/90 backdrop-blur-md z-[100]"
-              onClick={closeMobileMenu}
+              aria-hidden="true"
             />
             <motion.div
               initial={{ x: "100%" }}
               animate={{ x: 0 }}
               exit={{ x: "100%" }}
               transition={LUXURY_SPRING}
-              className="lg:hidden fixed top-0 right-0 h-full w-full max-w-[280px] bg-card border-l border-white/10 z-[101] flex flex-col shadow-[-20px_0_50px_rgba(0,0,0,0.5)] pointer-events-auto"
+              className="lg:hidden fixed inset-0 w-screen h-[100dvh] bg-card z-[101] flex flex-col pointer-events-auto overflow-hidden"
               onClick={(event) => event.stopPropagation()}
+              onMouseDown={(event) => event.stopPropagation()}
+              onTouchStart={(event) => event.stopPropagation()}
+              onTouchMove={(event) => event.stopPropagation()}
+              onWheel={(event) => event.stopPropagation()}
             >
-               <div className="p-6 border-b border-white/5 flex items-center justify-between">
+               <div className="p-6 pt-[calc(env(safe-area-inset-top)+1rem)] border-b border-white/5 flex items-center justify-between shrink-0">
                   <h3 className="font-display font-semibold text-lg text-foreground tracking-tight">Menu</h3>
                   <button
                     type="button"
                     onClick={closeMobileMenu}
-                    onPointerUp={closeMobileMenu}
-                    onTouchEnd={closeMobileMenu}
+                    onPointerDown={(event) => event.stopPropagation()}
                     className="p-2 rounded-lg bg-white/5 hover:bg-white/10 transition-all"
                     aria-label="Close menu"
                   >
                     <X className="h-5 w-5" />
                   </button>
                </div>
-               <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
+               <nav className="flex-1 p-4 space-y-2 overflow-y-auto overscroll-contain pb-6">
                   {nav.map((item) => {
                     const active = location.pathname === item.path;
                     return (
@@ -522,8 +541,7 @@ export default function AppLayout() {
                         key={item.path} 
                         to={item.path} 
                         onClick={closeMobileMenu}
-                        onPointerUp={closeMobileMenu}
-                        onTouchEnd={closeMobileMenu}
+                        onPointerDown={(event) => event.stopPropagation()}
                         className={`flex items-center justify-between p-4 rounded-xl text-sm font-medium transition-all border ${active ? "bg-[#C9F85A]/8 border-[#C9F85A]/20 text-white" : "bg-transparent border-transparent text-white/40 hover:text-white"}`}
                       >
                         <div className="flex items-center gap-4">
@@ -534,14 +552,14 @@ export default function AppLayout() {
                     );
                   })}
                </nav>
-               <div className="p-6 border-t border-white/5 space-y-4">
+              <div className="p-6 pb-[calc(env(safe-area-inset-bottom)+1rem)] border-t border-white/5 space-y-4 shrink-0">
                   <div className="bg-zinc-900 p-5 rounded-2xl border border-white/5 mb-4">
                      <p className="text-xs font-semibold text-muted-foreground mb-1">Status</p>
                      <p className="text-xs font-semibold text-green-500 flex items-center gap-2">
                         <Activity className="h-3 w-3" /> Online
                      </p>
                   </div>
-                  <button type="button" onClick={handleLogout} className="w-full flex items-center justify-center gap-2 py-4 rounded-xl text-sm font-semibold bg-destructive/10 text-destructive hover:bg-destructive hover:text-black transition-all">
+                  <button type="button" onClick={handleLogout} onPointerDown={(event) => event.stopPropagation()} className="w-full flex items-center justify-center gap-2 py-4 rounded-xl text-sm font-semibold bg-destructive/10 text-destructive hover:bg-destructive hover:text-black transition-all">
                     <LogOut className="h-4 w-4" /> Sign Out
                   </button>
                </div>
@@ -552,18 +570,22 @@ export default function AppLayout() {
 
       {/* Mobile Bottom Navigation (Immersive Instagram Style) */}
       {!isAdmin && (
-        <div className="lg:hidden fixed bottom-6 left-6 right-6 h-20 bg-card/80 backdrop-blur-3xl border border-white/10 rounded-[2.5rem] z-40 flex items-center justify-around px-2 shadow-[0_20px_50px_rgba(0,0,0,0.5)]">
+        <div
+          className="lg:hidden fixed inset-x-0 bottom-0 z-40 flex items-center justify-center px-3 pb-[calc(env(safe-area-inset-bottom)+0.75rem)]"
+          style={{ transform: "translateZ(0)" }}
+        >
+          <div className="h-16 w-full max-w-[calc(100vw-1.5rem)] bg-card/80 backdrop-blur-3xl border border-white/10 rounded-[1.75rem] flex items-center justify-around px-1 shadow-[0_12px_32px_rgba(0,0,0,0.42)]">
           {mobileBottomNav.map((item) => {
             const active = location.pathname === item.path;
             return (
               <Link key={item.path} to={item.path} className="relative flex flex-col items-center justify-center w-full h-full group">
                 {item.isAction ? (
-                  <div className="absolute -top-6 w-14 h-14 rounded-full bg-[#C9F85A] flex items-center justify-center shadow-[0_4px_20px_rgba(201,248,90,0.35)] border-4 border-[#0D0D0D] hover:scale-105 active:scale-95 transition-transform">
-                    <item.icon className="h-6 w-6 text-black" />
+                  <div className="absolute -top-5 w-12 h-12 rounded-full bg-[#C9F85A] flex items-center justify-center shadow-[0_4px_16px_rgba(201,248,90,0.32)] border-4 border-[#0D0D0D] hover:scale-105 active:scale-95 transition-transform">
+                    <item.icon className="h-5 w-5 text-black" />
                   </div>
                 ) : (
                   <div className={`flex flex-col items-center gap-1.5 transition-all relative ${active ? "scale-110" : "scale-90 opacity-40 hover:opacity-100"}`}>
-                    <item.icon className={`h-6 w-6 ${active ? "text-[#C9F85A]" : "text-white/60"}`} />
+                    <item.icon className={`h-5 w-5 ${active ? "text-[#C9F85A]" : "text-white/60"}`} />
                     {active && (
                        <motion.div layoutId="bottom-glow" className="w-1 h-1 rounded-full bg-[#C9F85A] shadow-[0_0_8px_rgba(201,248,90,0.6)] mt-0.5" />
                     )}
@@ -572,6 +594,7 @@ export default function AppLayout() {
               </Link>
             );
           })}
+          </div>
         </div>
       )}
 

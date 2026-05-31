@@ -2013,7 +2013,7 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
           const nextUsers = { ...state.users };
           nextUsers[createdId] = {
             ...(nextUsers[createdId] ?? {}),
-            ...(createdAccount as User),
+            ...(createdAccount as unknown as User),
           } as User;
 
           return {

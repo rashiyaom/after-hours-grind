@@ -5,8 +5,6 @@ import {
   Calendar,
   Check,
   Flame,
-  LineChart,
-  ScrollText,
   ArrowUpRight,
   Search,
   Target,
@@ -21,6 +19,7 @@ import type { LegacySubmission } from "@/hooks/useStore";
 import { Skeleton } from "@/components/ui/skeleton";
 import { LUXURY_TWEEN_MEDIUM } from "@/lib/motionTokens";
 import { toast } from "sonner";
+import { downloadDashboardSummaryXlsx } from "@/lib/dashboardSummaryExport";
 
 type DashboardTab = "Overview" | "Training" | "Nutrition" | "Progress" | "Reports";
 type DashboardPill = "All" | "Workout" | "Nutrition" | "Recovery";
@@ -384,28 +383,56 @@ export default function StudentDashboard() {
     return () => clearTimeout(focusTimer);
   }, [searchOpen]);
 
-  const handleDownloadSummary = () => {
-    const lines = [
-      `THE afterhour socials Dashboard Summary`,
-      `Student: ${s.name}`,
-      `Generated At: ${new Date().toLocaleString()}`,
-      `Tab: ${activeTab}`,
-      `Filter: ${activePill}`,
-      `Timeframe: ${timeframe}`,
-      `Completion: ${s.completionPercentage}%`,
-      `Calories Burned: ${progressOverview?.totalCaloriesBurnedLast30Days ?? 0}`,
-      `Streak: ${s.streak}`,
-      `Plan Day: ${s.currentDay}/${s.totalDays}`,
-    ];
-    const file = new Blob([lines.join("\n")], { type: "text/plain;charset=utf-8" });
-    const href = URL.createObjectURL(file);
-    const a = document.createElement("a");
-    a.href = href;
-    a.download = `ahg-summary-${Date.now()}.txt`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(href);
+  const handleDownloadSummary = async () => {
+    try {
+      await downloadDashboardSummaryXlsx({
+        student: {
+          id: s.id,
+          name: s.name,
+          email: s.email,
+          avatar: s.avatar,
+          collegeId: s.collegeId,
+          fitnessGoal: s.fitnessGoal,
+          currentDay: s.currentDay,
+          totalDays: s.totalDays,
+          completionPercentage: s.completionPercentage,
+          streak: s.streak,
+          totalPoints: s.totalPoints,
+          rank: s.rank,
+          trainerId: s.trainerId,
+        },
+        coachName,
+        activeTab,
+        activePill,
+        timeframe,
+        progressOverview,
+        approvedWorkoutCaloriesToday,
+        todayApprovedCount,
+        liveStreak,
+        longestStreak,
+        streakWindow,
+        streakCells,
+        quickTasks,
+        leaderboard,
+        notifications,
+        submissions: studentSubmissions.map((submission) => ({
+          id: submission.id,
+          studentName: submission.studentName,
+          taskName: submission.taskName,
+          taskType: submission.taskType,
+          dayNumber: submission.dayNumber,
+          points: submission.points,
+          timestamp: submission.timestamp,
+          status: submission.status,
+          mediaUrl: submission.mediaUrl,
+          trainerNote: submission.trainerNote,
+        })),
+        generatedAt: new Date().toLocaleString(),
+      });
+      toast.success("Excel summary downloaded");
+    } catch (error) {
+      toast.error("Failed to export Excel summary");
+    }
   };
 
   if (onboardingRequired) {
@@ -612,7 +639,7 @@ export default function StudentDashboard() {
               onClick={handleDownloadSummary}
               className="rounded-full bg-[#1D1D1D] px-4 py-2 text-sm font-semibold text-white"
             >
-              {activeTab === "Reports" ? "Export monthly report" : "Download summary"}
+              {activeTab === "Reports" ? "Export Excel report" : "Download Excel summary"}
             </button>
           </div>
         </div>
@@ -778,10 +805,10 @@ export default function StudentDashboard() {
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ ...LUXURY_TWEEN_MEDIUM, delay: 0.18 }}
-          className="flex h-full flex-col rounded-3xl border border-white/10 bg-[#151515] p-5 lg:col-span-3 lg:h-[34rem]"
+          className="flex h-full flex-col rounded-3xl border border-white/10 bg-[#151515] p-4 sm:p-5 lg:col-span-3 lg:h-[34rem] min-w-0"
         >
           {/* Header */}
-          <div className="mb-4 flex items-center justify-between">
+          <div className="mb-4 flex items-center justify-between gap-3">
             <div className="flex items-center gap-2">
               <div className="p-1.5 rounded-lg bg-[#FFD36E]/10 border border-[#FFD36E]/20">
                 <Trophy className="h-3.5 w-3.5 text-[#FFD36E]" />
@@ -792,7 +819,7 @@ export default function StudentDashboard() {
           </div>
 
           {/* Search */}
-          <div className="relative mb-4">
+          <div className="relative mb-4 min-w-0">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-white/25" />
             <input
               value={searchQuery}
@@ -803,7 +830,7 @@ export default function StudentDashboard() {
           </div>
 
           {/* Entries */}
-          <div className="min-h-0 flex-1 space-y-2 overflow-y-auto pr-1 [scrollbar-width:thin] [scrollbar-color:#2C2C2C_transparent] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-[#2C2C2C] hover:[&::-webkit-scrollbar-thumb]:bg-[#3A3A3A]">
+          <div className="min-h-0 flex-1 space-y-2 overflow-y-auto overflow-x-hidden pr-1 [scrollbar-width:thin] [scrollbar-color:#2C2C2C_transparent] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-[#2C2C2C] hover:[&::-webkit-scrollbar-thumb]:bg-[#3A3A3A]">
             {filteredLeaderboard.slice(0, 6).map((entry) => {
               const RANK_COLORS: Record<number, { bg: string; text: string; ring: string }> = {
                 1: { bg: "bg-gradient-to-br from-[#FFD36E] to-[#FF9500]", text: "text-black", ring: "" },
@@ -815,7 +842,7 @@ export default function StudentDashboard() {
               const gradIdx = entry.userId.charCodeAt(0) % AVATAR_GRADS.length;
               const initials = entry.name.split(" ").map((n: string) => n[0]).join("").slice(0, 2).toUpperCase();
               return (
-                <div key={entry.userId} className="flex items-center gap-3 rounded-2xl bg-[#1B1B1B] hover:bg-[#212121] transition-colors px-3 py-2.5 group">
+                <div key={entry.userId} className="flex items-center gap-2.5 rounded-2xl bg-[#1B1B1B] hover:bg-[#212121] transition-colors px-3 py-2.5 group min-w-0">
                   {/* Avatar */}
                   <div className={`w-8 h-8 rounded-xl p-[1.5px] flex-shrink-0 bg-gradient-to-br ${AVATAR_GRADS[gradIdx]}`}>
                     <div className="w-full h-full rounded-[10px] bg-[#1D1D1D] flex items-center justify-center text-[10px] font-bold text-white">
@@ -824,7 +851,7 @@ export default function StudentDashboard() {
                   </div>
                   {/* Info */}
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium text-white group-hover:text-[#C9F85A] transition-colors">{entry.name}</p>
+                    <p className="truncate text-[13px] sm:text-sm font-medium text-white group-hover:text-[#C9F85A] transition-colors">{entry.name}</p>
                     <p className="text-[10px] text-white/35">{entry.score.toLocaleString()} pts</p>
                   </div>
                   {/* Rank badge */}
@@ -848,19 +875,19 @@ export default function StudentDashboard() {
           </div>
 
           {/* Quick links */}
-          <div className="mt-auto grid grid-cols-2 gap-2 pt-4">
+          <div className="mt-auto grid grid-cols-2 gap-2 pt-4 min-w-0">
             {canPostFeed && (
-              <Link to="/student/upload" className="rounded-xl bg-[#C9F85A] px-3 py-2 text-center text-xs font-bold text-black hover:bg-[#d4ff60] transition-colors">
+              <Link to="/student/upload" className="rounded-xl bg-[#C9F85A] px-2.5 py-2 text-center text-[11px] font-bold text-black hover:bg-[#d4ff60] transition-colors">
                 Upload Proof
               </Link>
             )}
-            <Link to="/student/feed" className="rounded-xl bg-[#1D1D1D] border border-white/8 px-3 py-2 text-center text-xs font-semibold text-white/70 hover:text-white hover:bg-[#252525] transition-all">
+            <Link to="/student/feed" className="rounded-xl bg-[#1D1D1D] border border-white/8 px-2.5 py-2 text-center text-[11px] font-semibold text-white/70 hover:text-white hover:bg-[#252525] transition-all">
               Open Feed
             </Link>
-            <Link to="/student/daily-plan" className="rounded-xl bg-[#1D1D1D] border border-white/8 px-3 py-2 text-center text-xs font-semibold text-white/70 hover:text-white hover:bg-[#252525] transition-all">
+            <Link to="/student/daily-plan" className="rounded-xl bg-[#1D1D1D] border border-white/8 px-2.5 py-2 text-center text-[11px] font-semibold text-white/70 hover:text-white hover:bg-[#252525] transition-all">
               Daily Plan
             </Link>
-            <Link to="/student/leaderboard" className="rounded-xl bg-[#1D1D1D] border border-white/8 px-3 py-2 text-center text-xs font-semibold text-white/70 hover:text-white hover:bg-[#252525] transition-all">
+            <Link to="/student/leaderboard" className="rounded-xl bg-[#1D1D1D] border border-white/8 px-2.5 py-2 text-center text-[11px] font-semibold text-white/70 hover:text-white hover:bg-[#252525] transition-all">
               Leaderboard
             </Link>
           </div>

@@ -63,6 +63,7 @@
     @apply bg-background text-foreground antialiased selection:bg-neon-orange/30 selection:text-white;
     font-family: 'Inter', system-ui, sans-serif;
     letter-spacing: -0.01em;
+    -webkit-text-size-adjust: 100%;
   }
 
   h1, h2, h3, h4, h5, h6 {

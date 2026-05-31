@@ -102,14 +102,17 @@ export default function LeaderboardPage() {
   }
 
   return (
-    <div className="mx-auto max-w-3xl space-y-6 p-4 sm:p-6 lg:p-8 pb-10">
+    <div
+      className="mx-auto max-w-3xl space-y-5 overflow-x-hidden p-3 sm:p-6 lg:p-8 pb-24 sm:pb-10 touch-manipulation"
+      style={{ touchAction: "manipulation", WebkitTextSizeAdjust: "100%" }}
+    >
 
       {/* ── Hero header ──────────────────────────────── */}
       <motion.div
         initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}
         transition={LUXURY_TWEEN_MEDIUM}
-        className="rounded-[32px] border border-white/10 bg-[#121212] p-6 sm:p-8 shadow-[0_20px_60px_rgba(0,0,0,0.5)] relative overflow-hidden"
+        className="rounded-[28px] border border-white/10 bg-[#121212] p-4 sm:p-8 shadow-[0_20px_60px_rgba(0,0,0,0.5)] relative overflow-hidden"
       >
         {/* Ambient glow */}
         <div
@@ -121,7 +124,7 @@ export default function LeaderboardPage() {
           style={{ background: accentColor }}
         />
 
-        <div className="flex items-center justify-between gap-4 relative z-10">
+        <div className="relative z-10 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div className="space-y-3">
             <div
               className="inline-flex items-center gap-2 rounded-full border px-3 py-1.5 transition-colors duration-300"
@@ -132,7 +135,7 @@ export default function LeaderboardPage() {
                 Leaderboard
               </span>
             </div>
-            <h1 className="text-4xl sm:text-5xl font-bold text-white tracking-tight leading-none">Rankings</h1>
+            <h1 className="text-3xl sm:text-5xl font-bold text-white tracking-tight leading-none">Rankings</h1>
             <p className="text-sm text-white/35 flex items-center gap-2">
               <Activity className="h-3.5 w-3.5" style={{ color: accentColor }} />
               <span><span className="font-semibold text-white/60">{sorted.length}</span> athletes ranked · {activeFilter}</span>
@@ -144,7 +147,7 @@ export default function LeaderboardPage() {
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               transition={{ ...LUXURY_TWEEN_MEDIUM, delay: 0.2 }}
-              className="rounded-2xl border p-5 text-center min-w-[90px] relative overflow-hidden"
+              className="rounded-2xl border p-4 sm:p-5 text-center w-full sm:min-w-[90px] relative overflow-hidden"
               style={{ background: `${accentColor}0C`, borderColor: `${accentColor}30` }}
             >
               <div className="absolute inset-0 opacity-20" style={{ background: `linear-gradient(135deg, ${accentColor}15, transparent 60%)` }} />
@@ -161,7 +164,7 @@ export default function LeaderboardPage() {
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ ...LUXURY_TWEEN_MEDIUM, delay: 0.06 }}
-        className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide"
+        className="flex gap-2 overflow-x-auto pb-1 -mx-3 px-3 sm:mx-0 sm:px-0 scrollbar-hide"
       >
         {filters.map((f) => {
           const Icon = filterIcons[f];
@@ -194,7 +197,7 @@ export default function LeaderboardPage() {
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: -10 }}
           transition={{ ...LUXURY_TWEEN_MEDIUM, delay: 0.08 }}
-          className="rounded-[32px] border border-white/10 bg-[#121212] p-6 sm:p-8 shadow-[0_20px_60px_rgba(0,0,0,0.5)] relative overflow-hidden"
+          className="rounded-[28px] border border-white/10 bg-[#121212] p-4 sm:p-8 shadow-[0_20px_60px_rgba(0,0,0,0.5)] relative overflow-hidden"
         >
           {/* Subtle background pattern */}
           <div className="absolute inset-0 opacity-[0.03]" style={{
@@ -202,13 +205,13 @@ export default function LeaderboardPage() {
             backgroundSize: "20px 20px",
           }} />
 
-          <div className="flex items-end justify-center gap-4 sm:gap-8 pt-8 pb-2 relative z-10">
+          <div className="grid grid-cols-3 items-end justify-center gap-2 sm:flex sm:gap-8 pt-4 sm:pt-8 pb-2 relative z-10">
             {top3.map((e, visualIdx) => {
               if (!e) return null;
               const isWinner = visualIdx === 1;
               const gradIdx = e.userId.charCodeAt(0) % AVATAR_GRADIENTS.length;
-              const podiumHeights = ["h-32", "h-48", "h-24"];
-              const avatarSizes = ["w-16 h-16", "w-24 h-24", "w-14 h-14"];
+              const podiumHeights = ["h-20 sm:h-32", "h-28 sm:h-48", "h-16 sm:h-24"];
+              const avatarSizes = ["w-12 h-12 sm:w-16 sm:h-16", "w-16 h-16 sm:w-24 sm:h-24", "w-11 h-11 sm:w-14 sm:h-14"];
               const rankEmojis = ["🥈", "🥇", "🥉"];
               const medalColors = ["#C0C0C0", accentColor, "#CD7F32"];
 
@@ -218,7 +221,7 @@ export default function LeaderboardPage() {
                   initial={{ opacity: 0, y: 30, scale: 0.85 }}
                   animate={{ opacity: 1, y: 0, scale: 1 }}
                   transition={{ ...LUXURY_TWEEN_SLOW, delay: visualIdx * 0.12 }}
-                  className="flex flex-col items-center gap-3"
+                  className="flex flex-col items-center gap-2 sm:gap-3 min-w-0"
                 >
                   {/* Avatar + Crown */}
                   <div className="relative">
@@ -242,7 +245,7 @@ export default function LeaderboardPage() {
                     />
 
                     <div className={`${avatarSizes[visualIdx]} rounded-2xl bg-gradient-to-br ${AVATAR_GRADIENTS[gradIdx]} p-[2.5px] relative`}>
-                      <div className="w-full h-full rounded-[14px] bg-[#1A1A1A] flex items-center justify-center font-bold text-white" style={{ fontSize: isWinner ? "1.25rem" : "0.875rem" }}>
+                      <div className="w-full h-full rounded-[14px] bg-[#1A1A1A] flex items-center justify-center font-bold text-white" style={{ fontSize: isWinner ? "1.05rem" : "0.8rem" }}>
                         {getInitials(e.name)}
                       </div>
                     </div>
@@ -272,7 +275,7 @@ export default function LeaderboardPage() {
                   {/* Podium column */}
                   <div className="relative">
                     <div
-                      className={`${podiumHeights[visualIdx]} w-24 sm:w-28 rounded-t-[24px] border-x border-t flex flex-col items-center justify-end pb-5 transition-all relative overflow-hidden`}
+                      className={`${podiumHeights[visualIdx]} w-full sm:w-28 rounded-t-[20px] border-x border-t flex flex-col items-center justify-end pb-3 sm:pb-5 transition-all relative overflow-hidden`}
                       style={{
                         borderColor: `${medalColors[visualIdx]}30`,
                         background: `linear-gradient(to bottom, ${medalColors[visualIdx]}12, transparent 80%)`,
@@ -282,8 +285,8 @@ export default function LeaderboardPage() {
                       {isWinner && (
                         <div className="absolute inset-0 shimmer opacity-50" />
                       )}
-                      <span className="text-3xl relative z-10">{rankEmojis[visualIdx]}</span>
-                      <div className="w-10 h-0.5 rounded-full mt-2 relative z-10" style={{ background: `${medalColors[visualIdx]}30` }} />
+                      <span className="text-2xl sm:text-3xl relative z-10">{rankEmojis[visualIdx]}</span>
+                      <div className="w-8 sm:w-10 h-0.5 rounded-full mt-2 relative z-10" style={{ background: `${medalColors[visualIdx]}30` }} />
                     </div>
                   </div>
                 </motion.div>
@@ -300,7 +303,7 @@ export default function LeaderboardPage() {
           initial={{ opacity: 0, scale: 0.97 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={LUXURY_TWEEN_MEDIUM}
-          className="rounded-2xl border p-4 flex items-center gap-4 relative overflow-hidden group"
+          className="rounded-2xl border p-4 flex items-center gap-3 sm:gap-4 relative overflow-hidden group"
           style={{ background: `${accentColor}0C`, borderColor: `${accentColor}25` }}
         >
           {/* Animated left accent */}
@@ -332,10 +335,10 @@ export default function LeaderboardPage() {
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={{ ...LUXURY_TWEEN_MEDIUM, delay: 0.15 }}
-          className="rounded-[32px] border border-white/10 bg-[#121212] p-4 shadow-[0_20px_60px_rgba(0,0,0,0.5)]"
+          className="rounded-[28px] border border-white/10 bg-[#121212] p-3 sm:p-4 shadow-[0_20px_60px_rgba(0,0,0,0.5)] overflow-hidden"
         >
           {/* Table header */}
-          <div className="flex items-center gap-4 px-4 py-3 border-b border-white/5 mb-1">
+          <div className="hidden sm:flex items-center gap-4 px-4 py-3 border-b border-white/5 mb-1">
             <p className="text-[10px] font-semibold text-white/20 uppercase tracking-[0.15em] w-10 text-center">Rank</p>
             <p className="text-[10px] font-semibold text-white/20 uppercase tracking-[0.15em] flex-1">Athlete</p>
             <p className="text-[10px] font-semibold text-white/20 uppercase tracking-[0.15em] text-right w-20">Score</p>
@@ -354,17 +357,17 @@ export default function LeaderboardPage() {
                   initial={{ opacity: 0, x: -12 }}
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ ...LUXURY_TWEEN_MEDIUM, delay: Math.min(idx, 15) * 0.03 }}
-                  className={`flex items-center gap-4 px-4 py-3.5 rounded-2xl transition-all cursor-pointer group ${
+                  className={`flex items-center gap-3 sm:gap-4 px-3 sm:px-4 py-3.5 rounded-2xl transition-all cursor-pointer group ${
                     isMe
                       ? "border border-[#C9F85A]/20 bg-[#C9F85A]/[0.04]"
                       : "hover:bg-white/[0.03] border border-transparent hover:border-white/8"
                   }`}
                 >
                   {/* Rank */}
-                  <div className="w-10 flex-shrink-0 flex items-center justify-center">
+                  <div className="w-9 sm:w-10 flex-shrink-0 flex items-center justify-center">
                     {isTop3 ? (
                       <div
-                        className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-black shadow-md"
+                        className="w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center text-[10px] sm:text-xs font-black shadow-md"
                         style={{
                           background: `linear-gradient(135deg, ${rankColors[entry.rank]}, ${rankColors[entry.rank]}80)`,
                           color: entry.rank === 2 ? "#111" : entry.rank === 3 ? "#fff" : "#111",
@@ -381,7 +384,7 @@ export default function LeaderboardPage() {
                   </div>
 
                   {/* Avatar */}
-                  <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${AVATAR_GRADIENTS[gradIdx]} p-[1.5px] flex-shrink-0`}>
+                  <div className={`w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-br ${AVATAR_GRADIENTS[gradIdx]} p-[1.5px] flex-shrink-0`}>
                     <div className="w-full h-full rounded-[10px] bg-[#1A1A1A] flex items-center justify-center text-[11px] font-bold text-white">
                       {getInitials(entry.name)}
                     </div>
@@ -389,11 +392,11 @@ export default function LeaderboardPage() {
 
                   {/* Info */}
                   <div className="flex-1 min-w-0">
-                    <p className={`text-sm font-semibold truncate transition-colors ${isMe ? "text-[#C9F85A]" : "text-white group-hover:text-white/90"}`}>
+                    <p className={`text-[13px] sm:text-sm font-semibold truncate transition-colors ${isMe ? "text-[#C9F85A]" : "text-white group-hover:text-white/90"}`}>
                       {entry.name}
                       {isMe && <span className="ml-2 text-[10px] text-[#C9F85A]/50 font-normal">(you)</span>}
                     </p>
-                    <div className="flex items-center gap-2 mt-0.5">
+                    <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                       <Flame className="h-3 w-3 text-[#FF4D00]" />
                       <span className="text-[11px] text-white/30">{entry.streak}d</span>
                       <span className="text-white/15">·</span>
@@ -402,7 +405,7 @@ export default function LeaderboardPage() {
                   </div>
 
                   {/* Score */}
-                  <div className="text-right flex-shrink-0 w-20">
+                  <div className="text-right flex-shrink-0 w-18 sm:w-20">
                     <p className={`text-sm font-bold tabular-nums ${isMe ? "text-[#C9F85A]" : "text-white"}`}>
                       {getScoreLabel(entry, activeFilter)}
                     </p>

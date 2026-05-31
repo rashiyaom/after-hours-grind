@@ -41,7 +41,10 @@ export default function ProgressPage() {
   ];
 
   return (
-    <div className="mx-auto max-w-7xl space-y-6 p-4 sm:p-6 lg:p-8 pb-10">
+    <div
+      className="mx-auto max-w-7xl space-y-6 overflow-x-hidden p-4 sm:p-6 lg:p-8 pb-28 sm:pb-10 touch-manipulation"
+      style={{ touchAction: "manipulation", WebkitTextSizeAdjust: "100%" }}
+    >
 
       {/* ── Header card ─────────────────────────────────── */}
       <motion.div
@@ -56,7 +59,7 @@ export default function ProgressPage() {
             <TrendingUp className="h-3.5 w-3.5 text-[#C9F85A]" />
             <span className="text-xs font-bold text-[#C9F85A] uppercase tracking-wider">Analytics</span>
           </div>
-          <h1 className="text-4xl font-bold text-white tracking-tight">Your Progress</h1>
+          <h1 className="text-3xl sm:text-4xl font-bold text-white tracking-tight">Your Progress</h1>
           <p className="text-sm text-white/40 flex items-center gap-2">
             <Activity className="h-3.5 w-3.5 text-[#C9F85A]" />
             Tracking {s.totalDays}-day programme · Day {s.currentDay}
@@ -65,7 +68,7 @@ export default function ProgressPage() {
       </motion.div>
 
       {/* ── KPI row ─────────────────────────────────────── */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         {kpis.map((k, i) => (
           <motion.div
             key={k.label}
@@ -103,7 +106,7 @@ export default function ProgressPage() {
               </div>
               <div className="w-2 h-2 rounded-full bg-[#C9F85A] animate-pulse" />
             </div>
-            <div className="h-[260px] w-full">
+            <div className="h-[220px] sm:h-[260px] w-full">
               <WeeklyChart data={weeklyData} />
             </div>
           </motion.div>
