@@ -5,17 +5,17 @@
   "scripts": {
     "dev": "tsx watch src/server.ts",
     "build": "tsc -p .",
-    "postinstall": "prisma generate",
+    "postinstall": "tsx scripts/prisma-cli.ts generate",
     "start": "npm run start:guarded",
     "start:guarded": "npm run prisma:migrate:deploy && npm run prisma:migrate:status && node dist/server.js",
     "test": "vitest run",
     "test:smoke:whatsapp": "vitest run tests/whatsapp-proof.smoke.test.ts",
     "test:watch": "vitest",
-    "prisma:generate": "prisma generate",
-    "prisma:migrate": "prisma migrate dev",
-    "prisma:migrate:deploy": "prisma migrate deploy",
-    "prisma:migrate:status": "prisma migrate status",
-    "prisma:studio": "prisma studio",
+    "prisma:generate": "tsx scripts/prisma-cli.ts generate",
+    "prisma:migrate": "tsx scripts/prisma-cli.ts migrate dev",
+    "prisma:migrate:deploy": "tsx scripts/prisma-cli.ts migrate deploy",
+    "prisma:migrate:status": "tsx scripts/prisma-cli.ts migrate status",
+    "prisma:studio": "tsx scripts/prisma-cli.ts studio",
     "db:list-users": "tsx scratch/list_users.ts"
     ,
     "db:run-audit": "tsx scripts/run_db_audit.ts"
