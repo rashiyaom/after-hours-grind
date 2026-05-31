@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "tsx watch src/server.ts",
     "build": "tsc -p .",
+    "postinstall": "prisma generate",
     "start": "npm run start:guarded",
     "start:guarded": "npm run prisma:migrate:deploy && npm run prisma:migrate:status && node dist/server.js",
     "test": "vitest run",
