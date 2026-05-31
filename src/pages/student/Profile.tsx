@@ -1,8 +1,8 @@
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Flame, Users, Award, Calendar, Settings,
-  Edit2, Share2, MapPin, UserPlus, MessageCircle, Star,
-  TrendingUp, CheckCircle2, Grid3X3, Zap, ChevronRight,
+  Edit2, Share2, MapPin, UserPlus, Star,
+  TrendingUp, CheckCircle2, Grid3X3, ChevronRight,
 } from "lucide-react";
 import { useAppStore, useStore } from "@/hooks/useStore";
 import { useState, useMemo, useEffect } from "react";
@@ -35,6 +35,25 @@ function getInitials(name: string) {
 
 const tabs = ["Posts", "Stats"] as const;
 type Tab = typeof tabs[number];
+
+// Typed view of the resolved profile — covers both own and other-user data shapes
+type ProfileView = {
+  id: string;
+  name: string;
+  avatar?: string;
+  streak: number;
+  rank: number;
+  completionPercentage: number;
+  followers: number;
+  following: number;
+  collegeId?: string;
+  totalPoints?: number;
+  currentDay?: number;
+  totalDays?: number;
+  height?: number;
+  weight?: number;
+  fitnessGoal?: string;
+};
 
 type SocialListItem = {
   id: string;
@@ -141,8 +160,13 @@ export default function ProfilePage() {
         completionPercentage: typeof sp?.completionPercentage === "number" ? sp.completionPercentage : 0,
         followers: typeof fetchedProfile.followersCount === "number" ? fetchedProfile.followersCount : 0,
         following: typeof fetchedProfile.followingCount === "number" ? fetchedProfile.followingCount : 0,
-        collegeId: sp?.collegeId as string | undefined,
+        collegeId: (sp?.collegeId ?? fetchedProfile.collegeId) as string | undefined,
         totalPoints: typeof sp?.totalPoints === "number" ? sp.totalPoints : (typeof fetchedProfile.totalPoints === "number" ? fetchedProfile.totalPoints as number : 0),
+        currentDay: typeof sp?.currentDay === "number" ? sp.currentDay : undefined,
+        totalDays: typeof sp?.totalDays === "number" ? sp.totalDays : undefined,
+        height: typeof sp?.heightCm === "number" ? sp.heightCm : (typeof sp?.height === "number" ? sp.height : undefined),
+        weight: typeof sp?.weightKg === "number" ? sp.weightKg : (typeof sp?.weight === "number" ? sp.weight : undefined),
+        fitnessGoal: typeof sp?.fitnessGoal === "string" ? sp.fitnessGoal : (typeof fetchedProfile.fitnessGoal === "string" ? fetchedProfile.fitnessGoal as string : undefined),
       };
     }
     if (userId) {
@@ -165,25 +189,10 @@ export default function ProfilePage() {
     }
     const found = students.find((l) => l.userId === userId);
     return found
-      ? { ...me, id: found.userId, name: found.name, streak: found.streak, rank: found.rank, completionPercentage: found.completionPercentage, followers: 124, following: 89 }
+      ? { ...me, id: found.userId, name: found.name, streak: found.streak, rank: found.rank, completionPercentage: found.completionPercentage, followers: 0, following: 0 }
       : me;
   }, [userId, isMe, me, students, users, fetchedProfile, myRankFromLeaderboard]);
 
-  type ProfileView = {
-    height: any;
-    weight: any;
-    id: string;
-    name: string;
-    avatar?: string;
-    streak: number;
-    rank: number;
-    completionPercentage: number;
-    followers: number;
-    following: number;
-    collegeId?: string;
-    totalPoints?: number;
-    currentDay?: number;
-  };
   const s = sRaw as ProfileView;
   const gradIdx = String(s.id || '').charCodeAt(0) % AVATAR_GRADIENTS.length;
   const [gradFrom, gradTo] = AVATAR_GRADIENTS[gradIdx];
@@ -338,20 +347,22 @@ export default function ProfilePage() {
               </span>
             </div>
             <div className="flex flex-wrap items-center gap-2.5 text-xs text-white/40">
-              <span className="flex items-center gap-1">
-                <MapPin className="h-3 w-3" />
-                {s.collegeId || "ATH_GRP_001"}
-              </span>
+              {s.collegeId && (
+                <span className="flex items-center gap-1">
+                  <MapPin className="h-3 w-3" />
+                  {s.collegeId}
+                </span>
+              )}
               <span className="flex items-center gap-1">
                 <Star className="h-3 w-3 text-[#FFD36E]" />
                 {s.completionPercentage}% complete
               </span>
             </div>
-            <p className="mt-2 text-sm text-white/45 leading-relaxed max-w-xs">
-              {isMe
-                ? "Relentless pursuit of excellence. Day by day, gram by gram."
-                : "Athlete in the After Hours programme. Committed to the grind."}
-            </p>
+            {s.fitnessGoal && (
+              <p className="mt-2 text-sm text-white/45 leading-relaxed max-w-xs">
+                {s.fitnessGoal}
+              </p>
+            )}
           </div>
 
           {/* Action Buttons */}
@@ -546,12 +557,12 @@ export default function ProfilePage() {
                   <div className="w-1 h-4 rounded-full" style={{ background: gradFrom }} />
                   <h2 className="text-sm font-bold text-white">Athlete Specs</h2>
                 </div>
-                {[
-                  { label: "Days Completed", value: isMe ? "14" : "8", color: "#C9F85A" },
-                  { label: "Height", value: `${s.height} cm`, color: "#4DD2FF" },
-                  { label: "Weight", value: `${s.weight} kg`, color: "#FFD36E" },
-                  { label: "Workout Pref", value: "A.M. Session", color: "#A78BFA" },
-                ].map((stat) => (
+                {([
+                  { label: "Day", value: `${s.currentDay ?? 1} / ${s.totalDays ?? 28}`, color: "#C9F85A", show: true },
+                  { label: "Height", value: s.height ? `${s.height} cm` : null, color: "#4DD2FF", show: Boolean(s.height) },
+                  { label: "Weight", value: s.weight ? `${s.weight} kg` : null, color: "#FFD36E", show: Boolean(s.weight) },
+                  { label: "Goal", value: s.fitnessGoal || null, color: "#A78BFA", show: Boolean(s.fitnessGoal) },
+                ] as const).filter((stat) => stat.show && stat.value).map((stat) => (
                   <div key={stat.label} className="flex items-center justify-between py-2.5 border-b border-white/5 last:border-0">
                     <p className="text-xs text-white/40 uppercase tracking-wider">{stat.label}</p>
                     <p className="text-sm font-bold" style={{ color: stat.color }}>{stat.value}</p>
@@ -592,32 +603,42 @@ export default function ProfilePage() {
                 </div>
               </div>
 
-              {/* Coach Feedback */}
-              <div className="rounded-3xl border border-white/8 bg-[#0F0F0F] p-5 relative overflow-hidden">
-                <div
-                  className="absolute top-0 right-0 w-32 h-32 rounded-full blur-3xl opacity-10 pointer-events-none"
-                  style={{ background: gradFrom, transform: "translate(30%, -30%)" }}
-                />
-                <div className="flex items-center gap-2 mb-4">
-                  <div className="w-1 h-4 rounded-full" style={{ background: gradTo }} />
-                  <h2 className="text-sm font-bold text-white">Coach Feedback</h2>
-                </div>
-                <div className="rounded-2xl border border-white/5 bg-black/30 p-5 relative">
-                  <span className="text-4xl leading-none absolute -top-3 left-4" style={{ color: gradFrom }}>"</span>
-                  <p className="text-sm text-white/55 leading-relaxed italic pt-1">
-                    {isMe
-                      ? "Form looks sharp. Focus on increasing protein intake by 15% next phase. Tactical readiness is high."
-                      : "Consistent output detected. Maintain current intensity. Strength markers are trending upward."}
-                  </p>
-                  <span className="text-4xl leading-none absolute -bottom-5 right-4" style={{ color: gradFrom }}>"</span>
-                </div>
-                <div className="mt-4 flex items-center gap-2">
-                  <div className="w-6 h-6 rounded-full flex items-center justify-center" style={{ background: `${gradFrom}18` }}>
-                    <Star className="h-3 w-3" style={{ color: gradFrom }} />
+              {/* Trainer Note — only shown when real data exists */}
+              {(() => {
+                const fp = fetchedProfile as Record<string, unknown> | null;
+                const sp = fp?.studentProfile as Record<string, unknown> | undefined;
+                // Check multiple possible API response shapes for trainer feedback
+                const trainerFeedback = (
+                  typeof fp?.latestTrainerNote === "string" ? fp.latestTrainerNote :
+                  typeof sp?.latestTrainerNote === "string" ? sp.latestTrainerNote :
+                  typeof fp?.trainerNote === "string" ? fp.trainerNote :
+                  null
+                )?.trim() || null;
+                if (!trainerFeedback) return null;
+                return (
+                  <div className="rounded-3xl border border-white/8 bg-[#0F0F0F] p-5 relative overflow-hidden">
+                    <div
+                      className="absolute top-0 right-0 w-32 h-32 rounded-full blur-3xl opacity-10 pointer-events-none"
+                      style={{ background: gradFrom, transform: "translate(30%, -30%)" }}
+                    />
+                    <div className="flex items-center gap-2 mb-4">
+                      <div className="w-1 h-4 rounded-full" style={{ background: gradTo }} />
+                      <h2 className="text-sm font-bold text-white">Coach Feedback</h2>
+                    </div>
+                    <div className="rounded-2xl border border-white/5 bg-black/30 p-5 relative">
+                      <span className="text-4xl leading-none absolute -top-3 left-4" style={{ color: gradFrom }}>&ldquo;</span>
+                      <p className="text-sm text-white/55 leading-relaxed italic pt-1">{trainerFeedback}</p>
+                      <span className="text-4xl leading-none absolute -bottom-5 right-4" style={{ color: gradFrom }}>&rdquo;</span>
+                    </div>
+                    <div className="mt-4 flex items-center gap-2">
+                      <div className="w-6 h-6 rounded-full flex items-center justify-center" style={{ background: `${gradFrom}18` }}>
+                        <Star className="h-3 w-3" style={{ color: gradFrom }} />
+                      </div>
+                      <p className="text-xs text-white/30">From your assigned trainer</p>
+                    </div>
                   </div>
-                  <p className="text-xs text-white/30">From your assigned trainer</p>
-                </div>
-              </div>
+                );
+              })()}
             </motion.div>
           )}
         </AnimatePresence>
