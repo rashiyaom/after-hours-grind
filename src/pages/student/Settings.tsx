@@ -2,13 +2,15 @@ import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   User, Bell, Shield, Smartphone, Footprints, LogOut,
-  ChevronRight, Moon, Vibrate, Save, ArrowLeft,
-  Activity, Zap, ShieldCheck, Cpu, Unlock, Ruler, Weight
+  Moon, Vibrate, Save, ArrowLeft,
+  Activity, Zap, ShieldCheck, Cpu, Unlock, Ruler, Weight,
+  ChevronRight, Lock, Eye, EyeOff,
 } from "lucide-react";
 import { useStore } from "@/hooks/useStore";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { changePasswordAPI, fetchSettingsAPI, updateSettingsAPI } from "@/lib/api";
+import { LUXURY_TWEEN_MEDIUM } from "@/lib/motionTokens";
 
 type PersistedSettings = {
   notifications: {
@@ -23,15 +25,22 @@ type PersistedSettings = {
   };
 };
 
-
-function Toggle({ enabled, onToggle, accent = "bg-neon-orange" }: { enabled: boolean; onToggle: () => void; accent?: string }) {
+function Toggle({ enabled, onToggle, color = "#C9F85A" }: { enabled: boolean; onToggle: () => void; color?: string }) {
   return (
     <button
       onClick={onToggle}
-      className={`relative w-12 h-6 rounded-full transition-all duration-500 border-2 ${enabled ? `${accent}/20 border-${accent}/50` : "bg-zinc-950 border-white/5"}`}
+      className="relative w-12 h-6 rounded-full transition-all duration-300 border"
+      style={
+        enabled
+          ? { background: `${color}25`, borderColor: `${color}50` }
+          : { background: "rgba(255,255,255,0.04)", borderColor: "rgba(255,255,255,0.08)" }
+      }
     >
-      <div
-        className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full transition-all duration-500 shadow-[0_0_10px_rgba(0,0,0,0.5)] ${enabled ? `translate-x-6 ${accent} shadow-[0_0_15px_rgba(255,165,0,0.5)]` : "bg-muted-foreground/30"}`}
+      <motion.div
+        animate={{ x: enabled ? 24 : 2 }}
+        transition={{ type: "spring", stiffness: 500, damping: 35 }}
+        className="absolute top-1 w-4 h-4 rounded-full shadow-lg"
+        style={{ background: enabled ? color : "rgba(255,255,255,0.3)" }}
       />
     </button>
   );
@@ -40,8 +49,10 @@ function Toggle({ enabled, onToggle, accent = "bg-neon-orange" }: { enabled: boo
 export default function SettingsPage() {
   const navigate = useNavigate();
   const { student: s, updateProfile } = useStore();
-  const [view, setView] = useState<"menu" | "edit-profile">("menu");
+  const [view, setView] = useState<"menu" | "edit-profile" | "change-password">("menu");
   const [isSavingPassword, setIsSavingPassword] = useState(false);
+  const [showCurrentPw, setShowCurrentPw] = useState(false);
+  const [showNewPw, setShowNewPw] = useState(false);
 
   const [formData, setFormData] = useState({
     name: s.name,
@@ -90,14 +101,10 @@ export default function SettingsPage() {
         });
       }
     };
-
     void loadSettings();
   }, []);
 
-  const persistSettings = async (
-    nextNotifications: typeof notifications,
-    nextPrivacy: typeof privacy,
-  ) => {
+  const persistSettings = async (nextNotifications: typeof notifications, nextPrivacy: typeof privacy) => {
     await updateSettingsAPI({
       pushNotifications: nextNotifications.push,
       emailNotifications: nextNotifications.email,
@@ -115,10 +122,10 @@ export default function SettingsPage() {
         weight: parseFloat(formData.weight) || s.weight,
         height: parseFloat(formData.height) || s.height,
       });
-      toast.success("BIOMETRIC_DATA_UPDATED: PROFILE_SYNCED");
+      toast.success("Profile updated!");
       setView("menu");
-    } catch (error) {
-      toast.error("PROFILE_SYNC_FAILURE: RETRY_REQUIRED");
+    } catch {
+      toast.error("Failed to save profile. Please try again.");
     }
   };
 
@@ -126,47 +133,37 @@ export default function SettingsPage() {
     if (group === "notifications") {
       setNotifications((prev) => {
         const next = { ...prev, [key]: !prev[key as keyof typeof prev] };
-        void persistSettings(next, privacy).catch(() => {
-          toast.error("SETTINGS_SYNC_FAILURE");
-        });
+        void persistSettings(next, privacy).catch(() => toast.error("Could not sync settings."));
         return next;
       });
     } else {
       setPrivacy((prev) => {
         const next = { ...prev, [key]: !prev[key as keyof typeof prev] };
-        void persistSettings(notifications, next).catch(() => {
-          toast.error("SETTINGS_SYNC_FAILURE");
-        });
+        void persistSettings(notifications, next).catch(() => toast.error("Could not sync settings."));
         return next;
       });
     }
-    toast.success("SYSTEM_FLAG_UPDATED");
   };
 
   const handleChangePassword = async () => {
     if (!passwordForm.currentPassword || !passwordForm.newPassword || !passwordForm.confirmPassword) {
-      toast.error("Please complete all password fields.");
+      toast.error("Please fill in all fields.");
       return;
     }
-
     if (passwordForm.newPassword.length < 8) {
       toast.error("Password must be at least 8 characters.");
       return;
     }
-
     if (passwordForm.newPassword !== passwordForm.confirmPassword) {
-      toast.error("Passwords do not match.");
+      toast.error("Passwords don't match.");
       return;
     }
-
     setIsSavingPassword(true);
     try {
-      await changePasswordAPI({
-        currentPassword: passwordForm.currentPassword,
-        newPassword: passwordForm.newPassword,
-      });
+      await changePasswordAPI({ currentPassword: passwordForm.currentPassword, newPassword: passwordForm.newPassword });
       setPasswordForm({ currentPassword: "", newPassword: "", confirmPassword: "" });
-      toast.success("Password updated. The admin panel will reflect the update timestamp.");
+      toast.success("Password updated successfully!");
+      setView("menu");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to update password.");
     } finally {
@@ -183,340 +180,437 @@ export default function SettingsPage() {
     .toUpperCase();
 
   return (
-    <div className="mx-auto max-w-3xl space-y-5 p-4 sm:p-6 lg:p-8 pb-10 relative">
-       <div className="absolute top-0 right-0 w-64 h-64 bg-neon-blue/5 blur-3xl pointer-events-none" />
-       
-      <AnimatePresence mode="wait">
-        {view === "menu" ? (
-          <motion.div
-            key="menu"
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -20 }}
-            className="space-y-6"
-          >
-            <div className="space-y-2">
-              <div className="flex items-center gap-2">
-                <div className="rounded-xl border border-white/10 bg-white/[0.03] p-2">
-                  <Cpu className="h-4 w-4 text-[#C9F85A]" />
-                </div>
-                <p className="text-[10px] font-black uppercase tracking-[0.35em] text-[#C9F85A]">Settings Hub</p>
+    <div className="min-h-screen bg-[#080808] pb-[calc(env(safe-area-inset-bottom)+7rem)] sm:pb-10 relative overflow-hidden">
+      {/* Background orbs */}
+      <div className="fixed top-0 right-0 w-72 h-72 rounded-full bg-[#4DD2FF]/5 blur-3xl pointer-events-none" />
+      <div className="fixed bottom-1/3 left-0 w-56 h-56 rounded-full bg-[#C9F85A]/4 blur-3xl pointer-events-none" />
+
+      <div className="relative z-10 mx-auto max-w-2xl">
+        <AnimatePresence mode="wait">
+
+          {/* ───────────────── MAIN MENU ───────────────── */}
+          {view === "menu" && (
+            <motion.div
+              key="menu"
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -20 }}
+              transition={LUXURY_TWEEN_MEDIUM}
+              className="space-y-0"
+            >
+              {/* Header */}
+              <div className="px-5 pt-6 pb-5 sm:px-8">
+                <p className="text-[10px] font-black uppercase tracking-[0.35em] text-[#C9F85A] mb-1">Account</p>
+                <h1 className="text-3xl sm:text-4xl font-black text-white tracking-tight">Settings</h1>
+                <p className="text-sm text-white/40 mt-1">Manage your profile and preferences</p>
               </div>
-              <h1 className="text-3xl sm:text-4xl font-display font-black uppercase italic tracking-tight text-foreground">Control Center</h1>
-              <p className="text-sm text-muted-foreground/80">Manage profile, notifications, privacy, and security from one unified panel.</p>
-            </div>
 
-            <div className="relative overflow-hidden rounded-[32px] border border-white/10 bg-[#121212] p-6 sm:p-8 shadow-[0_20px_60px_rgba(0,0,0,0.4)]">
-              <div className="pointer-events-none absolute -top-20 -left-16 h-48 w-48 rounded-full bg-[#4DD2FF]/10 blur-3xl" />
-              <div className="pointer-events-none absolute -bottom-20 -right-16 h-48 w-48 rounded-full bg-[#C9F85A]/10 blur-3xl" />
-
-              <div className="relative flex flex-col gap-6 sm:flex-row sm:items-center">
-                <div className="flex h-20 w-20 items-center justify-center rounded-3xl bg-gradient-to-br from-[#C9F85A]/35 to-[#4DD2FF]/35 p-[2px]">
-                  <div className="flex h-full w-full items-center justify-center rounded-3xl bg-[#111] text-xl font-black text-foreground">
-                    {profileInitials}
-                  </div>
-                </div>
-
-                <div className="flex-1">
-                  <p className="text-2xl font-display font-black uppercase italic tracking-tight text-foreground">{s.name}</p>
-                  <p className="mt-1 text-[11px] uppercase tracking-[0.2em] text-muted-foreground/70">{s.email}</p>
-                  <div className="mt-4 flex flex-wrap gap-2">
-                    <span className="rounded-full border border-[#4DD2FF]/30 bg-[#4DD2FF]/10 px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-[#4DD2FF]">
-                      ID {s.collegeId}
-                    </span>
-                    <span className="rounded-full border border-[#C9F85A]/30 bg-[#C9F85A]/10 px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-[#C9F85A]">
-                      Rank #{s.rank}
-                    </span>
-                  </div>
-                </div>
-
-                <button
-                  onClick={() => setView("edit-profile")}
-                  className="h-12 rounded-2xl bg-gradient-to-r from-[#C9F85A] to-[#4DD2FF] px-6 text-xs font-black uppercase tracking-[0.2em] text-black transition-all hover:brightness-110 active:scale-[0.99]"
+              {/* Profile card */}
+              <div className="px-4 sm:px-8 mb-5">
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ ...LUXURY_TWEEN_MEDIUM, delay: 0.05 }}
+                  className="relative overflow-hidden rounded-3xl border border-white/10 bg-[#111] p-5"
                 >
-                  Edit Profile
+                  {/* Subtle gradient */}
+                  <div className="absolute inset-0 bg-gradient-to-br from-[#C9F85A]/5 via-transparent to-[#4DD2FF]/5 pointer-events-none" />
+                  <div className="relative flex items-center gap-4">
+                    <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-[#C9F85A]/30 to-[#4DD2FF]/30 p-[2px] flex-shrink-0">
+                      <div className="w-full h-full rounded-[14px] bg-[#111] flex items-center justify-center text-xl font-black text-white">
+                        {profileInitials}
+                      </div>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-base font-black text-white tracking-tight truncate">{s.name}</p>
+                      <p className="text-xs text-white/40 mt-0.5 truncate">{s.email}</p>
+                      <div className="flex flex-wrap gap-2 mt-2">
+                        <span className="rounded-full border border-[#4DD2FF]/30 bg-[#4DD2FF]/10 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-[#4DD2FF]">
+                          ID {s.collegeId}
+                        </span>
+                        <span className="rounded-full border border-[#C9F85A]/30 bg-[#C9F85A]/10 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-[#C9F85A]">
+                          Rank #{s.rank}
+                        </span>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => setView("edit-profile")}
+                      className="w-10 h-10 rounded-2xl bg-[#C9F85A]/10 border border-[#C9F85A]/20 flex items-center justify-center text-[#C9F85A] active:scale-90 transition-transform flex-shrink-0"
+                    >
+                      <User className="h-4 w-4" />
+                    </button>
+                  </div>
+                </motion.div>
+              </div>
+
+              {/* Settings sections */}
+              <div className="px-4 sm:px-8 space-y-3">
+
+                {/* Notifications */}
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ ...LUXURY_TWEEN_MEDIUM, delay: 0.1 }}
+                  className="rounded-3xl border border-white/8 bg-[#0F0F0F] overflow-hidden"
+                >
+                  <div className="px-5 pt-4 pb-2 flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-xl bg-[#4DD2FF]/10 border border-[#4DD2FF]/20 flex items-center justify-center">
+                      <Bell className="h-4 w-4 text-[#4DD2FF]" />
+                    </div>
+                    <p className="text-sm font-bold text-white">Notifications</p>
+                  </div>
+                  <div className="divide-y divide-white/5">
+                    {[
+                      { key: "push", label: "Push Alerts", desc: "Real-time updates", icon: Bell, color: "#4DD2FF" },
+                      { key: "email", label: "Email Digest", desc: "Weekly summary", icon: Moon, color: "#A78BFA" },
+                      { key: "streakReminders", label: "Streak Reminders", desc: "Keep your streak alive", icon: Vibrate, color: "#FF4D00" },
+                      { key: "planUpdates", label: "Plan Updates", desc: "Training changes", icon: Zap, color: "#FFD36E" },
+                    ].map((item) => (
+                      <div key={item.key} className="flex items-center gap-3.5 px-5 py-3.5">
+                        <item.icon className="h-4 w-4 flex-shrink-0" style={{ color: item.color }} />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-semibold text-white">{item.label}</p>
+                          <p className="text-[11px] text-white/35">{item.desc}</p>
+                        </div>
+                        <Toggle
+                          enabled={notifications[item.key as keyof typeof notifications]}
+                          onToggle={() => toggle("notifications", item.key)}
+                          color={item.color}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </motion.div>
+
+                {/* Privacy */}
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ ...LUXURY_TWEEN_MEDIUM, delay: 0.15 }}
+                  className="rounded-3xl border border-white/8 bg-[#0F0F0F] overflow-hidden"
+                >
+                  <div className="px-5 pt-4 pb-2 flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-xl bg-[#C9F85A]/10 border border-[#C9F85A]/20 flex items-center justify-center">
+                      <ShieldCheck className="h-4 w-4 text-[#C9F85A]" />
+                    </div>
+                    <p className="text-sm font-bold text-white">Privacy</p>
+                  </div>
+                  <div className="divide-y divide-white/5">
+                    {[
+                      { key: "publicProfile", label: "Public Profile", desc: "Others can find you", icon: Unlock, color: "#C9F85A" },
+                      { key: "showStreak", label: "Show Streak", desc: "Display on your profile", icon: Activity, color: "#FF4D00" },
+                    ].map((item) => (
+                      <div key={item.key} className="flex items-center gap-3.5 px-5 py-3.5">
+                        <item.icon className="h-4 w-4 flex-shrink-0" style={{ color: item.color }} />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-semibold text-white">{item.label}</p>
+                          <p className="text-[11px] text-white/35">{item.desc}</p>
+                        </div>
+                        <Toggle
+                          enabled={privacy[item.key as keyof typeof privacy]}
+                          onToggle={() => toggle("privacy", item.key)}
+                          color={item.color}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </motion.div>
+
+                {/* Account Actions */}
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ ...LUXURY_TWEEN_MEDIUM, delay: 0.2 }}
+                  className="rounded-3xl border border-white/8 bg-[#0F0F0F] overflow-hidden"
+                >
+                  <div className="px-5 pt-4 pb-2 flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-xl bg-white/[0.04] border border-white/10 flex items-center justify-center">
+                      <Shield className="h-4 w-4 text-white/50" />
+                    </div>
+                    <p className="text-sm font-bold text-white">Account</p>
+                  </div>
+                  <div className="divide-y divide-white/5">
+                    <button
+                      onClick={() => setView("change-password")}
+                      className="w-full flex items-center gap-3.5 px-5 py-3.5 active:bg-white/5 transition-colors"
+                    >
+                      <Lock className="h-4 w-4 text-white/40 flex-shrink-0" />
+                      <div className="flex-1 text-left">
+                        <p className="text-sm font-semibold text-white">Change Password</p>
+                        <p className="text-[11px] text-white/35">Update your security credentials</p>
+                      </div>
+                      <ChevronRight className="h-4 w-4 text-white/20 flex-shrink-0" />
+                    </button>
+                    <button
+                      onClick={() => navigate("/")}
+                      className="w-full flex items-center gap-3.5 px-5 py-3.5 active:bg-red-500/10 transition-colors"
+                    >
+                      <LogOut className="h-4 w-4 text-red-400 flex-shrink-0" />
+                      <div className="flex-1 text-left">
+                        <p className="text-sm font-semibold text-red-400">Log Out</p>
+                        <p className="text-[11px] text-white/35">Sign out of your account</p>
+                      </div>
+                    </button>
+                  </div>
+                </motion.div>
+              </div>
+            </motion.div>
+          )}
+
+          {/* ───────────────── EDIT PROFILE ───────────────── */}
+          {view === "edit-profile" && (
+            <motion.div
+              key="edit-profile"
+              initial={{ opacity: 0, x: 30 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: 30 }}
+              transition={LUXURY_TWEEN_MEDIUM}
+              className="space-y-0"
+            >
+              {/* Header */}
+              <div className="px-5 pt-6 pb-5 sm:px-8 flex items-center gap-4">
+                <button
+                  onClick={() => setView("menu")}
+                  className="w-10 h-10 rounded-2xl bg-white/[0.04] border border-white/10 flex items-center justify-center text-white/60 active:scale-90 transition-transform"
+                >
+                  <ArrowLeft className="h-5 w-5" />
                 </button>
-              </div>
-            </div>
-
-            <div className="grid gap-6 lg:grid-cols-2">
-              <div className="rounded-[32px] border border-white/10 bg-[#121212] p-6 shadow-[0_20px_60px_rgba(0,0,0,0.4)]">
-                <div className="mb-5 flex items-center gap-3">
-                  <div className="rounded-xl border border-[#4DD2FF]/30 bg-[#4DD2FF]/10 p-2.5">
-                    <Bell className="h-4 w-4 text-[#4DD2FF]" />
-                  </div>
-                  <div>
-                    <p className="text-[10px] font-black uppercase tracking-[0.3em] text-[#4DD2FF]">Signals</p>
-                    <h3 className="text-xl font-display font-black uppercase italic tracking-tight text-foreground">Notifications</h3>
-                  </div>
-                </div>
-
-                <div className="space-y-3">
-                  {[
-                    { key: "push", label: "Push Alerts", desc: "Receive real-time updates", icon: Bell },
-                    { key: "email", label: "Email Digest", desc: "Weekly summary emails", icon: Shield },
-                    { key: "streakReminders", label: "Streak Reminders", desc: "Keep your consistency streak alive", icon: Vibrate },
-                    { key: "planUpdates", label: "Plan Updates", desc: "Get notified about training changes", icon: Zap },
-                  ].map((item, index) => (
-                    <motion.div
-                      key={item.key}
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ duration: 0.35, delay: 0.12 + index * 0.06 }}
-                      className="flex items-center gap-4 rounded-2xl border border-white/10 bg-black/20 px-4 py-3 transition-all hover:bg-black/30"
-                    >
-                      <div className="rounded-xl border border-white/10 bg-white/[0.03] p-2">
-                        <item.icon className="h-4 w-4 text-[#4DD2FF]" />
-                      </div>
-                      <div className="flex-1">
-                        <p className="text-sm font-semibold text-foreground">{item.label}</p>
-                        <p className="text-xs text-muted-foreground/70">{item.desc}</p>
-                      </div>
-                      <Toggle
-                        enabled={notifications[item.key as keyof typeof notifications]}
-                        onToggle={() => toggle("notifications", item.key)}
-                        accent="bg-[#C9F85A]"
-                      />
-                    </motion.div>
-                  ))}
+                <div>
+                  <p className="text-[10px] font-black uppercase tracking-[0.35em] text-[#C9F85A] mb-0.5">Profile Studio</p>
+                  <h1 className="text-2xl font-black text-white tracking-tight">Edit Profile</h1>
                 </div>
               </div>
 
-              <div className="rounded-[32px] border border-white/10 bg-[#121212] p-6 shadow-[0_20px_60px_rgba(0,0,0,0.4)]">
-                <div className="mb-5 flex items-center gap-3">
-                  <div className="rounded-xl border border-[#C9F85A]/30 bg-[#C9F85A]/10 p-2.5">
-                    <ShieldCheck className="h-4 w-4 text-[#C9F85A]" />
+              {/* Live Preview card */}
+              <div className="px-4 sm:px-8 mb-4">
+                <div className="rounded-3xl border border-white/8 bg-[#0F0F0F] p-5 relative overflow-hidden">
+                  <div className="absolute inset-0 bg-gradient-to-br from-[#4DD2FF]/5 to-[#FF4D00]/5 pointer-events-none" />
+                  <p className="text-[10px] uppercase tracking-[0.3em] text-white/30 mb-4 font-bold">Live Preview</p>
+                  <div className="flex items-center gap-4">
+                    <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-[#4DD2FF]/40 to-[#FF4D00]/40 p-[2px] flex-shrink-0">
+                      <div className="w-full h-full rounded-[13px] bg-[#111] flex items-center justify-center text-lg font-black text-white">
+                        {profileInitials}
+                      </div>
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-base font-black text-white truncate">{formData.name || "Your Name"}</p>
+                      <p className="text-xs text-white/40 mt-0.5">{s.email}</p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="text-[10px] font-black uppercase tracking-[0.3em] text-[#C9F85A]">Privacy</p>
-                    <h3 className="text-xl font-display font-black uppercase italic tracking-tight text-foreground">Visibility</h3>
+                  <div className="grid grid-cols-2 gap-2.5 mt-4">
+                    <div className="rounded-xl border border-white/8 bg-black/30 px-3 py-2.5">
+                      <p className="text-[10px] text-white/30 uppercase tracking-wider">Goal</p>
+                      <p className="text-xs font-semibold text-white mt-0.5 truncate">{formData.fitnessGoal || "—"}</p>
+                    </div>
+                    <div className="rounded-xl border border-white/8 bg-black/30 px-3 py-2.5">
+                      <p className="text-[10px] text-white/30 uppercase tracking-wider">Build</p>
+                      <p className="text-xs font-semibold text-white mt-0.5">{formData.weight || "—"}kg · {formData.height || "—"}cm</p>
+                    </div>
                   </div>
                 </div>
+              </div>
 
-                <div className="space-y-3">
-                  {[
-                    { key: "publicProfile", label: "Public Profile", desc: "Allow others to discover your profile", icon: Unlock },
-                    { key: "showStreak", label: "Show Streak", desc: "Display your streak on your profile", icon: Activity },
-                  ].map((item, index) => (
-                    <motion.div
-                      key={item.key}
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ duration: 0.35, delay: 0.28 + index * 0.06 }}
-                      className="flex items-center gap-4 rounded-2xl border border-white/10 bg-black/20 px-4 py-3 transition-all hover:bg-black/30"
-                    >
-                      <div className="rounded-xl border border-white/10 bg-white/[0.03] p-2">
-                        <item.icon className="h-4 w-4 text-[#C9F85A]" />
-                      </div>
-                      <div className="flex-1">
-                        <p className="text-sm font-semibold text-foreground">{item.label}</p>
-                        <p className="text-xs text-muted-foreground/70">{item.desc}</p>
-                      </div>
-                      <Toggle
-                        enabled={privacy[item.key as keyof typeof privacy]}
-                        onToggle={() => toggle("privacy", item.key)}
-                        accent="bg-[#4DD2FF]"
+              {/* Form fields */}
+              <div className="px-4 sm:px-8 space-y-3">
+                <div className="rounded-3xl border border-white/8 bg-[#0F0F0F] overflow-hidden">
+                  <div className="divide-y divide-white/5">
+                    {/* Name */}
+                    <div className="px-5 py-4 space-y-1.5">
+                      <label className="text-[10px] font-black uppercase tracking-[0.3em] text-white/40 flex items-center gap-2">
+                        <User className="h-3 w-3" /> Display Name
+                      </label>
+                      <input
+                        value={formData.name}
+                        onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                        placeholder="Your full name"
+                        className="w-full bg-transparent text-base font-semibold text-white placeholder:text-white/20 focus:outline-none"
                       />
-                    </motion.div>
-                  ))}
+                    </div>
+                    {/* Fitness Goal */}
+                    <div className="px-5 py-4 space-y-1.5">
+                      <label className="text-[10px] font-black uppercase tracking-[0.3em] text-white/40 flex items-center gap-2">
+                        <Footprints className="h-3 w-3" /> Fitness Goal
+                      </label>
+                      <input
+                        value={formData.fitnessGoal}
+                        onChange={(e) => setFormData({ ...formData, fitnessGoal: e.target.value })}
+                        placeholder="Strength, endurance, consistency..."
+                        className="w-full bg-transparent text-base font-semibold text-white placeholder:text-white/20 focus:outline-none"
+                      />
+                    </div>
+                  </div>
                 </div>
 
-                <div className="mt-6 rounded-2xl border border-red-500/20 bg-red-500/5 p-4">
+                <div className="grid grid-cols-2 gap-3">
+                  {/* Weight */}
+                  <div className="rounded-3xl border border-white/8 bg-[#0F0F0F] px-5 py-4 space-y-1.5">
+                    <label className="text-[10px] font-black uppercase tracking-[0.3em] text-white/40 flex items-center gap-1.5">
+                      <Weight className="h-3 w-3" /> Weight (kg)
+                    </label>
+                    <input
+                      type="number"
+                      value={formData.weight}
+                      onChange={(e) => setFormData({ ...formData, weight: e.target.value })}
+                      className="w-full bg-transparent text-xl font-black text-white placeholder:text-white/20 focus:outline-none tabular-nums"
+                    />
+                  </div>
+                  {/* Height */}
+                  <div className="rounded-3xl border border-white/8 bg-[#0F0F0F] px-5 py-4 space-y-1.5">
+                    <label className="text-[10px] font-black uppercase tracking-[0.3em] text-white/40 flex items-center gap-1.5">
+                      <Ruler className="h-3 w-3" /> Height (cm)
+                    </label>
+                    <input
+                      type="number"
+                      value={formData.height}
+                      onChange={(e) => setFormData({ ...formData, height: e.target.value })}
+                      className="w-full bg-transparent text-xl font-black text-white placeholder:text-white/20 focus:outline-none tabular-nums"
+                    />
+                  </div>
+                </div>
+
+                {/* Actions */}
+                <div className="flex gap-3 pt-1">
                   <button
-                    onClick={() => navigate("/")}
-                    className="flex h-12 w-full items-center justify-center gap-3 rounded-xl border border-red-500/30 bg-red-500/10 text-xs font-black uppercase tracking-[0.2em] text-red-400 transition-all hover:bg-red-500/20"
+                    onClick={() => setView("menu")}
+                    className="flex-1 h-13 rounded-2xl border border-white/10 text-sm font-bold text-white/50 hover:text-white transition-colors active:scale-95"
                   >
-                    <LogOut className="h-4 w-4" />
-                    Log Out
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleSaveProfile}
+                    className="flex-1 h-13 rounded-2xl bg-gradient-to-r from-[#C9F85A] to-[#4DD2FF] text-sm font-black text-black flex items-center justify-center gap-2 active:scale-95 transition-transform shadow-[0_8px_24px_rgba(201,248,90,0.2)]"
+                  >
+                    <Save className="h-4 w-4" />
+                    Save Changes
                   </button>
                 </div>
               </div>
+            </motion.div>
+          )}
 
-              <div className="rounded-[32px] border border-white/10 bg-[#121212] p-6 shadow-[0_20px_60px_rgba(0,0,0,0.4)] lg:col-span-2">
-                <div className="mb-5 flex items-center gap-3">
-                  <div className="rounded-xl border border-[#4DD2FF]/30 bg-[#4DD2FF]/10 p-2.5">
-                    <Shield className="h-4 w-4 text-[#4DD2FF]" />
-                  </div>
-                  <div>
-                    <p className="text-[10px] font-black uppercase tracking-[0.3em] text-[#4DD2FF]">Security</p>
-                    <h3 className="text-xl font-display font-black uppercase italic tracking-tight text-foreground">Change Password</h3>
+          {/* ───────────────── CHANGE PASSWORD ───────────────── */}
+          {view === "change-password" && (
+            <motion.div
+              key="change-password"
+              initial={{ opacity: 0, x: 30 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: 30 }}
+              transition={LUXURY_TWEEN_MEDIUM}
+              className="space-y-0"
+            >
+              {/* Header */}
+              <div className="px-5 pt-6 pb-5 sm:px-8 flex items-center gap-4">
+                <button
+                  onClick={() => setView("menu")}
+                  className="w-10 h-10 rounded-2xl bg-white/[0.04] border border-white/10 flex items-center justify-center text-white/60 active:scale-90 transition-transform"
+                >
+                  <ArrowLeft className="h-5 w-5" />
+                </button>
+                <div>
+                  <p className="text-[10px] font-black uppercase tracking-[0.35em] text-[#4DD2FF] mb-0.5">Security</p>
+                  <h1 className="text-2xl font-black text-white tracking-tight">Change Password</h1>
+                </div>
+              </div>
+
+              <div className="px-4 sm:px-8 space-y-3">
+                <div className="rounded-3xl border border-white/8 bg-[#0F0F0F] overflow-hidden">
+                  <div className="divide-y divide-white/5">
+                    {/* Current password */}
+                    <div className="px-5 py-4 space-y-1.5">
+                      <label className="text-[10px] font-black uppercase tracking-[0.3em] text-white/40 flex items-center gap-2">
+                        <Lock className="h-3 w-3" /> Current Password
+                      </label>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type={showCurrentPw ? "text" : "password"}
+                          value={passwordForm.currentPassword}
+                          onChange={(e) => setPasswordForm((prev) => ({ ...prev, currentPassword: e.target.value }))}
+                          placeholder="Enter current password"
+                          className="flex-1 bg-transparent text-base font-semibold text-white placeholder:text-white/20 focus:outline-none"
+                        />
+                        <button onClick={() => setShowCurrentPw(!showCurrentPw)} className="text-white/30 hover:text-white/60 transition-colors">
+                          {showCurrentPw ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                        </button>
+                      </div>
+                    </div>
+                    {/* New password */}
+                    <div className="px-5 py-4 space-y-1.5">
+                      <label className="text-[10px] font-black uppercase tracking-[0.3em] text-white/40 flex items-center gap-2">
+                        <Shield className="h-3 w-3" /> New Password
+                      </label>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type={showNewPw ? "text" : "password"}
+                          value={passwordForm.newPassword}
+                          onChange={(e) => setPasswordForm((prev) => ({ ...prev, newPassword: e.target.value }))}
+                          placeholder="Min 8 characters"
+                          className="flex-1 bg-transparent text-base font-semibold text-white placeholder:text-white/20 focus:outline-none"
+                        />
+                        <button onClick={() => setShowNewPw(!showNewPw)} className="text-white/30 hover:text-white/60 transition-colors">
+                          {showNewPw ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                        </button>
+                      </div>
+                      {/* Strength indicator */}
+                      {passwordForm.newPassword.length > 0 && (
+                        <div className="flex gap-1 mt-1">
+                          {[3, 6, 10].map((threshold, i) => (
+                            <div
+                              key={i}
+                              className="h-1 flex-1 rounded-full transition-all"
+                              style={{
+                                background: passwordForm.newPassword.length >= threshold
+                                  ? i === 0 ? "#FF4D00" : i === 1 ? "#FFD36E" : "#C9F85A"
+                                  : "rgba(255,255,255,0.08)",
+                              }}
+                            />
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                    {/* Confirm password */}
+                    <div className="px-5 py-4 space-y-1.5">
+                      <label className="text-[10px] font-black uppercase tracking-[0.3em] text-white/40 flex items-center gap-2">
+                        <ShieldCheck className="h-3 w-3" /> Confirm Password
+                      </label>
+                      <input
+                        type="password"
+                        value={passwordForm.confirmPassword}
+                        onChange={(e) => setPasswordForm((prev) => ({ ...prev, confirmPassword: e.target.value }))}
+                        placeholder="Re-enter new password"
+                        className="w-full bg-transparent text-base font-semibold text-white placeholder:text-white/20 focus:outline-none"
+                      />
+                      {passwordForm.confirmPassword.length > 0 && passwordForm.newPassword !== passwordForm.confirmPassword && (
+                        <p className="text-[11px] text-red-400 mt-1">Passwords don't match</p>
+                      )}
+                    </div>
                   </div>
                 </div>
 
-                <div className="grid gap-4 md:grid-cols-3">
-                  <input
-                    type="password"
-                    value={passwordForm.currentPassword}
-                    onChange={(e) => setPasswordForm((prev) => ({ ...prev, currentPassword: e.target.value }))}
-                    placeholder="Current password"
-                    className="h-14 rounded-2xl border border-white/10 bg-black/20 px-4 text-sm font-semibold text-foreground placeholder:text-muted-foreground/40 focus:border-[#4DD2FF]/50 focus:outline-none"
-                  />
-                  <input
-                    type="password"
-                    value={passwordForm.newPassword}
-                    onChange={(e) => setPasswordForm((prev) => ({ ...prev, newPassword: e.target.value }))}
-                    placeholder="New password"
-                    className="h-14 rounded-2xl border border-white/10 bg-black/20 px-4 text-sm font-semibold text-foreground placeholder:text-muted-foreground/40 focus:border-[#4DD2FF]/50 focus:outline-none"
-                  />
-                  <input
-                    type="password"
-                    value={passwordForm.confirmPassword}
-                    onChange={(e) => setPasswordForm((prev) => ({ ...prev, confirmPassword: e.target.value }))}
-                    placeholder="Confirm new password"
-                    className="h-14 rounded-2xl border border-white/10 bg-black/20 px-4 text-sm font-semibold text-foreground placeholder:text-muted-foreground/40 focus:border-[#4DD2FF]/50 focus:outline-none"
-                  />
-                </div>
+                <p className="text-xs text-white/30 px-1">
+                  Password updates are logged in the admin panel with an updated timestamp.
+                </p>
 
-                <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                  <p className="text-xs text-muted-foreground/70">
-                    Password updates are recorded in the admin panel as an account update timestamp.
-                  </p>
+                <div className="flex gap-3 pt-1">
+                  <button
+                    onClick={() => setView("menu")}
+                    className="flex-1 h-13 rounded-2xl border border-white/10 text-sm font-bold text-white/50 hover:text-white transition-colors active:scale-95"
+                  >
+                    Cancel
+                  </button>
                   <button
                     onClick={handleChangePassword}
                     disabled={isSavingPassword}
-                    className="h-12 rounded-2xl bg-gradient-to-r from-[#C9F85A] to-[#4DD2FF] px-6 text-xs font-black uppercase tracking-[0.2em] text-black transition-all hover:brightness-110 active:scale-[0.99] disabled:opacity-50"
+                    className="flex-1 h-13 rounded-2xl bg-gradient-to-r from-[#C9F85A] to-[#4DD2FF] text-sm font-black text-black flex items-center justify-center gap-2 active:scale-95 transition-transform disabled:opacity-50 shadow-[0_8px_24px_rgba(201,248,90,0.2)]"
                   >
+                    <Save className="h-4 w-4" />
                     {isSavingPassword ? "Saving..." : "Update Password"}
                   </button>
                 </div>
               </div>
-            </div>
-          </motion.div>
-        ) : (
-          <motion.div
-            key="edit-profile"
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: 20 }}
-            className="space-y-10"
-          >
-            <div className="flex items-center gap-4">
-              <button 
-                onClick={() => setView("menu")} 
-                className="p-3.5 rounded-2xl bg-zinc-950/60 hover:bg-zinc-900 border border-white/10 transition-all active:scale-90"
-              >
-                <ArrowLeft className="h-5 w-5 text-muted-foreground" />
-              </button>
-              <div>
-                <p className="text-[10px] font-black tracking-[0.35em] text-neon-blue uppercase">Profile Studio</p>
-                <h1 className="text-3xl sm:text-4xl font-display font-black text-foreground uppercase italic tracking-tight">Edit Profile</h1>
-              </div>
-            </div>
-
-            <div className="relative overflow-hidden rounded-[2.25rem] border border-white/10 bg-[#101214] p-6 sm:p-8 shadow-[0_24px_70px_rgba(0,0,0,0.35)]">
-              <div className="pointer-events-none absolute -top-24 -left-20 h-56 w-56 rounded-full bg-neon-blue/10 blur-3xl" />
-              <div className="pointer-events-none absolute -bottom-24 -right-20 h-56 w-56 rounded-full bg-neon-orange/10 blur-3xl" />
-
-              <div className="relative grid gap-8 lg:grid-cols-[1.1fr_1.7fr]">
-                <div className="rounded-3xl border border-white/10 bg-white/[0.02] p-6">
-                  <p className="text-[10px] font-black tracking-[0.3em] uppercase text-muted-foreground/70">Live Preview</p>
-                  <div className="mt-5 flex items-center gap-4">
-                    <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-neon-blue/40 to-neon-orange/40 p-[2px]">
-                      <div className="flex h-full w-full items-center justify-center rounded-2xl bg-[#111] text-lg font-black text-foreground">
-                        {profileInitials}
-                      </div>
-                    </div>
-                    <div>
-                      <p className="text-lg font-display font-black text-foreground tracking-tight uppercase italic">{formData.name || "Your Name"}</p>
-                      <p className="mt-1 text-[11px] uppercase tracking-[0.18em] text-muted-foreground/70">{s.email}</p>
-                    </div>
-                  </div>
-
-                  <div className="mt-5 space-y-3">
-                    <div className="rounded-2xl border border-white/10 bg-black/20 px-4 py-3">
-                      <p className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground/60">Goal</p>
-                      <p className="mt-1 text-sm font-semibold text-foreground/90">{formData.fitnessGoal || "Set your training focus"}</p>
-                    </div>
-                    <div className="grid grid-cols-2 gap-3">
-                      <div className="rounded-2xl border border-white/10 bg-black/20 px-4 py-3">
-                        <p className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground/60">Weight</p>
-                        <p className="mt-1 text-sm font-semibold text-foreground/90">{formData.weight || "-"} kg</p>
-                      </div>
-                      <div className="rounded-2xl border border-white/10 bg-black/20 px-4 py-3">
-                        <p className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground/60">Height</p>
-                        <p className="mt-1 text-sm font-semibold text-foreground/90">{formData.height || "-"} cm</p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="space-y-5">
-                  <div className="grid gap-5 md:grid-cols-2">
-                    <div className="space-y-2">
-                      <label className="px-1 text-[10px] font-black uppercase tracking-[0.32em] text-muted-foreground/80">Display Name</label>
-                      <div className="relative">
-                        <User className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground/60" />
-                        <input
-                          value={formData.name}
-                          onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                          placeholder="Your full name"
-                          className="h-14 w-full rounded-2xl border border-white/10 bg-black/20 pl-11 pr-4 text-sm font-semibold text-foreground placeholder:text-muted-foreground/40 focus:border-neon-blue/50 focus:outline-none"
-                        />
-                      </div>
-                    </div>
-
-                    <div className="space-y-2">
-                      <label className="px-1 text-[10px] font-black uppercase tracking-[0.32em] text-muted-foreground/80">Fitness Goal</label>
-                      <div className="relative">
-                        <Footprints className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground/60" />
-                        <input
-                          value={formData.fitnessGoal}
-                          onChange={(e) => setFormData({ ...formData, fitnessGoal: e.target.value })}
-                          placeholder="Strength, endurance, consistency..."
-                          className="h-14 w-full rounded-2xl border border-white/10 bg-black/20 pl-11 pr-4 text-sm font-semibold text-foreground placeholder:text-muted-foreground/40 focus:border-neon-blue/50 focus:outline-none"
-                        />
-                      </div>
-                    </div>
-
-                    <div className="space-y-2">
-                      <label className="px-1 text-[10px] font-black uppercase tracking-[0.32em] text-muted-foreground/80">Weight (kg)</label>
-                      <div className="relative">
-                        <Weight className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground/60" />
-                        <input
-                          type="number"
-                          value={formData.weight}
-                          onChange={(e) => setFormData({ ...formData, weight: e.target.value })}
-                          className="h-14 w-full rounded-2xl border border-white/10 bg-black/20 pl-11 pr-4 text-sm font-semibold tabular-nums text-foreground placeholder:text-muted-foreground/40 focus:border-neon-orange/50 focus:outline-none"
-                        />
-                      </div>
-                    </div>
-
-                    <div className="space-y-2">
-                      <label className="px-1 text-[10px] font-black uppercase tracking-[0.32em] text-muted-foreground/80">Height (cm)</label>
-                      <div className="relative">
-                        <Ruler className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground/60" />
-                        <input
-                          type="number"
-                          value={formData.height}
-                          onChange={(e) => setFormData({ ...formData, height: e.target.value })}
-                          className="h-14 w-full rounded-2xl border border-white/10 bg-black/20 pl-11 pr-4 text-sm font-semibold tabular-nums text-foreground placeholder:text-muted-foreground/40 focus:border-neon-orange/50 focus:outline-none"
-                        />
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="flex flex-col-reverse gap-3 pt-3 sm:flex-row sm:justify-end">
-                    <button
-                      onClick={() => setView("menu")}
-                      className="h-12 rounded-2xl border border-white/10 bg-transparent px-6 text-xs font-black uppercase tracking-[0.2em] text-foreground/80 transition-all hover:bg-white/5"
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      onClick={handleSaveProfile}
-                      className="h-12 rounded-2xl bg-gradient-to-r from-neon-blue to-neon-orange px-6 text-xs font-black uppercase tracking-[0.2em] text-black transition-all hover:brightness-110 active:scale-[0.99] flex items-center justify-center gap-2"
-                    >
-                      <Save className="h-4 w-4" />
-                      Save Changes
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
     </div>
   );
 }
-

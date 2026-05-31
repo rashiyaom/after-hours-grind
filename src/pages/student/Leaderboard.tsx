@@ -2,8 +2,8 @@ import React, { useState, useEffect, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAppStore, useStore } from "@/hooks/useStore";
 import {
-  Trophy, Flame, Footprints, Target, Crown, Activity, Zap,
-  ChevronUp, TrendingUp, Medal, Sparkles,
+  Trophy, Flame, Target, Crown, Activity, Zap,
+  TrendingUp, Sparkles, Medal, ChevronRight, Star,
 } from "lucide-react";
 import { LeaderboardEntry } from "@/types";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -21,31 +21,36 @@ const filterIcons: Record<Filter, React.ElementType> = {
 };
 
 const filterColors: Record<Filter, string> = {
-  Weekly: "#C9F85A",
+  Weekly:  "#C9F85A",
   Monthly: "#4DD2FF",
-  Streak: "#FF4D00",
+  Streak:  "#FF4D00",
   Uploads: "#FFD36E",
 };
 
 function getSortedData(data: LeaderboardEntry[], filter: Filter) {
   switch (filter) {
-    case "Streak":
-      return [...data].sort((a, b) => b.streak - a.streak).map((e, i) => ({ ...e, rank: i + 1 }));
-    case "Uploads":
-      return [...data].sort((a, b) => b.uploads - a.uploads).map((e, i) => ({ ...e, rank: i + 1 }));
-    case "Monthly":
-      return [...data].sort((a, b) => b.completionPercentage - a.completionPercentage).map((e, i) => ({ ...e, rank: i + 1 }));
-    default:
-      return [...data].sort((a, b) => b.score - a.score).map((e, i) => ({ ...e, rank: i + 1 }));
+    case "Streak":  return [...data].sort((a, b) => b.streak - a.streak).map((e, i) => ({ ...e, rank: i + 1 }));
+    case "Uploads": return [...data].sort((a, b) => b.uploads - a.uploads).map((e, i) => ({ ...e, rank: i + 1 }));
+    case "Monthly": return [...data].sort((a, b) => b.completionPercentage - a.completionPercentage).map((e, i) => ({ ...e, rank: i + 1 }));
+    default:        return [...data].sort((a, b) => b.score - a.score).map((e, i) => ({ ...e, rank: i + 1 }));
   }
 }
 
-function getScoreLabel(entry: LeaderboardEntry, filter: Filter) {
+function getScoreValue(entry: LeaderboardEntry, filter: Filter): string {
   switch (filter) {
     case "Monthly": return `${entry.completionPercentage}%`;
-    case "Streak":  return `${entry.streak} days`;
-    case "Uploads": return `${entry.uploads} logs`;
+    case "Streak":  return `${entry.streak}d`;
+    case "Uploads": return `${entry.uploads}`;
     default:        return entry.score.toLocaleString();
+  }
+}
+
+function getScoreUnit(filter: Filter): string {
+  switch (filter) {
+    case "Monthly": return "completion";
+    case "Streak":  return "streak";
+    case "Uploads": return "uploads";
+    default:        return "points";
   }
 }
 
@@ -54,14 +59,18 @@ function getInitials(name: string) {
 }
 
 const AVATAR_GRADIENTS = [
-  "from-[#C9F85A] to-[#4DD2FF]",
-  "from-[#FFD36E] to-[#FF4D00]",
-  "from-[#FF7AE5] to-[#A78BFA]",
-  "from-[#4DD2FF] to-[#6F5CFF]",
-  "from-[#C9F85A] to-[#FFD36E]",
+  ["#C9F85A", "#4DD2FF"],
+  ["#FFD36E", "#FF4D00"],
+  ["#FF7AE5", "#A78BFA"],
+  ["#4DD2FF", "#6F5CFF"],
+  ["#C9F85A", "#FFD36E"],
 ];
 
-const PODIUM_ORDER = [1, 0, 2]; // visual: 2nd, 1st, 3rd
+const MEDAL_CONFIG = [
+  { color: "#C9F85A", label: "1st", icon: Crown,  glow: "rgba(201,248,90,0.25)"  },
+  { color: "#C0C0C0", label: "2nd", icon: Medal,  glow: "rgba(192,192,192,0.2)"  },
+  { color: "#CD7F32", label: "3rd", icon: Star,   glow: "rgba(205,127,50,0.2)"   },
+];
 
 export default function LeaderboardPage() {
   const { leaderboard, student, loading } = useStore();
@@ -72,30 +81,37 @@ export default function LeaderboardPage() {
     void refreshData({ background: true, scope: "student" });
   }, [refreshData]);
 
-  const sorted = getSortedData(leaderboard, activeFilter);
-  const top3 = useMemo(() => {
-    if (sorted.length < 3) return sorted;
-    return PODIUM_ORDER.map((i) => sorted[i]);
-  }, [sorted]);
-
-  const myEntry = sorted.find((e) => e.userId === student.id);
+  const sorted      = getSortedData(leaderboard, activeFilter);
+  const top3        = sorted.slice(0, 3);
+  const rest        = sorted.slice(3);
+  const myEntry     = sorted.find((e) => e.userId === student.id);
   const accentColor = filterColors[activeFilter];
-  const rest = sorted.slice(3);
+  const myIndex     = myEntry ? sorted.findIndex((e) => e.userId === student.id) : -1;
+  const nextAthlete = myIndex > 0 ? sorted[myIndex - 1] : null;
+
+  const gapLabel = useMemo(() => {
+    if (!nextAthlete || !myEntry) return null;
+    const diff =
+      activeFilter === "Monthly" ? nextAthlete.completionPercentage - myEntry.completionPercentage
+      : activeFilter === "Streak"  ? nextAthlete.streak  - myEntry.streak
+      : activeFilter === "Uploads" ? nextAthlete.uploads - myEntry.uploads
+      : nextAthlete.score - myEntry.score;
+    const unit = activeFilter === "Monthly" ? "%" : activeFilter === "Streak" ? "d" : activeFilter === "Uploads" ? " uploads" : " pts";
+    return `${diff}${unit} behind ${nextAthlete.name.split(" ")[0]}`;
+  }, [nextAthlete, myEntry, activeFilter]);
 
   if (loading && leaderboard.length === 0) {
     return (
-      <div className="mx-auto max-w-3xl space-y-6 p-4 sm:p-6 lg:p-8">
-        <Skeleton className="h-14 w-72 rounded-2xl" />
+      <div className="w-full max-w-3xl mx-auto space-y-4 px-4 pt-4 pb-32">
+        <Skeleton className="h-20 w-full rounded-3xl" />
         <div className="flex gap-2 overflow-hidden">
-          {[1, 2, 3, 4, 5].map((i) => <Skeleton key={i} className="h-10 w-24 shrink-0 rounded-full" />)}
+          {[1, 2, 3, 4].map((i) => <Skeleton key={i} className="h-10 w-24 shrink-0 rounded-full" />)}
         </div>
-        <div className="flex items-end justify-center gap-4 h-72">
-          <Skeleton className="h-44 w-28 rounded-t-3xl" />
-          <Skeleton className="h-60 w-28 rounded-t-3xl" />
-          <Skeleton className="h-36 w-28 rounded-t-3xl" />
+        <div className="space-y-3">
+          {[1, 2, 3].map((i) => <Skeleton key={i} className="h-24 w-full rounded-3xl" />)}
         </div>
         <div className="space-y-2">
-          {[1, 2, 3, 4, 5].map((i) => <Skeleton key={i} className="h-16 w-full rounded-2xl" />)}
+          {[1, 2, 3, 4, 5, 6].map((i) => <Skeleton key={i} className="h-16 w-full rounded-2xl" />)}
         </div>
       </div>
     );
@@ -103,42 +119,28 @@ export default function LeaderboardPage() {
 
   return (
     <div
-      className="mx-auto max-w-3xl space-y-5 overflow-x-hidden p-3 sm:p-6 lg:p-8 pb-24 sm:pb-10 touch-manipulation"
-      style={{ touchAction: "manipulation", WebkitTextSizeAdjust: "100%" }}
+      className="w-full max-w-3xl mx-auto space-y-3 overflow-x-hidden px-3 sm:px-6 lg:px-8 pt-2 pb-[calc(env(safe-area-inset-bottom)+9rem)] sm:pb-10"
+      style={{ WebkitTextSizeAdjust: "100%", touchAction: "pan-y" }}
     >
-
-      {/* ── Hero header ──────────────────────────────── */}
+      {/* ── Hero header ── */}
       <motion.div
         initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}
         transition={LUXURY_TWEEN_MEDIUM}
-        className="rounded-[28px] border border-white/10 bg-[#121212] p-4 sm:p-8 shadow-[0_20px_60px_rgba(0,0,0,0.5)] relative overflow-hidden"
+        className="rounded-3xl border border-white/10 bg-[#111] p-4 sm:p-6 relative overflow-hidden"
       >
-        {/* Ambient glow */}
-        <div
-          className="absolute top-0 right-0 w-80 h-80 rounded-full blur-[100px] pointer-events-none transition-all duration-700 opacity-30"
-          style={{ background: accentColor }}
-        />
-        <div
-          className="absolute -bottom-20 -left-20 w-60 h-60 rounded-full blur-[80px] pointer-events-none transition-all duration-700 opacity-15"
-          style={{ background: accentColor }}
-        />
+        <div className="absolute top-0 right-0 w-56 h-56 rounded-full blur-[80px] pointer-events-none opacity-20 transition-all duration-700" style={{ background: accentColor }} />
 
-        <div className="relative z-10 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-          <div className="space-y-3">
-            <div
-              className="inline-flex items-center gap-2 rounded-full border px-3 py-1.5 transition-colors duration-300"
-              style={{ background: `${accentColor}18`, borderColor: `${accentColor}35` }}
-            >
-              <Sparkles className="h-3.5 w-3.5" style={{ color: accentColor }} />
-              <span className="text-[11px] font-bold uppercase tracking-[0.15em]" style={{ color: accentColor }}>
-                Leaderboard
-              </span>
+        <div className="relative z-10 flex items-center justify-between gap-3">
+          <div>
+            <div className="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 mb-2" style={{ background: `${accentColor}15`, borderColor: `${accentColor}30` }}>
+              <Sparkles className="h-3 w-3" style={{ color: accentColor }} />
+              <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color: accentColor }}>Leaderboard</span>
             </div>
-            <h1 className="text-3xl sm:text-5xl font-bold text-white tracking-tight leading-none">Rankings</h1>
-            <p className="text-sm text-white/35 flex items-center gap-2">
-              <Activity className="h-3.5 w-3.5" style={{ color: accentColor }} />
-              <span><span className="font-semibold text-white/60">{sorted.length}</span> athletes ranked · {activeFilter}</span>
+            <h1 className="text-2xl sm:text-4xl font-black text-white tracking-tight leading-none">Rankings</h1>
+            <p className="text-xs text-white/35 mt-1 flex items-center gap-1.5">
+              <Activity className="h-3 w-3 flex-shrink-0" style={{ color: accentColor }} />
+              <span><span className="font-semibold text-white/60">{sorted.length}</span> athletes · {activeFilter}</span>
             </p>
           </div>
 
@@ -146,25 +148,24 @@ export default function LeaderboardPage() {
             <motion.div
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
-              transition={{ ...LUXURY_TWEEN_MEDIUM, delay: 0.2 }}
-              className="rounded-2xl border p-4 sm:p-5 text-center w-full sm:min-w-[90px] relative overflow-hidden"
+              transition={{ ...LUXURY_TWEEN_MEDIUM, delay: 0.15 }}
+              className="rounded-2xl border p-3 text-center flex-shrink-0 min-w-[72px]"
               style={{ background: `${accentColor}0C`, borderColor: `${accentColor}30` }}
             >
-              <div className="absolute inset-0 opacity-20" style={{ background: `linear-gradient(135deg, ${accentColor}15, transparent 60%)` }} />
-              <p className="text-[10px] text-white/30 uppercase tracking-[0.15em] mb-1.5 relative z-10">Your Rank</p>
-              <p className="text-3xl font-black relative z-10" style={{ color: accentColor }}>#{myEntry.rank}</p>
-              <p className="text-[10px] text-white/25 mt-1 relative z-10">{getScoreLabel(myEntry, activeFilter)}</p>
+              <p className="text-[9px] text-white/30 uppercase tracking-widest mb-0.5">Your Rank</p>
+              <p className="text-2xl font-black" style={{ color: accentColor }}>#{myEntry.rank}</p>
+              <p className="text-[10px] text-white/25 mt-0.5">{getScoreValue(myEntry, activeFilter)}</p>
             </motion.div>
           )}
         </div>
       </motion.div>
 
-      {/* ── Filter pills ─────────────────────────────── */}
+      {/* ── Filter pills ── */}
       <motion.div
-        initial={{ opacity: 0, y: 12 }}
+        initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ ...LUXURY_TWEEN_MEDIUM, delay: 0.06 }}
-        className="flex gap-2 overflow-x-auto pb-1 -mx-3 px-3 sm:mx-0 sm:px-0 scrollbar-hide"
+        transition={{ ...LUXURY_TWEEN_MEDIUM, delay: 0.05 }}
+        className="flex gap-2 overflow-x-auto pb-0.5 scrollbar-hide"
       >
         {filters.map((f) => {
           const Icon = filterIcons[f];
@@ -175,270 +176,226 @@ export default function LeaderboardPage() {
               key={f}
               whileTap={{ scale: 0.95 }}
               onClick={() => setActiveFilter(f)}
-              className={`flex items-center gap-2 px-5 py-2.5 rounded-full text-xs font-semibold whitespace-nowrap transition-all flex-shrink-0 border ${
-                active
-                  ? "text-black border-transparent shadow-lg"
-                  : "bg-[#1A1A1A] border-white/8 text-white/50 hover:text-white hover:bg-[#202020] hover:border-white/15"
+              className={`flex items-center gap-1.5 px-3.5 py-2 rounded-full text-xs font-semibold whitespace-nowrap flex-shrink-0 border transition-all ${
+                active ? "text-black border-transparent" : "bg-white/[0.03] border-white/8 text-white/45 hover:text-white hover:bg-white/[0.07]"
               }`}
-              style={active ? { background: col, boxShadow: `0 4px 24px ${col}40` } : {}}
+              style={active ? { background: col, boxShadow: `0 6px 20px ${col}35` } : {}}
             >
-              <Icon className="h-3.5 w-3.5" />
+              <Icon className="h-3 w-3" />
               {f}
             </motion.button>
           );
         })}
       </motion.div>
 
-      {/* ── Podium showcase ──────────────────────────── */}
+      {/* ── Top 3 podium cards ── */}
       <AnimatePresence mode="wait">
         <motion.div
-          key={activeFilter + "podium"}
-          initial={{ opacity: 0, y: 20 }}
+          key={activeFilter + "-top3"}
+          initial={{ opacity: 0, y: 14 }}
           animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -10 }}
-          transition={{ ...LUXURY_TWEEN_MEDIUM, delay: 0.08 }}
-          className="rounded-[28px] border border-white/10 bg-[#121212] p-4 sm:p-8 shadow-[0_20px_60px_rgba(0,0,0,0.5)] relative overflow-hidden"
+          exit={{ opacity: 0, y: -8 }}
+          transition={LUXURY_TWEEN_MEDIUM}
+          className="space-y-2"
         >
-          {/* Subtle background pattern */}
-          <div className="absolute inset-0 opacity-[0.03]" style={{
-            backgroundImage: `radial-gradient(${accentColor} 1px, transparent 1px)`,
-            backgroundSize: "20px 20px",
-          }} />
+          {top3.map((entry, visualIdx) => {
+            const medal    = MEDAL_CONFIG[visualIdx];
+            const gradIdx  = entry.userId.charCodeAt(0) % AVATAR_GRADIENTS.length;
+            const [gA, gB] = AVATAR_GRADIENTS[gradIdx];
+            const isFirst  = visualIdx === 0;
+            const MedalIcon = medal.icon;
 
-          <div className="grid grid-cols-3 items-end justify-center gap-2 sm:flex sm:gap-8 pt-4 sm:pt-8 pb-2 relative z-10">
-            {top3.map((e, visualIdx) => {
-              if (!e) return null;
-              const isWinner = visualIdx === 1;
-              const gradIdx = e.userId.charCodeAt(0) % AVATAR_GRADIENTS.length;
-              const podiumHeights = ["h-20 sm:h-32", "h-28 sm:h-48", "h-16 sm:h-24"];
-              const avatarSizes = ["w-12 h-12 sm:w-16 sm:h-16", "w-16 h-16 sm:w-24 sm:h-24", "w-11 h-11 sm:w-14 sm:h-14"];
-              const rankEmojis = ["🥈", "🥇", "🥉"];
-              const medalColors = ["#C0C0C0", accentColor, "#CD7F32"];
-
-              return (
-                <motion.div
-                  key={e.userId + activeFilter}
-                  initial={{ opacity: 0, y: 30, scale: 0.85 }}
-                  animate={{ opacity: 1, y: 0, scale: 1 }}
-                  transition={{ ...LUXURY_TWEEN_SLOW, delay: visualIdx * 0.12 }}
-                  className="flex flex-col items-center gap-2 sm:gap-3 min-w-0"
-                >
-                  {/* Avatar + Crown */}
-                  <div className="relative">
-                    {isWinner && (
-                      <motion.div
-                        animate={{ y: [0, -5, 0], rotate: [0, 3, -3, 0] }}
-                        transition={{ repeat: Infinity, duration: 3, ease: "easeInOut" }}
-                        className="absolute -top-9 left-1/2 -translate-x-1/2"
-                      >
-                        <Crown className="h-6 w-6 drop-shadow-lg" style={{ color: accentColor, filter: `drop-shadow(0 0 8px ${accentColor}80)` }} />
-                      </motion.div>
+            return (
+              <motion.div
+                key={entry.userId + activeFilter + "-card"}
+                initial={{ opacity: 0, x: -16 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ ...LUXURY_TWEEN_MEDIUM, delay: visualIdx * 0.06 }}
+              >
+                <Link to={`/student/profile/${entry.userId}`} className="block">
+                  <div
+                    className="rounded-3xl border p-3.5 flex items-center gap-3.5 active:scale-[0.98] transition-transform relative overflow-hidden"
+                    style={{
+                      background: isFirst
+                        ? `linear-gradient(135deg, ${medal.color}12, rgba(255,255,255,0.02))`
+                        : `rgba(255,255,255,0.015)`,
+                      borderColor: isFirst ? `${medal.color}35` : "rgba(255,255,255,0.07)",
+                      boxShadow: isFirst ? `0 0 30px ${medal.glow}` : "none",
+                    }}
+                  >
+                    {isFirst && (
+                      <div className="absolute inset-0 opacity-[0.03]" style={{
+                        backgroundImage: `radial-gradient(${medal.color} 1px, transparent 1px)`,
+                        backgroundSize: "14px 14px",
+                      }} />
                     )}
 
-                    {/* Glow ring behind avatar */}
+                    {/* Rank badge */}
                     <div
-                      className="absolute inset-0 rounded-2xl blur-md transition-all duration-500"
-                      style={{
-                        background: isWinner ? `${accentColor}30` : `${medalColors[visualIdx]}15`,
-                        transform: "scale(1.3)",
-                      }}
-                    />
+                      className="w-9 h-9 rounded-2xl flex items-center justify-center flex-shrink-0 relative z-10"
+                      style={{ background: `${medal.color}18`, border: `1.5px solid ${medal.color}40` }}
+                    >
+                      <MedalIcon className="h-4 w-4" style={{ color: medal.color }} />
+                    </div>
 
-                    <div className={`${avatarSizes[visualIdx]} rounded-2xl bg-gradient-to-br ${AVATAR_GRADIENTS[gradIdx]} p-[2.5px] relative`}>
-                      <div className="w-full h-full rounded-[14px] bg-[#1A1A1A] flex items-center justify-center font-bold text-white" style={{ fontSize: isWinner ? "1.05rem" : "0.8rem" }}>
-                        {getInitials(e.name)}
+                    {/* Avatar */}
+                    <div
+                      className="w-11 h-11 rounded-2xl p-[2px] flex-shrink-0 relative z-10"
+                      style={{ background: `linear-gradient(135deg, ${gA}, ${gB})` }}
+                    >
+                      <div className="w-full h-full rounded-[14px] bg-[#1A1A1A] flex items-center justify-center text-sm font-black text-white">
+                        {getInitials(entry.name)}
                       </div>
                     </div>
 
-                    {/* Rank badge overlay */}
-                    <div
-                      className="absolute -bottom-2 -right-2 w-7 h-7 rounded-full flex items-center justify-center text-sm shadow-lg border-2 border-[#121212]"
-                      style={{ background: medalColors[visualIdx] }}
-                    >
-                      <span className="text-xs font-black text-black">{[2, 1, 3][visualIdx]}</span>
+                    {/* Name + subtitle */}
+                    <div className="flex-1 min-w-0 relative z-10">
+                      <div className="flex items-center gap-2">
+                        <p className="text-sm font-bold text-white truncate">{entry.name}</p>
+                        <span className="text-[9px] font-bold uppercase tracking-widest flex-shrink-0" style={{ color: medal.color }}>
+                          {medal.label}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2 mt-0.5">
+                        <Flame className="h-3 w-3 text-[#FF4D00] flex-shrink-0" />
+                        <span className="text-[11px] text-white/35">{entry.streak}d streak</span>
+                        <span className="text-white/15 text-[10px]">·</span>
+                        <span className="text-[11px] text-white/35">{entry.completionPercentage}%</span>
+                      </div>
                     </div>
-                  </div>
 
-                  {/* Name + Score */}
-                  <div className="text-center mt-1">
-                    <p className={`font-semibold text-white truncate max-w-[80px] ${isWinner ? "text-sm" : "text-xs"}`}>
-                      {e.name.split(" ")[0]}
-                    </p>
-                    <p
-                      className="text-[11px] mt-0.5 font-bold"
-                      style={{ color: isWinner ? accentColor : "rgba(255,255,255,0.45)" }}
-                    >
-                      {getScoreLabel(e, activeFilter)}
-                    </p>
-                  </div>
-
-                  {/* Podium column */}
-                  <div className="relative">
-                    <div
-                      className={`${podiumHeights[visualIdx]} w-full sm:w-28 rounded-t-[20px] border-x border-t flex flex-col items-center justify-end pb-3 sm:pb-5 transition-all relative overflow-hidden`}
-                      style={{
-                        borderColor: `${medalColors[visualIdx]}30`,
-                        background: `linear-gradient(to bottom, ${medalColors[visualIdx]}12, transparent 80%)`,
-                      }}
-                    >
-                      {/* Shimmer effect on winner */}
-                      {isWinner && (
-                        <div className="absolute inset-0 shimmer opacity-50" />
-                      )}
-                      <span className="text-2xl sm:text-3xl relative z-10">{rankEmojis[visualIdx]}</span>
-                      <div className="w-8 sm:w-10 h-0.5 rounded-full mt-2 relative z-10" style={{ background: `${medalColors[visualIdx]}30` }} />
+                    {/* Score */}
+                    <div className="text-right flex-shrink-0 relative z-10">
+                      <p className="text-lg font-black" style={{ color: medal.color }}>
+                        {getScoreValue(entry, activeFilter)}
+                      </p>
+                      <p className="text-[9px] text-white/20 uppercase tracking-wider">{getScoreUnit(activeFilter)}</p>
                     </div>
+
+                    <ChevronRight className="h-4 w-4 text-white/15 flex-shrink-0 relative z-10" />
                   </div>
-                </motion.div>
-              );
-            })}
-          </div>
+                </Link>
+              </motion.div>
+            );
+          })}
         </motion.div>
       </AnimatePresence>
 
-      {/* ── Your rank highlight ──────────────────────── */}
-      {myEntry && (
+      {/* ── My rank highlight ── */}
+      {myEntry && myEntry.rank > 3 && (
         <motion.div
-          key={activeFilter + "me"}
+          key={activeFilter + "me-highlight"}
           initial={{ opacity: 0, scale: 0.97 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={LUXURY_TWEEN_MEDIUM}
-          className="rounded-2xl border p-4 flex items-center gap-3 sm:gap-4 relative overflow-hidden group"
-          style={{ background: `${accentColor}0C`, borderColor: `${accentColor}25` }}
+          className="rounded-2xl border p-3.5 flex items-center gap-3 relative overflow-hidden"
+          style={{
+            background: `linear-gradient(135deg, ${accentColor}0A, rgba(255,255,255,0.02))`,
+            borderColor: `${accentColor}25`,
+          }}
         >
-          {/* Animated left accent */}
-          <motion.div
-            className="w-1 h-10 rounded-full flex-shrink-0"
-            style={{ background: accentColor }}
-            animate={{ scaleY: [0.8, 1, 0.8] }}
-            transition={{ repeat: Infinity, duration: 2, ease: "easeInOut" }}
-          />
+          <div className="relative flex h-2.5 w-2.5 items-center justify-center flex-shrink-0">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75" style={{ background: accentColor }} />
+            <span className="relative inline-flex rounded-full h-1.5 w-1.5" style={{ background: accentColor }} />
+          </div>
           <div className="flex-1 min-w-0">
-            <p className="text-[10px] text-white/35 uppercase tracking-[0.15em] mb-0.5 flex items-center gap-1.5">
-              <TrendingUp className="h-3 w-3" style={{ color: accentColor }} />
-              Your Position
-            </p>
-            <p className="text-base font-bold text-white">Rank #{myEntry.rank} <span className="text-xs text-white/30 font-normal">of {sorted.length}</span></p>
+            <p className="text-xs font-bold text-white">Rank #{myEntry.rank} · <span className="font-normal text-white/35">of {sorted.length}</span></p>
+            {gapLabel && (
+              <p className="text-[10px] text-white/35 mt-0.5 flex items-center gap-1">
+                <TrendingUp className="h-2.5 w-2.5 flex-shrink-0" style={{ color: accentColor }} />
+                {gapLabel} to advance
+              </p>
+            )}
           </div>
-          <div className="text-right flex-shrink-0">
-            <p className="text-lg font-black" style={{ color: accentColor }}>{getScoreLabel(myEntry, activeFilter)}</p>
-            <p className="text-[10px] text-white/25">{myEntry.score.toLocaleString()} total pts</p>
-          </div>
+          <p className="text-sm font-black flex-shrink-0" style={{ color: accentColor }}>{getScoreValue(myEntry, activeFilter)}</p>
         </motion.div>
       )}
 
-      {/* ── Full ranking list ────────────────────────── */}
-      <AnimatePresence mode="wait">
-        <motion.div
-          key={activeFilter + "list"}
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          transition={{ ...LUXURY_TWEEN_MEDIUM, delay: 0.15 }}
-          className="rounded-[28px] border border-white/10 bg-[#121212] p-3 sm:p-4 shadow-[0_20px_60px_rgba(0,0,0,0.5)] overflow-hidden"
-        >
-          {/* Table header */}
-          <div className="hidden sm:flex items-center gap-4 px-4 py-3 border-b border-white/5 mb-1">
-            <p className="text-[10px] font-semibold text-white/20 uppercase tracking-[0.15em] w-10 text-center">Rank</p>
-            <p className="text-[10px] font-semibold text-white/20 uppercase tracking-[0.15em] flex-1">Athlete</p>
-            <p className="text-[10px] font-semibold text-white/20 uppercase tracking-[0.15em] text-right w-20">Score</p>
-            <p className="text-[10px] font-semibold text-white/20 uppercase tracking-[0.15em] text-right w-16 hidden sm:block">Streak</p>
-          </div>
-
-          {sorted.map((entry, idx) => {
-            const isMe = entry.userId === student.id;
-            const gradIdx = entry.userId.charCodeAt(0) % AVATAR_GRADIENTS.length;
-            const isTop3 = entry.rank <= 3;
-            const rankColors: Record<number, string> = { 1: "#FFD36E", 2: "#C0C0C0", 3: "#CD7F32" };
-
-            return (
-              <Link key={entry.userId + activeFilter} to={`/student/profile/${entry.userId}`}>
-                <motion.div
-                  initial={{ opacity: 0, x: -12 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ ...LUXURY_TWEEN_MEDIUM, delay: Math.min(idx, 15) * 0.03 }}
-                  className={`flex items-center gap-3 sm:gap-4 px-3 sm:px-4 py-3.5 rounded-2xl transition-all cursor-pointer group ${
-                    isMe
-                      ? "border border-[#C9F85A]/20 bg-[#C9F85A]/[0.04]"
-                      : "hover:bg-white/[0.03] border border-transparent hover:border-white/8"
-                  }`}
-                >
-                  {/* Rank */}
-                  <div className="w-9 sm:w-10 flex-shrink-0 flex items-center justify-center">
-                    {isTop3 ? (
-                      <div
-                        className="w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center text-[10px] sm:text-xs font-black shadow-md"
-                        style={{
-                          background: `linear-gradient(135deg, ${rankColors[entry.rank]}, ${rankColors[entry.rank]}80)`,
-                          color: entry.rank === 2 ? "#111" : entry.rank === 3 ? "#fff" : "#111",
-                          boxShadow: `0 2px 12px ${rankColors[entry.rank]}40`,
-                        }}
-                      >
-                        {entry.rank}
-                      </div>
-                    ) : (
-                      <span className={`text-xs font-bold tabular-nums ${isMe ? "text-[#C9F85A]" : "text-white/25"}`}>
-                        #{entry.rank}
-                      </span>
-                    )}
-                  </div>
-
-                  {/* Avatar */}
-                  <div className={`w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-br ${AVATAR_GRADIENTS[gradIdx]} p-[1.5px] flex-shrink-0`}>
-                    <div className="w-full h-full rounded-[10px] bg-[#1A1A1A] flex items-center justify-center text-[11px] font-bold text-white">
-                      {getInitials(entry.name)}
-                    </div>
-                  </div>
-
-                  {/* Info */}
-                  <div className="flex-1 min-w-0">
-                    <p className={`text-[13px] sm:text-sm font-semibold truncate transition-colors ${isMe ? "text-[#C9F85A]" : "text-white group-hover:text-white/90"}`}>
-                      {entry.name}
-                      {isMe && <span className="ml-2 text-[10px] text-[#C9F85A]/50 font-normal">(you)</span>}
-                    </p>
-                    <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                      <Flame className="h-3 w-3 text-[#FF4D00]" />
-                      <span className="text-[11px] text-white/30">{entry.streak}d</span>
-                      <span className="text-white/15">·</span>
-                      <span className="text-[11px] text-white/30">{entry.completionPercentage}%</span>
-                    </div>
-                  </div>
-
-                  {/* Score */}
-                  <div className="text-right flex-shrink-0 w-18 sm:w-20">
-                    <p className={`text-sm font-bold tabular-nums ${isMe ? "text-[#C9F85A]" : "text-white"}`}>
-                      {getScoreLabel(entry, activeFilter)}
-                    </p>
-                    <p className="text-[10px] text-white/20">{entry.score.toLocaleString()} pts</p>
-                  </div>
-
-                  {/* Streak bar (hidden on mobile) */}
-                  <div className="w-16 flex-shrink-0 hidden sm:block">
-                    <div className="h-1 bg-[#1A1A1A] rounded-full overflow-hidden border border-white/5">
-                      <motion.div
-                        initial={{ width: 0 }}
-                        animate={{ width: `${Math.min(100, (entry.streak / 30) * 100)}%` }}
-                        transition={{ ...LUXURY_TWEEN_SLOW, delay: idx * 0.03 }}
-                        className="h-full rounded-full"
-                        style={{
-                          background: isMe ? "#C9F85A" : accentColor,
-                          boxShadow: entry.streak > 7 ? `0 0 6px ${accentColor}60` : "none",
-                        }}
-                      />
-                    </div>
-                  </div>
-                </motion.div>
-              </Link>
-            );
-          })}
-
-          {sorted.length === 0 && (
-            <div className="text-center py-16 text-white/25 text-sm">
-              No rankings available yet. Start grinding!
+      {/* ── Full ranking list (Ranks 4+) ── */}
+      {rest.length > 0 && (
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={activeFilter + "list"}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ ...LUXURY_TWEEN_MEDIUM, delay: 0.12 }}
+            className="rounded-3xl border border-white/8 bg-[#111] overflow-hidden"
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between px-4 py-3 border-b border-white/5">
+              <p className="text-[10px] font-bold text-white/30 uppercase tracking-widest">Full Rankings</p>
+              <p className="text-[10px] text-white/20">{sorted.length} athletes</p>
             </div>
-          )}
-        </motion.div>
-      </AnimatePresence>
+
+            <div className="divide-y divide-white/[0.04]">
+              {rest.map((entry, idx) => {
+                const isMe    = entry.userId === student.id;
+                const gradIdx = entry.userId.charCodeAt(0) % AVATAR_GRADIENTS.length;
+                const [gA, gB] = AVATAR_GRADIENTS[gradIdx];
+
+                return (
+                  <Link key={entry.userId + activeFilter} to={`/student/profile/${entry.userId}`}>
+                    <motion.div
+                      initial={{ opacity: 0, x: -10 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ ...LUXURY_TWEEN_MEDIUM, delay: Math.min(idx, 12) * 0.025 }}
+                      className={`flex items-center gap-3 px-4 py-3 transition-all active:bg-white/[0.03] ${
+                        isMe ? "bg-[#C9F85A]/[0.03]" : ""
+                      }`}
+                    >
+                      {/* Rank */}
+                      <div className="w-7 flex-shrink-0 text-center">
+                        <span className={`text-xs font-bold tabular-nums ${isMe ? "text-[#C9F85A]" : "text-white/20"}`}>
+                          #{entry.rank}
+                        </span>
+                      </div>
+
+                      {/* Avatar */}
+                      <div
+                        className="w-9 h-9 rounded-xl p-[1.5px] flex-shrink-0"
+                        style={{ background: `linear-gradient(135deg, ${gA}, ${gB})` }}
+                      >
+                        <div className="w-full h-full rounded-[10px] bg-[#1A1A1A] flex items-center justify-center text-[10px] font-bold text-white">
+                          {getInitials(entry.name)}
+                        </div>
+                      </div>
+
+                      {/* Info */}
+                      <div className="flex-1 min-w-0">
+                        <p className={`text-[13px] font-semibold truncate ${isMe ? "text-[#C9F85A]" : "text-white/85"}`}>
+                          {entry.name}
+                          {isMe && <span className="ml-1.5 text-[10px] text-[#C9F85A]/50 font-normal">(you)</span>}
+                        </p>
+                        <div className="flex items-center gap-1.5 mt-0.5">
+                          <Flame className="h-2.5 w-2.5 text-[#FF4D00] flex-shrink-0" />
+                          <span className="text-[10px] text-white/30">{entry.streak}d</span>
+                          <span className="text-white/12 text-[9px]">·</span>
+                          <span className="text-[10px] text-white/30">{entry.completionPercentage}%</span>
+                        </div>
+                      </div>
+
+                      {/* Score */}
+                      <div className="text-right flex-shrink-0">
+                        <p className={`text-sm font-bold tabular-nums ${isMe ? "text-[#C9F85A]" : "text-white/80"}`}>
+                          {getScoreValue(entry, activeFilter)}
+                        </p>
+                        <p className="text-[9px] text-white/20">{getScoreUnit(activeFilter)}</p>
+                      </div>
+                    </motion.div>
+                  </Link>
+                );
+              })}
+            </div>
+          </motion.div>
+        </AnimatePresence>
+      )}
+
+      {sorted.length === 0 && (
+        <div className="text-center py-20 text-white/25 text-sm">
+          No rankings yet. Start grinding! 💪
+        </div>
+      )}
     </div>
   );
 }

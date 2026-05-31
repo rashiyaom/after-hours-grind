@@ -49,6 +49,7 @@ export interface Student extends User {
   onboardingStep?: number;
   onboardingDraft?: FitnessQuestionnaire;
   taskCompletions?: Record<string, string[]>;
+  completedAchievements?: string[];
   totalPoints?: number;
 }
 
@@ -280,6 +281,10 @@ export interface Badge {
   description?: string;
   earned?: boolean;
   earnedDate?: string;
+  category?: string;
+  points?: number;
+  key?: string;
+  threshold?: number;
 }
 
 export interface SystemNotification {

@@ -5,6 +5,22 @@
 @tailwind utilities;
 
 @layer base {
+  html,
+  body,
+  #root {
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  html,
+  body {
+    overflow-x: hidden;
+    -webkit-text-size-adjust: 100%;
+    touch-action: manipulation;
+    overscroll-behavior-x: none;
+  }
+
   :root {
     --background: 0 0% 2%;
     --foreground: 0 0% 98%;
@@ -63,7 +79,10 @@
     @apply bg-background text-foreground antialiased selection:bg-neon-orange/30 selection:text-white;
     font-family: 'Inter', system-ui, sans-serif;
     letter-spacing: -0.01em;
-    -webkit-text-size-adjust: 100%;
+  }
+
+  #root {
+    isolation: isolate;
   }
 
   h1, h2, h3, h4, h5, h6 {

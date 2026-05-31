@@ -1,12 +1,13 @@
-import React, { useState, useMemo } from "react";
+import React, { useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Award, Flame, Trophy, Star, Sun, Leaf,
-  Lock, Zap, Activity, CheckCircle2, ArrowUpRight,
+  Lock, Zap, Activity, CheckCircle2,
   Sparkles, Shield, Crown, Target, Heart, Dumbbell,
   Clock, Camera, Users, TrendingUp,
+  ArrowUpRight,
 } from "lucide-react";
-import { useStore } from "@/hooks/useStore";
+import { useAppStore, useStore } from "@/hooks/useStore";
 import { Badge } from "@/types";
 import { LUXURY_TWEEN_MEDIUM, LUXURY_TWEEN_SLOW } from "@/lib/motionTokens";
 import { Link } from "react-router-dom";
@@ -32,7 +33,6 @@ const iconMap: Record<string, React.ElementType> = {
   trending: TrendingUp,
 };
 
-/* Rotate through a palette of accent colors per badge */
 const BADGE_PALETTES = [
   { bg: "#C9F85A", ring: "#C9F85A", glow: "rgba(201,248,90,0.2)", text: "#C9F85A" },
   { bg: "#4DD2FF", ring: "#4DD2FF", glow: "rgba(77,210,255,0.2)", text: "#4DD2FF" },
@@ -40,7 +40,6 @@ const BADGE_PALETTES = [
   { bg: "#A78BFA", ring: "#A78BFA", glow: "rgba(167,139,250,0.2)", text: "#A78BFA" },
   { bg: "#FF7AE5", ring: "#FF7AE5", glow: "rgba(255,122,229,0.2)", text: "#FF7AE5" },
   { bg: "#FF4D00", ring: "#FF4D00", glow: "rgba(255,77,0,0.2)", text: "#FF4D00" },
-  { bg: "#4DD2FF", ring: "#4DD2FF", glow: "rgba(77,210,255,0.2)", text: "#4DD2FF" },
   { bg: "#10B981", ring: "#10B981", glow: "rgba(16,185,129,0.2)", text: "#10B981" },
   { bg: "#F472B6", ring: "#F472B6", glow: "rgba(244,114,182,0.2)", text: "#F472B6" },
   { bg: "#FBBF24", ring: "#FBBF24", glow: "rgba(251,191,36,0.2)", text: "#FBBF24" },
@@ -50,70 +49,55 @@ type TabFilter = "All" | "Earned" | "Locked";
 
 export default function AchievementsPage() {
   const { student: s, loading } = useStore();
+  const liveBadges = useAppStore((state) => state.system.achievementBadges);
   const [activeTab, setActiveTab] = useState<TabFilter>("All");
   const [hoveredBadge, setHoveredBadge] = useState<string | null>(null);
 
-  const allBadges: Badge[] = useMemo(() => [
-    ...s.badges,
-    { id: "b7", name: "Upload King", description: "Submit 50 check-in photos", icon: "camera", earned: false, date: "" },
-    { id: "b8", name: "Community Anchor", description: "Follow 20 athletes", icon: "users", earned: false, date: "" },
-    { id: "b9", name: "Early Riser", description: "Complete a workout before 7am", icon: "sunrise", earned: false, date: "" },
-    { id: "b10", name: "Iron Will", description: "Complete 30-day plan without missing a day", icon: "shield", earned: false, date: "" },
-    { id: "b11", name: "Workout Master", description: "Complete 14 consecutive days of training", icon: "dumbbell", earned: false, date: "" },
-    { id: "b12", name: "Nutrition Ninja", description: "Log all meals for 21 days straight", icon: "salad", earned: false, date: "" },
-    { id: "b13", name: "Peak Performer", description: "Reach #1 on any leaderboard category", icon: "crown", earned: false, date: "" },
-    { id: "b14", name: "Social Butterfly", description: "Get 50 likes on your posts", icon: "heart", earned: false, date: "" },
-    { id: "b15", name: "Streak Legend", description: "Maintain a 30-day streak", icon: "flame", earned: false, date: "" },
-    { id: "b16", name: "Consistency King", description: "Achieve 90%+ completion for 4 weeks", icon: "target", earned: false, date: "" },
-  ], [s.badges]);
+  const allBadges: Badge[] = useMemo(() => {
+    const sourceBadges = liveBadges.length > 0 ? liveBadges : s.badges;
+    return sourceBadges.map((badge) => ({
+      id: badge.id,
+      name: badge.name,
+      icon: badge.icon,
+      date: badge.date,
+      description: badge.description,
+      earned: badge.earned,
+      earnedDate: badge.earnedDate,
+    }));
+  }, [liveBadges, s.badges]);
 
-  const milestones = useMemo(() => [
-    { label: "7-Day Streak", current: s.streak, target: 7, done: s.streak >= 7, color: "#C9F85A" },
-    { label: "14-Day Streak", current: s.streak, target: 14, done: s.streak >= 14, color: "#4DD2FF" },
-    { label: "Workout Day", current: s.streak, target: 14, done: s.streak >= 14, color: "#FFD36E" },
-    { label: "50 Check-Ins", current: 30, target: 50, done: false, color: "#A78BFA" },
-    { label: "Plan Mastery", current: s.completionPercentage, target: 100, done: s.completionPercentage >= 100, color: "#FF4D00" },
-  ], [s.streak, s.completionPercentage]);
+  const earned = allBadges.filter((badge) => badge.earned);
+  const locked = allBadges.filter((badge) => !badge.earned);
+  const displayed = activeTab === "Earned" ? earned : activeTab === "Locked" ? locked : allBadges;
+  const earnedPct = allBadges.length > 0 ? Math.round((earned.length / allBadges.length) * 100) : 0;
+  const milestones = useMemo(() => locked.slice(0, 4), [locked]);
 
-  if (loading) {
+  if (loading && allBadges.length === 0) {
     return (
-      <div
-        className="mx-auto max-w-4xl space-y-6 overflow-x-hidden p-4 sm:p-6 lg:p-8 pb-28 sm:pb-10 touch-manipulation"
-        style={{ touchAction: "manipulation", WebkitTextSizeAdjust: "100%" }}
-      >
+      <div className="mx-auto max-w-4xl space-y-6 overflow-x-hidden p-4 sm:p-6 lg:p-8 pb-28 sm:pb-10 touch-manipulation" style={{ touchAction: "manipulation", WebkitTextSizeAdjust: "100%" }}>
         <HeaderSkeleton />
         <AchievementGridSkeleton count={16} />
       </div>
     );
   }
 
-  const earned = allBadges.filter((b) => b.earned);
-  const locked = allBadges.filter((b) => !b.earned);
-  const displayed = activeTab === "Earned" ? earned : activeTab === "Locked" ? locked : allBadges;
-
-  const earnedPct = allBadges.length > 0 ? Math.round((earned.length / allBadges.length) * 100) : 0;
-
   return (
     <div
       className="mx-auto max-w-4xl space-y-6 overflow-x-hidden p-4 sm:p-6 lg:p-8 pb-28 sm:pb-10 touch-manipulation"
       style={{ touchAction: "manipulation", WebkitTextSizeAdjust: "100%" }}
     >
-
-      {/* ── Hero header ────────────────────────────────── */}
       <motion.div
         initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}
         transition={LUXURY_TWEEN_MEDIUM}
-        className="rounded-[32px] border border-white/10 bg-[#121212] p-6 sm:p-8 shadow-[0_20px_60px_rgba(0,0,0,0.5)] relative overflow-hidden"
+        className="rounded-[28px] sm:rounded-[32px] border border-white/10 bg-[#121212] p-5 sm:p-8 shadow-[0_20px_60px_rgba(0,0,0,0.5)] relative overflow-hidden"
       >
-        {/* Ambient glows */}
         <div className="absolute top-0 right-0 w-80 h-80 rounded-full bg-[#C9F85A]/[0.06] blur-[100px] pointer-events-none" />
         <div className="absolute -bottom-16 -left-16 w-60 h-60 rounded-full bg-[#A78BFA]/[0.05] blur-[80px] pointer-events-none" />
 
-        <div className="flex flex-col sm:flex-row items-center sm:items-start gap-6 relative z-10">
-          {/* Big glowing icon */}
+        <div className="flex flex-col sm:flex-row items-center sm:items-start gap-5 sm:gap-6 relative z-10">
           <motion.div
-            className="w-20 h-20 rounded-3xl flex items-center justify-center flex-shrink-0 relative"
+            className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl sm:rounded-3xl flex items-center justify-center flex-shrink-0 relative"
             style={{
               background: "linear-gradient(135deg, rgba(201,248,90,0.15), rgba(167,139,250,0.1))",
               border: "2px solid rgba(201,248,90,0.3)",
@@ -122,44 +106,42 @@ export default function AchievementsPage() {
             animate={{ rotate: [0, 2, -2, 0] }}
             transition={{ repeat: Infinity, duration: 6, ease: "easeInOut" }}
           >
-            <Award className="h-10 w-10 text-[#C9F85A]" />
-            <div className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-[#C9F85A] flex items-center justify-center">
-              <Sparkles className="h-3 w-3 text-black" />
+            <Award className="h-8 w-8 sm:h-10 sm:w-10 text-[#C9F85A]" />
+            <div className="absolute -top-1 -right-1 w-4 sm:w-5 h-4 sm:h-5 rounded-full bg-[#C9F85A] flex items-center justify-center">
+              <Sparkles className="h-2.5 w-2.5 sm:h-3 sm:w-3 text-black" />
             </div>
           </motion.div>
 
           <div className="flex-1 text-center sm:text-left">
-            <div className="inline-flex items-center gap-2 rounded-full bg-[#C9F85A]/10 border border-[#C9F85A]/20 px-3 py-1.5 mb-3">
-              <Sparkles className="h-3.5 w-3.5 text-[#C9F85A]" />
-              <span className="text-[11px] font-bold text-[#C9F85A] uppercase tracking-[0.15em]">Achievements</span>
+            <div className="inline-flex items-center gap-1.5 rounded-full bg-[#C9F85A]/10 border border-[#C9F85A]/20 px-2.5 py-1 mb-2.5">
+              <Sparkles className="h-3 w-3 text-[#C9F85A]" />
+              <span className="text-[9px] sm:text-[11px] font-bold text-[#C9F85A] uppercase tracking-[0.15em]">Achievements</span>
             </div>
-            <h1 className="text-3xl sm:text-5xl font-bold text-white tracking-tight leading-none">Your Badges</h1>
-            <p className="text-sm text-white/35 mt-2">
-              <span className="text-[#C9F85A] font-bold text-base">{earned.length}</span>
+            <h1 className="text-2xl sm:text-5xl font-bold text-white tracking-tight leading-none">Your Badges</h1>
+            <p className="text-xs sm:text-sm text-white/35 mt-1.5">
+              <span className="text-[#C9F85A] font-bold text-sm sm:text-base">{earned.length}</span>
               <span className="text-white/25"> / {allBadges.length} unlocked</span>
             </p>
           </div>
 
-          {/* Stats pills */}
-          <div className="flex flex-row sm:flex-col gap-3 flex-wrap sm:flex-nowrap justify-center sm:justify-start">
-            <div className="rounded-2xl bg-[#C9F85A] px-5 py-3 text-center min-w-[80px] shadow-[0_4px_20px_rgba(201,248,90,0.3)]">
-              <p className="text-2xl font-black text-black">{earned.length}</p>
-              <p className="text-[10px] font-semibold text-black/60 uppercase tracking-[0.12em]">Earned</p>
+          <div className="flex flex-row sm:flex-col gap-2.5 flex-wrap sm:flex-nowrap justify-center sm:justify-start">
+            <div className="rounded-xl sm:rounded-2xl bg-[#C9F85A] px-4 py-2 sm:px-5 sm:py-3 text-center min-w-[72px] sm:min-w-[80px] shadow-[0_4px_20px_rgba(201,248,90,0.25)]">
+              <p className="text-xl sm:text-2xl font-black text-black leading-tight">{earned.length}</p>
+              <p className="text-[8px] sm:text-[10px] font-semibold text-black/60 uppercase tracking-[0.12em]">Earned</p>
             </div>
-            <div className="rounded-2xl bg-[#1A1A1A] border border-white/8 px-5 py-3 text-center min-w-[80px]">
-              <p className="text-2xl font-black text-white/30">{locked.length}</p>
-              <p className="text-[10px] font-semibold text-white/20 uppercase tracking-[0.12em]">Locked</p>
+            <div className="rounded-xl sm:rounded-2xl bg-white/[0.02] border border-white/5 px-4 py-2 sm:px-5 sm:py-3 text-center min-w-[72px] sm:min-w-[80px]">
+              <p className="text-xl sm:text-2xl font-black text-white/30 leading-tight">{locked.length}</p>
+              <p className="text-[8px] sm:text-[10px] font-semibold text-white/20 uppercase tracking-[0.12em]">Locked</p>
             </div>
           </div>
         </div>
 
-        {/* Progress bar */}
-        <div className="mt-6 relative z-10">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-[10px] text-white/30 uppercase tracking-[0.12em]">Collection Progress</span>
+        <div className="mt-5 relative z-10">
+          <div className="flex items-center justify-between mb-1.5">
+            <span className="text-[9px] sm:text-[10px] text-white/35 uppercase tracking-[0.12em]">Collection Progress</span>
             <span className="text-xs font-bold text-[#C9F85A]">{earnedPct}%</span>
           </div>
-          <div className="h-2 bg-[#1A1A1A] rounded-full overflow-hidden border border-white/5">
+          <div className="h-1.5 bg-[#1A1A1A] rounded-full overflow-hidden border border-white/5">
             <motion.div
               initial={{ width: 0 }}
               animate={{ width: `${earnedPct}%` }}
@@ -171,32 +153,30 @@ export default function AchievementsPage() {
         </div>
       </motion.div>
 
-      {/* ── Tab filters ──────────────────────────────── */}
       <motion.div
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ ...LUXURY_TWEEN_MEDIUM, delay: 0.06 }}
         className="flex gap-2 overflow-x-auto pb-1 -mx-4 px-4 sm:mx-0 sm:px-0 scrollbar-hide"
       >
-        {(["All", "Earned", "Locked"] as TabFilter[]).map((t) => (
+        {(["All", "Earned", "Locked"] as TabFilter[]).map((tab) => (
           <button
-            key={t}
-            onClick={() => setActiveTab(t)}
-            className={`flex-shrink-0 px-5 py-2.5 rounded-full text-xs font-semibold whitespace-nowrap transition-all border ${
-              activeTab === t
-                ? "bg-[#C9F85A] text-black border-transparent shadow-[0_4px_20px_rgba(201,248,90,0.3)]"
-                : "bg-[#1A1A1A] border-white/8 text-white/50 hover:text-white hover:bg-[#202020]"
+            key={tab}
+            onClick={() => setActiveTab(tab)}
+            className={`flex-shrink-0 px-4 py-2 rounded-full text-xs font-semibold whitespace-nowrap transition-all border backdrop-blur-md active:scale-95 ${
+              activeTab === tab
+                ? "bg-[#C9F85A] text-black border-transparent shadow-[0_4px_20px_rgba(201,248,90,0.25)]"
+                : "bg-white/[0.03] border-white/5 text-white/50 hover:text-white hover:bg-white/[0.08]"
             }`}
           >
-            {t}
-            <span className="ml-2 text-[10px] opacity-70">
-              {t === "All" ? allBadges.length : t === "Earned" ? earned.length : locked.length}
+            {tab}
+            <span className="ml-1.5 text-[9px] opacity-60">
+              {tab === "All" ? allBadges.length : tab === "Earned" ? earned.length : locked.length}
             </span>
           </button>
         ))}
       </motion.div>
 
-      {/* ── Badges grid ──────────────────────────────── */}
       <AnimatePresence mode="wait">
         <motion.div
           key={activeTab}
@@ -204,12 +184,12 @@ export default function AchievementsPage() {
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: -8 }}
           transition={LUXURY_TWEEN_MEDIUM}
-          className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4"
+          className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4"
         >
-          {displayed.map((badge, i) => {
+          {displayed.map((badge, index) => {
+            const palette = BADGE_PALETTES[index % BADGE_PALETTES.length];
+            const isEarned = Boolean(badge.earned);
             const Icon = iconMap[badge.icon] || Award;
-            const palette = BADGE_PALETTES[i % BADGE_PALETTES.length];
-            const isEarned = badge.earned;
             const isHovered = hoveredBadge === badge.id;
 
             return (
@@ -217,93 +197,70 @@ export default function AchievementsPage() {
                 key={badge.id}
                 initial={{ opacity: 0, scale: 0.9, y: 12 }}
                 animate={{ opacity: 1, scale: 1, y: 0 }}
-                transition={{ ...LUXURY_TWEEN_MEDIUM, delay: i * 0.04 }}
+                transition={{ ...LUXURY_TWEEN_MEDIUM, delay: index * 0.03 }}
                 onMouseEnter={() => setHoveredBadge(badge.id)}
                 onMouseLeave={() => setHoveredBadge(null)}
-                className={`rounded-[24px] border p-5 flex flex-col items-center text-center gap-3 group transition-all duration-300 cursor-default relative overflow-hidden ${
+                className={`rounded-[20px] sm:rounded-[24px] border p-3.5 sm:p-5 flex flex-col items-center text-center gap-2 sm:gap-3 group transition-all duration-300 cursor-default relative overflow-hidden ${
                   isEarned
                     ? "bg-[#121212] border-white/10 hover:border-white/20"
-                    : "bg-[#0D0D0D] border-dashed border-white/6"
+                    : "bg-[#0D0D0D] border-dashed border-white/5"
                 }`}
                 style={isEarned && isHovered ? {
                   borderColor: `${palette.ring}40`,
                   boxShadow: `0 0 30px ${palette.glow}`,
                 } : {}}
               >
-                {/* Glow background on hover */}
                 {isEarned && (
                   <div
                     className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500"
-                    style={{
-                      background: `radial-gradient(circle at 50% 30%, ${palette.glow}, transparent 70%)`,
-                    }}
+                    style={{ background: `radial-gradient(circle at 50% 30%, ${palette.glow}, transparent 70%)` }}
                   />
                 )}
 
-                {/* Icon container */}
-                <div className="relative z-10">
+                <div className="relative z-10 mt-1">
                   <div
-                    className={`w-14 h-14 rounded-2xl flex items-center justify-center transition-all duration-500 ${
-                      isEarned
-                        ? "group-hover:scale-110 group-hover:rotate-6"
-                        : ""
+                    className={`w-11 h-11 sm:w-14 sm:h-14 rounded-xl sm:rounded-2xl flex items-center justify-center transition-all duration-500 ${
+                      isEarned ? "group-hover:scale-110 group-hover:rotate-6" : ""
                     }`}
                     style={isEarned ? {
                       background: `${palette.bg}15`,
                       border: `2px solid ${palette.ring}40`,
                       boxShadow: isHovered ? `0 0 20px ${palette.glow}` : "none",
                     } : {
-                      background: "rgba(255,255,255,0.02)",
+                      background: "rgba(255,255,255,0.01)",
                       border: "1px solid rgba(255,255,255,0.05)",
                     }}
                   >
-                    <Icon
-                      className="h-7 w-7 transition-all duration-300"
-                      style={{ color: isEarned ? palette.text : "rgba(255,255,255,0.1)" }}
-                    />
+                    <Icon className="h-5.5 w-5.5 sm:h-7 sm:w-7 transition-all duration-300" style={{ color: isEarned ? palette.text : "rgba(255,255,255,0.1)" }} />
                   </div>
 
-                  {/* Status badge */}
                   {isEarned ? (
-                    <div
-                      className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full flex items-center justify-center shadow-md"
-                      style={{ background: palette.bg }}
-                    >
-                      <CheckCircle2 className="h-3 w-3 text-black" />
+                    <div className="absolute -top-1 -right-1 sm:-top-1.5 sm:-right-1.5 w-4 h-4 sm:w-5 sm:h-5 rounded-full flex items-center justify-center shadow-md" style={{ background: palette.bg }}>
+                      <CheckCircle2 className="h-2.5 w-2.5 sm:h-3 sm:w-3 text-black" />
                     </div>
                   ) : (
-                    <div className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-[#1D1D1D] border border-white/10 flex items-center justify-center">
-                      <Lock className="h-3 w-3 text-white/20" />
+                    <div className="absolute -top-1 -right-1 sm:-top-1.5 sm:-right-1.5 w-4 h-4 sm:w-5 sm:h-5 rounded-full bg-[#1D1D1D] border border-white/5 flex items-center justify-center">
+                      <Lock className="h-2.5 w-2.5 sm:h-3 sm:w-3 text-white/20" />
                     </div>
                   )}
                 </div>
 
-                {/* Name + description */}
-                <div className="relative z-10">
-                  <p
-                    className={`text-xs font-bold uppercase tracking-wider mb-1 transition-colors duration-300 ${
-                      isEarned ? "" : "text-white/15"
-                    }`}
-                    style={isEarned ? { color: palette.text } : {}}
-                  >
-                    {badge.name}
-                  </p>
-                  <p className={`text-[10px] leading-snug ${isEarned ? "text-white/40" : "text-white/12"}`}>
-                    {badge.description}
-                  </p>
-                </div>
+                <div className="relative z-10 w-full flex-1 flex flex-col justify-between">
+                  <div>
+                    <p className={`text-[10px] sm:text-xs font-bold uppercase tracking-wider transition-colors duration-300 ${isEarned ? "" : "text-white/15"}`} style={isEarned ? { color: palette.text } : {}}>
+                      {badge.name}
+                    </p>
+                    <p className={`text-[9px] sm:text-[10px] leading-snug mt-1 ${isEarned ? "text-white/40" : "text-white/12"}`}>
+                      {badge.description}
+                    </p>
+                  </div>
 
-                {/* Date earned */}
-                {isEarned && badge.earnedDate && (
-                  <div className="relative z-10 rounded-full bg-white/5 px-3 py-1 text-[10px] text-white/25 border border-white/5">
-                    {badge.earnedDate}
-                  </div>
-                )}
-                {isEarned && badge.date && !badge.earnedDate && (
-                  <div className="relative z-10 rounded-full bg-white/5 px-3 py-1 text-[10px] text-white/25 border border-white/5">
-                    {badge.date}
-                  </div>
-                )}
+                  {isEarned && (
+                    <div className="relative z-10 rounded-full bg-white/5 px-2.5 py-0.5 text-[8px] sm:text-[10px] text-white/25 border border-white/5 mt-2.5 inline-block mx-auto">
+                      {badge.earnedDate || badge.date}
+                    </div>
+                  )}
+                </div>
               </motion.div>
             );
           })}
@@ -316,88 +273,66 @@ export default function AchievementsPage() {
         </div>
       )}
 
-      {/* ── Milestones tracker ───────────────────────── */}
-      <motion.div
-        initial={{ opacity: 0, y: 16 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ ...LUXURY_TWEEN_MEDIUM, delay: 0.25 }}
-        className="rounded-[32px] border border-white/10 bg-[#121212] p-6 sm:p-8 shadow-[0_20px_60px_rgba(0,0,0,0.5)] relative overflow-hidden"
-      >
-        {/* Background decoration */}
-        <div className="absolute top-0 right-0 w-64 h-64 rounded-full bg-[#FFD36E]/[0.03] blur-[80px] pointer-events-none" />
+      {/* ── Next Milestones section ──────── */}
+      {milestones.length > 0 && (
+        <motion.div
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ ...LUXURY_TWEEN_MEDIUM, delay: 0.25 }}
+          className="rounded-[28px] sm:rounded-[32px] border border-white/10 bg-[#121212] p-5 sm:p-8 shadow-[0_20px_60px_rgba(0,0,0,0.5)] relative overflow-hidden"
+        >
+          <div className="absolute top-0 right-0 w-64 h-64 rounded-full bg-[#FFD36E]/[0.03] blur-[80px] pointer-events-none" />
 
-        <div className="flex items-center justify-between mb-6 relative z-10">
-          <div className="flex items-center gap-3">
-            <div className="p-2 rounded-xl bg-[#C9F85A]/10 border border-[#C9F85A]/20">
-              <Activity className="h-4 w-4 text-[#C9F85A]" />
+          <div className="flex items-center justify-between mb-5 relative z-10">
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-xl bg-[#C9F85A]/10 border border-[#C9F85A]/20">
+                <Target className="h-4 w-4 text-[#C9F85A]" />
+              </div>
+              <div className="text-left">
+                <h2 className="text-sm sm:text-base font-semibold text-white">Next Milestones</h2>
+                <p className="text-[9px] sm:text-[10px] text-white/25">Target these locked challenges next</p>
+              </div>
             </div>
-            <div>
-              <h2 className="text-base font-semibold text-white">Milestones</h2>
-              <p className="text-[10px] text-white/25">Track your progress towards goals</p>
-            </div>
+            <Link
+              to="/student/progress"
+              className="inline-flex items-center gap-1 text-[9px] sm:text-[11px] text-white/40 hover:text-[#C9F85A] transition-colors rounded-full bg-white/[0.03] border border-white/5 px-2.5 py-1"
+            >
+              Full Progress <ArrowUpRight className="h-2.5 w-2.5" />
+            </Link>
           </div>
-          <Link
-            to="/student/progress"
-            className="inline-flex items-center gap-1.5 text-[11px] text-white/30 hover:text-[#C9F85A] transition-colors rounded-full bg-[#1A1A1A] border border-white/8 px-3 py-1.5"
-          >
-            Full Progress <ArrowUpRight className="h-3 w-3" />
-          </Link>
-        </div>
 
-        <div className="space-y-5 relative z-10">
-          {milestones.map((m, i) => {
-            const pct = Math.min(100, Math.round((m.current / m.target) * 100));
-            return (
-              <motion.div
-                key={i}
-                initial={{ opacity: 0, x: -12 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ ...LUXURY_TWEEN_MEDIUM, delay: 0.3 + i * 0.08 }}
-              >
-                <div className="flex items-center justify-between mb-2.5">
-                  <div className="flex items-center gap-2.5">
-                    {m.done ? (
-                      <motion.div
-                        initial={{ scale: 0 }}
-                        animate={{ scale: 1 }}
-                        transition={{ type: "spring", stiffness: 200, damping: 15 }}
-                      >
-                        <CheckCircle2 className="h-4 w-4" style={{ color: m.color, filter: `drop-shadow(0 0 4px ${m.color}60)` }} />
-                      </motion.div>
-                    ) : (
-                      <div className="w-4 h-4 rounded-full border border-white/10" />
-                    )}
-                    <span className="text-xs font-semibold text-white">{m.label}</span>
+          <div className="grid gap-3 sm:grid-cols-2 relative z-10">
+            {milestones.map((badge, index) => {
+              const palette = BADGE_PALETTES[index % BADGE_PALETTES.length];
+              const Icon = iconMap[badge.icon] || Award;
+              return (
+                <motion.div
+                  key={badge.id}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ ...LUXURY_TWEEN_MEDIUM, delay: 0.3 + index * 0.04 }}
+                  className="rounded-2xl border border-white/5 bg-black/25 p-3.5 flex items-start gap-3 text-left"
+                >
+                  <div
+                    className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 border bg-white/[0.01] border-white/10"
+                  >
+                    <Icon className="h-4.5 w-4.5 text-white/20" />
                   </div>
-                  <span
-                    className="text-xs font-bold tabular-nums"
-                    style={{ color: m.done ? m.color : "rgba(255,255,255,0.3)" }}
-                  >
-                    {m.current.toLocaleString()} / {m.target.toLocaleString()}
-                  </span>
-                </div>
-                <div className="h-2 bg-[#1A1A1A] rounded-full overflow-hidden border border-white/5">
-                  <motion.div
-                    initial={{ width: 0 }}
-                    animate={{ width: `${pct}%` }}
-                    transition={{ ...LUXURY_TWEEN_SLOW, delay: 0.35 + i * 0.08 }}
-                    className="h-full rounded-full relative"
-                    style={{
-                      background: m.done
-                        ? `linear-gradient(90deg, ${m.color}, ${m.color}CC)`
-                        : `${m.color}60`,
-                      boxShadow: m.done ? `0 0 10px ${m.color}60` : "none",
-                    }}
-                  >
-                    {/* Shimmer on completed */}
-                    {m.done && <div className="absolute inset-0 shimmer" />}
-                  </motion.div>
-                </div>
-              </motion.div>
-            );
-          })}
-        </div>
-      </motion.div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center justify-between gap-3">
+                      <p className="text-xs font-semibold text-white/80 truncate">{badge.name}</p>
+                      <span className="text-[8px] font-bold text-white/20 uppercase tracking-widest flex items-center gap-1">
+                        <Lock className="h-2 w-2" /> Locked
+                      </span>
+                    </div>
+                    <p className="mt-0.5 text-[10px] leading-snug text-white/30">{badge.description}</p>
+                  </div>
+                </motion.div>
+              );
+            })}
+          </div>
+        </motion.div>
+      )}
     </div>
   );
 }

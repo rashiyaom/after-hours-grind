@@ -843,6 +843,27 @@ export async function fetchProgressDashboardAPI(planId?: string): Promise<ApiRec
   return authedRequest<ApiRecord>(`/progress/dashboard${params}`, { method: "GET" });
 }
 
+export type ApiAchievementBadge = {
+  id: string;
+  key: string;
+  name: string;
+  description: string;
+  icon: string;
+  category: string;
+  threshold: number;
+  points: number;
+  earned: boolean;
+  earnedDate: string | null;
+};
+
+export async function fetchAchievementDefinitionsAPI(): Promise<ApiAchievementBadge[]> {
+  return authedRequest<ApiAchievementBadge[]>("/achievements/definitions", { method: "GET" });
+}
+
+export async function fetchMyAchievementsAPI(): Promise<ApiAchievementBadge[]> {
+  return authedRequest<ApiAchievementBadge[]>("/achievements", { method: "GET" });
+}
+
 export async function fetchSettingsAPI(): Promise<ApiRecord> {
   return authedRequest<ApiRecord>("/settings", { method: "GET" });
 }

@@ -22,6 +22,7 @@ import {
   PermissionMatrix,
   NotificationItem,
   LeaderboardEntry,
+  Badge,
 } from '@/types';
 import { toast } from 'sonner';
 import { generateAutoPlan } from '@/lib/planGeneration';
@@ -44,6 +45,8 @@ import {
   markSubmissionWhatsAppReceivedAPI,
   fetchEventsAPI,
   fetchLeaderboardAPI,
+  fetchAchievementDefinitionsAPI,
+  fetchMyAchievementsAPI,
   fetchTrainerStudentsAPI,
   fetchAdminUsersAPI,
   awardPointsAPI,
@@ -190,7 +193,20 @@ const cloneTodayTask = (): LegacyTodayTask => ({
   })),
 });
 
-const DUMMY_ACHIEVEMENTS: Record<string, { id: string; name: string; description: string; threshold: number; points: number; icon: string }> = {};
+type AchievementDefinition = {
+  id: string;
+  key: string;
+  name: string;
+  description: string;
+  icon: string;
+  category: string;
+  threshold: number;
+  points: number;
+  earned?: boolean;
+  earnedDate?: string | null;
+};
+
+const DUMMY_ACHIEVEMENTS: Record<string, AchievementDefinition> = {};
 
 const adaptTodayTaskForProfile = (baseTask: LegacyTodayTask, student: Student): LegacyTodayTask => {
   const draft = student.onboardingDraft;
@@ -501,10 +517,10 @@ const completeStudentTaskByApproval = (
 // ========= STORE STATE =========
 interface AppState {
   // Core Data - Normalized
-  users: Record<string, User>;
+  users: Record<string, User | Student | Trainer | Admin>;
   posts: Record<string, Post>;
   plans: Record<string, Plan>;
-  achievements: Record<string, { id: string; name: string; description: string; threshold: number; points: number; icon: string; }>;
+  achievements: Record<string, AchievementDefinition>;
 
   // System State
   system: {
@@ -525,6 +541,7 @@ interface AppState {
     progressHeatmap: ProgressHeatmapPoint[];
     leaderboardEntries: LeaderboardEntry[];
     progressLoading: boolean;
+    achievementBadges: Badge[];
     studentTodayPlan: Record<string, unknown> | null;
     planLoading: boolean;
   };
@@ -903,6 +920,14 @@ const normalizeBackendUser = (input: unknown, existingUser?: User): User | null 
       todaySteps: asNumber((raw as Record<string, unknown>).todaySteps, existingStudent?.todaySteps ?? 0),
       rank: asNumber((raw as Record<string, unknown>).rank, existingStudent?.rank ?? 0),
       badges: existingStudent?.badges ?? [],
+      completedAchievements: asStringArray(
+        Array.isArray(raw.achievements)
+          ? (raw.achievements as unknown[])
+              .filter((a: unknown) => asBoolean((a as Record<string, unknown>).completed))
+              .map((a: unknown) => asString((a as Record<string, unknown>).achievementId, ''))
+          : [],
+        existingStudent?.completedAchievements ?? []
+      ),
       isBanned: asBoolean(profile.isBanned ?? raw.isBanned, existingStudent?.isBanned ?? false),
       warnings: asNumber((raw as Record<string, unknown>).warnings, existingStudent?.warnings ?? 0),
       onboardingStatus: onboardingCompleted
@@ -917,14 +942,6 @@ const normalizeBackendUser = (input: unknown, existingUser?: User): User | null 
           : existingStudent?.onboardingDraft,
       taskCompletions: existingStudent?.taskCompletions ?? {},
       totalPoints: asNumber(profile.totalPoints, existingStudent?.totalPoints ?? 0),
-      completedAchievements: asStringArray(
-        Array.isArray(raw.achievements)
-          ? (raw.achievements as unknown[])
-              .filter((a: unknown) => asBoolean((a as Record<string, unknown>).completed))
-              .map((a: unknown) => asString((a as Record<string, unknown>).achievementId, ''))
-          : [],
-        []
-      ),
     } as Student;
   }
 
@@ -1319,6 +1336,7 @@ const initialState: AppState = {
     progressHeatmap: initialDashboardData.progressHeatmap ?? [],
     leaderboardEntries: initialDashboardData.leaderboardEntries ?? [],
     progressLoading: false,
+    achievementBadges: [],
     studentTodayPlan: initialDashboardData.studentTodayPlan ?? null,
     planLoading: false,
   },
@@ -2736,6 +2754,8 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
         shouldFetchNotifications
           ? fetchNotificationsAPI(undefined, 40)
           : Promise.resolve({ data: [], nextCursor: null }),
+        fetchAchievementDefinitionsAPI(),
+        fetchStudentBundle ? fetchMyAchievementsAPI() : Promise.resolve([]),
       ]);
 
       const feedPosts = fetchFeed && results[0].status === "fulfilled" ? results[0].value : [];
@@ -2748,6 +2768,10 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
         shouldFetchNotifications && results[3].status === 'fulfilled'
           ? results[3].value.data
           : null;
+      const achievementDefinitions = results[4].status === 'fulfilled' ? results[4].value : null;
+      const achievementBadges = fetchStudentBundle && results[5].status === 'fulfilled'
+        ? results[5].value
+        : null;
       if (backendNotifications) {
         lastNotificationsFetchAt = nowTs;
       }
@@ -2873,6 +2897,22 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
       set((state) => {
         const nextUsers = fetchAdminBundle ? {} : { ...state.users };
         const nextPosts = { ...state.posts };
+        const nextAchievements = achievementDefinitions && Array.isArray(achievementDefinitions)
+          ? Object.fromEntries(
+              achievementDefinitions.map((achievement) => [achievement.id, achievement as AchievementDefinition])
+            )
+          : state.achievements;
+        const nextAchievementBadges = achievementBadges && Array.isArray(achievementBadges)
+          ? achievementBadges.map((achievement) => ({
+              id: achievement.id,
+              name: achievement.name,
+              icon: achievement.icon,
+              date: achievement.earnedDate ?? "",
+              description: achievement.description,
+              earned: achievement.earned,
+              earnedDate: achievement.earnedDate ?? undefined,
+            }))
+          : state.system.achievementBadges;
 
         // 1. Reconcile Users
         if (fetchAdminBundle) {
@@ -2913,11 +2953,27 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
         });
 
         // Purge leaderboard entries too
-        const nextLeaderboard = leaderboardEntries.filter(e => activeUserIds.has(e.userId));
+        const nextLeaderboard = leaderboardEntries.length > 0 ? leaderboardEntries : state.system.leaderboardEntries;
+
+        const currentUser = state.session.currentUser;
+        if (currentUser?.role === 'student' && achievementBadges) {
+          const currentStudent = nextUsers[currentUser.id] as Student | undefined;
+          const syncedBadges = nextAchievementBadges;
+          const syncedCompletedAchievements = syncedBadges.filter((badge) => badge.earned).map((badge) => badge.id);
+
+          if (currentStudent) {
+            nextUsers[currentUser.id] = {
+              ...currentStudent,
+              badges: syncedBadges,
+              completedAchievements: syncedCompletedAchievements,
+            };
+          }
+        }
 
         return {
           posts: mergedPosts,
           users: nextUsers,
+          achievements: nextAchievements,
           system: {
             ...state.system,
             chatThreads: chatThreads ?? state.system.chatThreads,
@@ -2929,12 +2985,19 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
             progressMonthly: progressMonthly.length > 0 ? progressMonthly : state.system.progressMonthly,
             progressHeatmap: progressHeatmap.length > 0 ? progressHeatmap : state.system.progressHeatmap,
             leaderboardEntries: nextLeaderboard,
+            achievementBadges: nextAchievementBadges,
             studentTodayPlan: studentTodayPlan ?? state.system.studentTodayPlan,
             permissions: adminPermissions ?? state.system.permissions,
             progressLoading: false,
             planLoading: false,
             isLoading: false,
           },
+          session: currentUser?.role === 'student' && achievementBadges && nextUsers[currentUser.id]
+            ? {
+                ...state.session,
+                currentUser: nextUsers[currentUser.id],
+              }
+            : state.session,
         };
       });
     } catch (error) {
@@ -3051,6 +3114,7 @@ const normalizeStudent = (candidate: Partial<Student> & Pick<User, 'id' | 'name'
   todaySteps: candidate.todaySteps ?? 0,
   rank: candidate.rank ?? 0,
   badges: candidate.badges ?? [],
+  completedAchievements: candidate.completedAchievements ?? [],
   isBanned: candidate.isBanned ?? false,
   warnings: candidate.warnings ?? 0,
   onboardingStatus: candidate.onboardingStatus ?? 'not_started',

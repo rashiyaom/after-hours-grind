@@ -1,6 +1,6 @@
 import { Outlet, Link, useLocation, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence, MotionConfig } from "framer-motion";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   LayoutDashboard, Calendar, BarChart3, Rss, Trophy, User, Users,
   Bell, Settings, Flame, Menu, X, ChevronLeft,
@@ -64,6 +64,7 @@ export default function AppLayout() {
   const navigate = useNavigate();
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const mobileNavLockRef = useRef(false);
   const isAdmin = location.pathname.startsWith("/admin");
   const isTrainer = location.pathname.startsWith("/trainer");
   const {
@@ -76,6 +77,44 @@ export default function AppLayout() {
   const closeMobileMenu = () => {
     setMobileOpen(false);
   };
+
+  const handleMobileNavigate = (path: string) => {
+    if (mobileNavLockRef.current) return;
+    if (location.pathname === path) {
+      closeMobileMenu();
+      return;
+    }
+
+    mobileNavLockRef.current = true;
+    // Close instantly, then navigate after a tiny tick so AnimatePresence registers the close
+    setMobileOpen(false);
+    window.setTimeout(() => {
+      navigate(path);
+      mobileNavLockRef.current = false;
+    }, 80);
+  };
+
+  const mobileMenuTitle = isAdmin
+    ? "Admin Menu"
+    : isTrainer
+      ? "Trainer Menu"
+      : "Student Menu";
+
+  const mobileMenuSubtitle = currentUser
+    ? `${currentUser.name ?? "Member"} · ${currentUser.role.charAt(0).toUpperCase()}${currentUser.role.slice(1)}`
+    : "Logged in session";
+
+  const mobileMenuStats = currentUser
+    ? [
+        { label: "Rank", value: currentUser.role === "student" && typeof (currentUser as { leaderboardRank?: number }).leaderboardRank === "number" ? `#${(currentUser as { leaderboardRank?: number }).leaderboardRank}` : "—" },
+        { label: "Points", value: typeof (currentUser as { totalPoints?: number }).totalPoints === "number" ? (currentUser as { totalPoints?: number }).totalPoints!.toLocaleString() : "—" },
+        { label: "Status", value: "Online" },
+      ]
+    : [
+        { label: "Rank", value: "—" },
+        { label: "Points", value: "—" },
+        { label: "Status", value: "Online" },
+      ];
 
   useEffect(() => {
     if (typeof document === "undefined") return;
@@ -91,9 +130,22 @@ export default function AppLayout() {
     };
   }, [mobileOpen]);
 
+  // Close menu whenever route changes (covers back button, direct URL, etc.)
   useEffect(() => {
     setMobileOpen(false);
   }, [location.pathname]);
+
+  useEffect(() => {
+    if (!mobileOpen || typeof window === "undefined") return;
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        closeMobileMenu();
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [mobileOpen]);
 
   useEffect(() => {
     if (!isAuthenticated) return;
@@ -497,72 +549,101 @@ export default function AppLayout() {
         </div>
       </div>
 
-      {/* Mobile Drawer (Refined for Premium Feel) */}
+      {/* Mobile Drawer (Premium Slide-In Sheet from Right) */}
       <AnimatePresence>
         {mobileOpen && (
           <>
+            {/* Backdrop */}
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              transition={LUXURY_TWEEN_MEDIUM}
-              className="lg:hidden fixed inset-0 bg-background/90 backdrop-blur-md z-[100]"
+              transition={{ duration: 0.15 }}
+              className="lg:hidden fixed inset-0 bg-black/60 backdrop-blur-sm z-[100]"
+              onClick={closeMobileMenu}
               aria-hidden="true"
             />
+            
+            {/* Drawer Sheet */}
             <motion.div
               initial={{ x: "100%" }}
               animate={{ x: 0 }}
               exit={{ x: "100%" }}
-              transition={LUXURY_SPRING}
-              className="lg:hidden fixed inset-0 w-screen h-[100dvh] bg-card z-[101] flex flex-col pointer-events-auto overflow-hidden"
-              onClick={(event) => event.stopPropagation()}
-              onMouseDown={(event) => event.stopPropagation()}
-              onTouchStart={(event) => event.stopPropagation()}
-              onTouchMove={(event) => event.stopPropagation()}
-              onWheel={(event) => event.stopPropagation()}
+              transition={{ type: "tween", duration: 0.16, ease: "easeIn" }}
+              className="lg:hidden fixed top-0 right-0 bottom-0 w-[80vw] max-w-[320px] h-[100dvh] bg-[#0A0A0A] border-l border-white/5 z-[101] flex flex-col shadow-[0_0_50px_rgba(0,0,0,0.8)]"
             >
-               <div className="p-6 pt-[calc(env(safe-area-inset-top)+1rem)] border-b border-white/5 flex items-center justify-between shrink-0">
-                  <h3 className="font-display font-semibold text-lg text-foreground tracking-tight">Menu</h3>
-                  <button
-                    type="button"
-                    onClick={closeMobileMenu}
-                    onPointerDown={(event) => event.stopPropagation()}
-                    className="p-2 rounded-lg bg-white/5 hover:bg-white/10 transition-all"
-                    aria-label="Close menu"
-                  >
-                    <X className="h-5 w-5" />
-                  </button>
-               </div>
-               <nav className="flex-1 p-4 space-y-2 overflow-y-auto overscroll-contain pb-6">
-                  {nav.map((item) => {
-                    const active = location.pathname === item.path;
-                    return (
-                      <Link 
-                        key={item.path} 
-                        to={item.path} 
-                        onClick={closeMobileMenu}
-                        onPointerDown={(event) => event.stopPropagation()}
-                        className={`flex items-center justify-between p-4 rounded-xl text-sm font-medium transition-all border ${active ? "bg-[#C9F85A]/8 border-[#C9F85A]/20 text-white" : "bg-transparent border-transparent text-white/40 hover:text-white"}`}
-                      >
-                        <div className="flex items-center gap-4">
-                           <item.icon className={`h-5 w-5 ${active ? "text-[#C9F85A]" : ""}`} />
-                           <span>{item.label}</span>
-                        </div>
-                      </Link>
-                    );
-                  })}
-               </nav>
-              <div className="p-6 pb-[calc(env(safe-area-inset-bottom)+1rem)] border-t border-white/5 space-y-4 shrink-0">
-                  <div className="bg-zinc-900 p-5 rounded-2xl border border-white/5 mb-4">
-                     <p className="text-xs font-semibold text-muted-foreground mb-1">Status</p>
-                     <p className="text-xs font-semibold text-green-500 flex items-center gap-2">
-                        <Activity className="h-3 w-3" /> Online
-                     </p>
+              {/* Header inside drawer */}
+              <div className="px-5 pt-[calc(env(safe-area-inset-top)+1rem)] pb-4 shrink-0 border-b border-white/5 flex items-center justify-between">
+                <div>
+                  <h3 className="text-lg font-bold text-white tracking-tight">{mobileMenuTitle}</h3>
+                  <p className="text-[10px] text-white/40 mt-0.5 truncate max-w-[180px]">{mobileMenuSubtitle}</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={closeMobileMenu}
+                  className="h-9 w-9 rounded-full bg-white/[0.03] border border-white/5 flex items-center justify-center text-white active:scale-90 transition-transform"
+                  aria-label="Close menu"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+
+              {/* Quick stats grid */}
+              <div className="px-5 py-3.5 bg-white/[0.01] border-b border-white/5 grid grid-cols-3 gap-2">
+                {mobileMenuStats.map((item) => (
+                  <div key={item.label} className="rounded-xl border border-white/5 bg-white/[0.02] p-2 text-center">
+                    <p className="text-[8px] uppercase tracking-[0.16em] text-white/30">{item.label}</p>
+                    <p className="mt-0.5 text-xs font-semibold text-white/95 truncate">{item.value}</p>
                   </div>
-                  <button type="button" onClick={handleLogout} onPointerDown={(event) => event.stopPropagation()} className="w-full flex items-center justify-center gap-2 py-4 rounded-xl text-sm font-semibold bg-destructive/10 text-destructive hover:bg-destructive hover:text-black transition-all">
-                    <LogOut className="h-4 w-4" /> Sign Out
-                  </button>
-               </div>
+                ))}
+              </div>
+
+              {/* Navigation links */}
+              <nav className="flex-1 px-4 py-4 overflow-y-auto space-y-1.5 scrollbar-hide">
+                {nav.map((item) => {
+                  const active = location.pathname === item.path;
+                  return (
+                    <button
+                      key={item.path} 
+                      type="button"
+                      onClick={() => handleMobileNavigate(item.path)}
+                      className={`flex w-full items-center justify-between p-3 rounded-xl text-xs font-semibold border transition-all active:scale-[0.98] ${
+                        active 
+                          ? "bg-[#C9F85A]/10 border-[#C9F85A]/20 text-[#C9F85A] shadow-[inset_0_1px_0_rgba(255,255,255,0.02)]" 
+                          : "bg-white/[0.01] border-transparent text-white/65 hover:text-white hover:bg-white/[0.03]"
+                      }`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <item.icon className={`h-4.5 w-4.5 ${active ? "text-[#C9F85A]" : "text-white/45"}`} />
+                        <span>{item.label}</span>
+                      </div>
+                      {active && <div className="w-1.5 h-1.5 rounded-full bg-[#C9F85A] shadow-[0_0_8px_#C9F85A]" />}
+                    </button>
+                  );
+                })}
+              </nav>
+
+              {/* Footer inside drawer */}
+              <div className="p-4 border-t border-white/5 bg-white/[0.01] pb-[calc(env(safe-area-inset-bottom)+1rem)] space-y-2.5">
+                <div className="rounded-xl border border-white/5 bg-white/[0.03] p-3 flex items-center justify-between">
+                  <div>
+                    <p className="text-[8px] uppercase tracking-[0.16em] text-white/30">Status</p>
+                    <p className="text-xs font-semibold text-white/90 flex items-center gap-1.5 mt-0.5">
+                      <span className="inline-flex h-2 w-2 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.6)]" />
+                      Online
+                    </p>
+                  </div>
+                  <Activity className="h-4.5 w-4.5 text-[#C9F85A]/70" />
+                </div>
+                
+                <button
+                  type="button"
+                  onClick={handleLogout}
+                  className="w-full flex items-center justify-center gap-2.5 py-3.5 rounded-xl text-xs font-semibold bg-red-500/10 text-red-400 border border-red-500/10 hover:bg-red-500/20 active:scale-[0.98] transition-all"
+                >
+                  <LogOut className="h-4 w-4" /> Sign Out
+                </button>
+              </div>
             </motion.div>
           </>
         )}
@@ -574,20 +655,20 @@ export default function AppLayout() {
           className="lg:hidden fixed inset-x-0 bottom-0 z-40 flex items-center justify-center px-3 pb-[calc(env(safe-area-inset-bottom)+0.75rem)]"
           style={{ transform: "translateZ(0)" }}
         >
-          <div className="h-16 w-full max-w-[calc(100vw-1.5rem)] bg-card/80 backdrop-blur-3xl border border-white/10 rounded-[1.75rem] flex items-center justify-around px-1 shadow-[0_12px_32px_rgba(0,0,0,0.42)]">
+          <div className="h-16 w-full max-w-[calc(100vw-1.5rem)] bg-[linear-gradient(180deg,rgba(255,255,255,0.07),rgba(255,255,255,0.03))] backdrop-blur-3xl border border-white/10 rounded-[1.75rem] flex items-center justify-around px-1 shadow-[0_16px_36px_rgba(0,0,0,0.45),inset_0_1px_0_rgba(255,255,255,0.06)]">
           {mobileBottomNav.map((item) => {
             const active = location.pathname === item.path;
             return (
               <Link key={item.path} to={item.path} className="relative flex flex-col items-center justify-center w-full h-full group">
                 {item.isAction ? (
-                  <div className="absolute -top-5 w-12 h-12 rounded-full bg-[#C9F85A] flex items-center justify-center shadow-[0_4px_16px_rgba(201,248,90,0.32)] border-4 border-[#0D0D0D] hover:scale-105 active:scale-95 transition-transform">
+                  <div className="absolute -top-5 w-12 h-12 rounded-full bg-[radial-gradient(circle_at_top,#f1ff94_0%,#c9f85a_55%,#98c53f_100%)] flex items-center justify-center shadow-[0_8px_24px_rgba(201,248,90,0.36)] border-4 border-[#0D0D0D] hover:scale-105 active:scale-95 transition-transform">
                     <item.icon className="h-5 w-5 text-black" />
                   </div>
                 ) : (
-                  <div className={`flex flex-col items-center gap-1.5 transition-all relative ${active ? "scale-110" : "scale-90 opacity-40 hover:opacity-100"}`}>
+                  <div className={`flex flex-col items-center gap-1.5 transition-all relative ${active ? "scale-110" : "scale-90 opacity-45 hover:opacity-100"}`}>
                     <item.icon className={`h-5 w-5 ${active ? "text-[#C9F85A]" : "text-white/60"}`} />
                     {active && (
-                       <motion.div layoutId="bottom-glow" className="w-1 h-1 rounded-full bg-[#C9F85A] shadow-[0_0_8px_rgba(201,248,90,0.6)] mt-0.5" />
+                       <motion.div layoutId="bottom-glow" className="w-1 h-1 rounded-full bg-[#C9F85A] shadow-[0_0_10px_rgba(201,248,90,0.75)] mt-0.5" />
                     )}
                   </div>
                 )}
@@ -599,7 +680,7 @@ export default function AppLayout() {
       )}
 
       {/* Main content */}
-      <main className={`flex-1 transition-all duration-300 ${collapsed ? "lg:ml-[80px]" : "lg:ml-64"} pt-16 lg:pt-0 pb-24 lg:pb-0 relative`}>
+      <main className={`flex-1 transition-all duration-300 ${collapsed ? "lg:ml-[80px]" : "lg:ml-64"} pt-16 lg:pt-0 pb-[calc(env(safe-area-inset-bottom)+6rem)] lg:pb-0 relative`}>
         {/* Cinematic background glow */}
         <div className="fixed inset-0 bg-[radial-gradient(circle_at_top_right,rgba(201,248,90,0.025),transparent_40%),radial-gradient(circle_at_bottom_left,rgba(77,210,255,0.015),transparent_40%)] pointer-events-none" />
         

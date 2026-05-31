@@ -3,7 +3,9 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   UserPlus, CheckCircle2, X, Sparkles,
   Flame, ChevronRight, Users,
+  MessageCircle,
 } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { useStore, useAppStore } from "@/hooks/useStore";
 import { Link } from "react-router-dom";
 import { ApiError } from "@/lib/api";
@@ -86,6 +88,19 @@ export default function SuggestedAthletes({
 
   const handleDismiss = (userId: string) => {
     setDismissedIds((prev) => new Set(prev).add(userId));
+  };
+
+  const createOrGetChatThread = useAppStore((s) => s.createOrGetChatThread);
+  const navigate = useNavigate();
+
+  const handleMessage = (userId: string) => {
+    try {
+      // Ensure a chat thread exists, then navigate to community/chat area
+      createOrGetChatThread(userId);
+    } catch (e) {
+      // ignore errors - best-effort
+    }
+    navigate('/student/community');
   };
 
   if (suggestions.length === 0) return null;
