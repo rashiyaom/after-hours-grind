@@ -30,105 +30,85 @@ function parseSeedAdminEmail(): string {
   return (nodeProcess?.env.SEED_ADMIN_EMAIL ?? "admin@ahg.com").trim().toLowerCase();
 }
 
-function parseSeedUserPassword(): string {
-  const password = nodeProcess?.env.SEED_USER_PASSWORD;
-  if (!password) {
-    throw new Error("SEED_USER_PASSWORD is required for seeded trainer and student accounts.");
-  }
-  return password;
-}
+async function deleteStudentSeedData(): Promise<void> {
+  const students = await prisma.user.findMany({
+    where: { role: Role.STUDENT },
+    select: { id: true },
+  });
 
-function parseLoadStudentCount(): number {
-  const raw = nodeProcess?.env.SEED_LOAD_STUDENT_COUNT;
-  const parsed = Number(raw ?? 50);
-  if (!Number.isFinite(parsed) || parsed < 1) return 50;
-  return Math.floor(parsed);
-}
+  if (students.length === 0) return;
 
-async function seedDedicatedLoadDataset(trainerId: string, defaultHash: string): Promise<void> {
-  const studentCount = parseLoadStudentCount();
-  const prefix = "load.student";
+  const studentIds = students.map((student) => student.id);
 
-  for (let i = 1; i <= studentCount; i += 1) {
-    const num = String(i).padStart(2, "0");
-    const email = `${prefix}${num}@ahg.com`;
-    const name = `Load Student ${num}`;
+  const planRows = await prisma.plan.findMany({
+    where: { studentId: { in: studentIds } },
+    select: { id: true },
+  });
+  const planIds = planRows.map((plan) => plan.id);
 
-    const student = await prisma.user.upsert({
-      where: { email },
-      update: {
-        name,
-        passwordHash: defaultHash,
-        role: Role.STUDENT,
-      },
-      create: {
-        email,
-        name,
-        passwordHash: defaultHash,
-        role: Role.STUDENT,
-      },
-    });
+  const threadRows = await prisma.threadParticipant.findMany({
+    where: { userId: { in: studentIds } },
+    select: { threadId: true },
+  });
+  const threadIds = Array.from(new Set(threadRows.map((row) => row.threadId)));
 
-    await prisma.studentProfile.upsert({
-      where: { userId: student.id },
-      update: {
-        trainerId,
-        onboardingCompleted: true,
-        fitnessGoal: "load_test",
-        collegeId: `LOAD-${num}`,
-      },
-      create: {
-        userId: student.id,
-        trainerId,
-        onboardingCompleted: true,
-        fitnessGoal: "load_test",
-        collegeId: `LOAD-${num}`,
-        heightCm: 170,
-        weightKg: 70,
-      },
-    });
-
-    await prisma.submission.deleteMany({ where: { studentId: student.id } });
-    await prisma.plan.deleteMany({ where: { studentId: student.id } });
-
-    const plan = await prisma.plan.create({
-      data: {
-        name: `Load Plan ${num}`,
-        trainerId,
-        studentId: student.id,
-        difficulty: "beginner",
-        goalType: "load_test",
-        status: "ACTIVE",
-        days: {
-          create: [
-            {
-              day: 1,
-              tasks: {
-                create: [
-                  {
-                    type: "workout",
-                    title: `Load Task ${num}`,
-                    description: "Synthetic load testing task",
-                    durationMin: 20,
-                    intensity: "moderate",
-                    points: 10,
-                  },
-                ],
-              },
-            },
-          ],
-        },
-      },
-      select: { id: true },
-    });
-
-    await prisma.studentProfile.update({
-      where: { userId: student.id },
-      data: { currentPlanId: plan.id },
-    });
+  if (planIds.length > 0) {
+    await prisma.submission.deleteMany({ where: { planTask: { planDay: { planId: { in: planIds } } } } });
+    await prisma.plan.deleteMany({ where: { id: { in: planIds } } });
   }
 
-  console.log(`Load dataset ready: ${studentCount} load students with active plans.`);
+  await prisma.follow.deleteMany({
+    where: {
+      OR: [
+        { followerId: { in: studentIds } },
+        { followingId: { in: studentIds } },
+      ],
+    },
+  });
+
+  await prisma.comment.deleteMany({ where: { userId: { in: studentIds } } });
+  await prisma.like.deleteMany({ where: { userId: { in: studentIds } } });
+  await prisma.post.deleteMany({ where: { userId: { in: studentIds } } });
+  await prisma.notification.deleteMany({ where: { userId: { in: studentIds } } });
+  await prisma.progressEntry.deleteMany({ where: { userId: { in: studentIds } } });
+  await prisma.userAchievement.deleteMany({ where: { userId: { in: studentIds } } });
+  await prisma.rewardTransaction.deleteMany({
+    where: {
+      OR: [
+        { userId: { in: studentIds } },
+        { createdById: { in: studentIds } },
+      ],
+    },
+  });
+  await prisma.stravaConnection.deleteMany({ where: { userId: { in: studentIds } } });
+  await prisma.refreshToken.deleteMany({ where: { userId: { in: studentIds } } });
+  await prisma.passwordResetToken.deleteMany({ where: { userId: { in: studentIds } } });
+  await prisma.submission.deleteMany({
+    where: {
+      OR: [
+        { studentId: { in: studentIds } },
+        { reviewedById: { in: studentIds } },
+      ],
+    },
+  });
+
+  if (threadIds.length > 0) {
+    await prisma.chatMessage.deleteMany({
+      where: {
+        OR: [
+          { senderId: { in: studentIds } },
+          { threadId: { in: threadIds } },
+        ],
+      },
+    });
+    await prisma.threadParticipant.deleteMany({ where: { threadId: { in: threadIds } } });
+    await prisma.chatThread.deleteMany({ where: { id: { in: threadIds } } });
+  }
+
+  await prisma.studentProfile.deleteMany({ where: { userId: { in: studentIds } } });
+  await prisma.user.deleteMany({ where: { id: { in: studentIds } } });
+
+  console.log(`Removed ${studentIds.length} seeded student accounts and related data.`);
 }
 
 async function main() {
@@ -144,9 +124,9 @@ async function main() {
 
   const adminEmail = parseSeedAdminEmail();
   const adminPassword = parseSeedAdminPassword();
-  const defaultUserPassword = parseSeedUserPassword();
   const adminHash = await bcrypt.hash(adminPassword, 12);
-  const defaultHash = await bcrypt.hash(defaultUserPassword, 12);
+
+  await deleteStudentSeedData();
 
   // Admin
   const admin = await prisma.user.upsert({
@@ -158,7 +138,10 @@ async function main() {
   // Trainer
   const trainer = await prisma.user.upsert({
     where: { email: "trainer@ahg.com" },
-    update: {},
+    update: {
+      name: "Coach Arjun",
+      role: Role.TRAINER,
+    },
     create: {
       email: "trainer@ahg.com", name: "Coach Arjun", passwordHash: defaultHash, role: Role.TRAINER,
       avatar: "",
@@ -174,90 +157,7 @@ async function main() {
     },
   });
 
-  // Students
-  const s1 = await prisma.user.upsert({
-    where: { email: "student1@ahg.com" },
-    update: {},
-    create: {
-      email: "student1@ahg.com", name: "Rahul Sharma", passwordHash: defaultHash, role: Role.STUDENT,
-      studentProfile: { create: { collegeId: "COL-001", heightCm: 175, weightKg: 72, fitnessGoal: "muscle_gain", streak: 12, totalPoints: 340, trainerId: trainer.id, onboardingCompleted: true } },
-    },
-  });
-
-  const s2 = await prisma.user.upsert({
-    where: { email: "student2@ahg.com" },
-    update: {},
-    create: {
-      email: "student2@ahg.com", name: "Priya Patel", passwordHash: defaultHash, role: Role.STUDENT,
-      studentProfile: { create: { collegeId: "COL-002", heightCm: 162, weightKg: 58, fitnessGoal: "fat_loss", streak: 7, totalPoints: 180, trainerId: trainer.id, onboardingCompleted: true } },
-    },
-  });
-
-  // Plan with days & tasks
-  const plan = await prisma.plan.create({
-    data: {
-      name: "4-Week Strength Program",
-      trainerId: trainer.id,
-      studentId: s1.id,
-      difficulty: "intermediate",
-      goalType: "muscle_gain",
-      status: "ACTIVE",
-      days: {
-        create: Array.from({ length: 7 }, (_, i) => ({
-          day: i + 1,
-          tasks: {
-            create: [
-              { type: "workout", title: `Day ${i + 1} — Upper Body Push`, description: "Bench press 4x8, OHP 3x10, Dips 3x12", durationMin: 45, intensity: "high", points: 20 },
-              { type: "nutrition", title: "Hit protein target", description: "Consume 140g protein today", points: 10 },
-              { type: "habit", title: "Sleep 7+ hours", description: "Track sleep quality", points: 5 },
-            ],
-          },
-        })),
-      },
-    },
-  });
-
-  // Link plan to student
-  await prisma.studentProfile.update({ where: { userId: s1.id }, data: { currentPlanId: plan.id } });
-
-  // Posts
-  await prisma.post.createMany({
-    data: [
-      { userId: s1.id, type: "image", caption: "Morning workout done! 💪", source: "task-proof", location: "University Gym" },
-      { userId: s2.id, type: "image", caption: "Meal prep Sunday 🥗", source: "general", location: "Home" },
-      { userId: trainer.id, type: "video", caption: "Proper deadlift form — watch this!", source: "general", location: "Training Center" },
-    ],
-  });
-
-  // Follow relationships
-  await prisma.follow.createMany({
-    data: [
-      { followerId: s1.id, followingId: s2.id },
-      { followerId: s2.id, followingId: s1.id },
-      { followerId: s1.id, followingId: trainer.id },
-      { followerId: s2.id, followingId: trainer.id },
-    ],
-    skipDuplicates: true,
-  });
-
-  // Chat thread between trainer and student
-  const thread = await prisma.chatThread.create({ data: {} });
-  await prisma.threadParticipant.createMany({
-    data: [
-      { threadId: thread.id, userId: trainer.id },
-      { threadId: thread.id, userId: s1.id },
-    ],
-  });
-  await prisma.chatMessage.createMany({
-    data: [
-      { threadId: thread.id, senderId: trainer.id, text: "Hey Rahul, how's the new program going?" },
-      { threadId: thread.id, senderId: s1.id, text: "Great coach! Feeling stronger already." },
-    ],
-  });
-
-  await seedDedicatedLoadDataset(trainer.id, defaultHash);
-
-  console.log("✅ Seed complete: admin, trainer, 2 students, plan, posts, chat");
+  console.log("✅ Seed complete: admin and trainer only");
 }
 
 function isTransientDbError(error: unknown): boolean {
