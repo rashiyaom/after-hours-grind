@@ -40,72 +40,26 @@ async function deleteStudentSeedData(): Promise<void> {
 
   const studentIds = students.map((student) => student.id);
 
-  const planRows = await prisma.plan.findMany({
-    where: { studentId: { in: studentIds } },
-    select: { id: true },
-  });
-  const planIds = planRows.map((plan) => plan.id);
-
-  const threadRows = await prisma.threadParticipant.findMany({
-    where: { userId: { in: studentIds } },
-    select: { threadId: true },
-  });
-  const threadIds = Array.from(new Set(threadRows.map((row) => row.threadId)));
-
-  if (planIds.length > 0) {
-    await prisma.submission.deleteMany({ where: { planTask: { planDay: { planId: { in: planIds } } } } });
-    await prisma.plan.deleteMany({ where: { id: { in: planIds } } });
-  }
-
-  await prisma.follow.deleteMany({
-    where: {
-      OR: [
-        { followerId: { in: studentIds } },
-        { followingId: { in: studentIds } },
-      ],
-    },
-  });
-
-  await prisma.comment.deleteMany({ where: { userId: { in: studentIds } } });
-  await prisma.like.deleteMany({ where: { userId: { in: studentIds } } });
-  await prisma.post.deleteMany({ where: { userId: { in: studentIds } } });
-  await prisma.notification.deleteMany({ where: { userId: { in: studentIds } } });
-  await prisma.progressEntry.deleteMany({ where: { userId: { in: studentIds } } });
-  await prisma.userAchievement.deleteMany({ where: { userId: { in: studentIds } } });
-  await prisma.rewardTransaction.deleteMany({
-    where: {
-      OR: [
-        { userId: { in: studentIds } },
-        { createdById: { in: studentIds } },
-      ],
-    },
-  });
-  await prisma.stravaConnection.deleteMany({ where: { userId: { in: studentIds } } });
-  await prisma.refreshToken.deleteMany({ where: { userId: { in: studentIds } } });
-  await prisma.passwordResetToken.deleteMany({ where: { userId: { in: studentIds } } });
-  await prisma.submission.deleteMany({
-    where: {
-      OR: [
-        { studentId: { in: studentIds } },
-        { reviewedById: { in: studentIds } },
-      ],
-    },
-  });
-
-  if (threadIds.length > 0) {
-    await prisma.chatMessage.deleteMany({
-      where: {
-        OR: [
-          { senderId: { in: studentIds } },
-          { threadId: { in: threadIds } },
-        ],
-      },
-    });
-    await prisma.threadParticipant.deleteMany({ where: { threadId: { in: threadIds } } });
-    await prisma.chatThread.deleteMany({ where: { id: { in: threadIds } } });
-  }
-
-  await prisma.studentProfile.deleteMany({ where: { userId: { in: studentIds } } });
+  await prisma.chatMessage.deleteMany();
+  await prisma.threadParticipant.deleteMany();
+  await prisma.chatThread.deleteMany();
+  await prisma.submission.deleteMany();
+  await prisma.planTask.deleteMany();
+  await prisma.planDay.deleteMany();
+  await prisma.plan.deleteMany();
+  await prisma.follow.deleteMany();
+  await prisma.comment.deleteMany();
+  await prisma.like.deleteMany();
+  await prisma.post.deleteMany();
+  await prisma.notification.deleteMany();
+  await prisma.progressEntry.deleteMany();
+  await prisma.userAchievement.deleteMany();
+  await prisma.rewardTransaction.deleteMany();
+  await prisma.stravaConnection.deleteMany();
+  await prisma.refreshToken.deleteMany();
+  await prisma.passwordResetToken.deleteMany();
+  await prisma.userSettings.deleteMany();
+  await prisma.studentProfile.deleteMany();
   await prisma.user.deleteMany({ where: { id: { in: studentIds } } });
 
   console.log(`Removed ${studentIds.length} seeded student accounts and related data.`);
@@ -141,9 +95,10 @@ async function main() {
     update: {
       name: "Coach Arjun",
       role: Role.TRAINER,
+      passwordHash: adminHash,
     },
     create: {
-      email: "trainer@ahg.com", name: "Coach Arjun", passwordHash: defaultHash, role: Role.TRAINER,
+      email: "trainer@ahg.com", name: "Coach Arjun", passwordHash: adminHash, role: Role.TRAINER,
       avatar: "",
       trainerProfile: {
         create: {
