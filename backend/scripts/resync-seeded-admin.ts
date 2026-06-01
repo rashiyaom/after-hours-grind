@@ -1,5 +1,12 @@
 import { PrismaClient, Role } from "@prisma/client";
 import bcrypt from "bcryptjs";
+import dotenv from "dotenv";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+
+const scriptDir = path.dirname(fileURLToPath(import.meta.url));
+const backendRoot = path.resolve(scriptDir, "..");
+dotenv.config({ path: path.resolve(backendRoot, ".env") });
 
 const prisma = new PrismaClient();
 
