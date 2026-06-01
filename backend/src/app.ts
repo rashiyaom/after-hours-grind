@@ -28,6 +28,17 @@ const apiAuthReadLimiter = createRateLimit({
   maxRequests: env.API_AUTH_READ_RATE_LIMIT_MAX_REQUESTS,
 });
 
+const conditionalAuthReadLimiter: express.RequestHandler = (req, res, next) => {
+  // Only throttle read-heavy non-auth API traffic.
+  // Auth routes already have their own dedicated limiter.
+  if (req.method !== "GET" || req.path.startsWith("/auth")) {
+    next();
+    return;
+  }
+
+  void apiAuthReadLimiter(req, res, next);
+};
+
 const app = express();
 if (env.TRUST_PROXY) {
   app.set("trust proxy", 1);
@@ -68,10 +79,9 @@ app.get("/", (req, res) => {
   });
 });
 
-// Routes — global limiter + auth-read limiter applied as a stack.
-// The global limiter protects the absolute ceiling; the auth-read limiter
-// provides a tighter read-path budget to shield the DB connection pool.
-app.use("/api", apiGlobalLimiter, apiAuthReadLimiter, apiRouter);
+// Routes — global limiter always applies; auth-read limiter only applies to
+// non-auth GET routes so login/signup aren't blocked by read traffic bursts.
+app.use("/api", apiGlobalLimiter, conditionalAuthReadLimiter, apiRouter);
 
 // Setup Sentry error handlers (must be after routes, before other error handlers)
 setupSentryHandlers();

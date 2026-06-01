@@ -133,13 +133,13 @@ async function seedDedicatedLoadDataset(trainerId: string, defaultHash: string):
 
 async function main() {
   // SECURITY: Prevent accidental seeding in production
-  if (process.env.NODE_ENV === "production") {
+  if (nodeProcess?.env.NODE_ENV === "production") {
     console.error(
       "\n❌ Database seeding is DISABLED in production!\n" +
       "This script is for development/testing only and would overwrite your production data.\n" +
       "If you need to seed production data, use migration scripts instead.\n"
     );
-    process.exit(1);
+    if (nodeProcess) nodeProcess.exit(1);
   }
 
   const adminEmail = parseSeedAdminEmail();
