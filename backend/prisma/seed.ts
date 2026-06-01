@@ -1,5 +1,5 @@
 import { PrismaClient, Role } from "@prisma/client";
-import bcrypt from "bcryptjs";
+import { hashPassword } from "../src/lib/password.js";
 
 const prisma = new PrismaClient();
 const nodeProcess = (globalThis as { process?: { env: Record<string, string | undefined>; exit: (code: number) => never } }).process;
@@ -104,8 +104,8 @@ async function main() {
   const adminEmail = parseSeedAdminEmail();
   const adminPassword = parseSeedAdminPassword();
   const trainerPassword = parseSeedTrainerPassword();
-  const adminHash = await bcrypt.hash(adminPassword, 12);
-  const trainerHash = await bcrypt.hash(trainerPassword, 12);
+  const adminHash = await hashPassword(adminPassword);
+  const trainerHash = await hashPassword(trainerPassword);
 
   await deleteNonSeedUsersAndContent(adminEmail, "trainer@ahg.com");
 

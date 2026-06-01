@@ -1,8 +1,8 @@
 import { PrismaClient, Role } from "@prisma/client";
-import bcrypt from "bcryptjs";
 import dotenv from "dotenv";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { hashPassword } from "../src/lib/password.js";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const backendRoot = path.resolve(scriptDir, "..");
@@ -47,7 +47,7 @@ async function main(): Promise<void> {
   const password = requireEnv("SEED_ADMIN_PASSWORD");
   assertStrongPassword(password);
 
-  const passwordHash = await bcrypt.hash(password, 12);
+  const passwordHash = await hashPassword(password);
 
   const user = await prisma.user.upsert({
     where: { email },
