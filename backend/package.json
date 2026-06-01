@@ -18,7 +18,8 @@
     "prisma:studio": "tsx scripts/prisma-cli.ts studio",
     "db:list-users": "tsx scratch/list_users.ts"
     ,
-    "db:run-audit": "tsx scripts/run_db_audit.ts"
+    "db:run-audit": "tsx scripts/run_db_audit.ts",
+    "auth:resync-seeded-admin": "tsx scripts/resync-seeded-admin.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
