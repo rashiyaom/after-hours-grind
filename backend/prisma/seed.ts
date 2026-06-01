@@ -30,15 +30,30 @@ function parseSeedAdminEmail(): string {
   return (nodeProcess?.env.SEED_ADMIN_EMAIL ?? "admin@ahg.com").trim().toLowerCase();
 }
 
-async function deleteStudentSeedData(): Promise<void> {
-  const students = await prisma.user.findMany({
-    where: { role: Role.STUDENT },
-    select: { id: true },
-  });
+function parseSeedTrainerPassword(): string {
+  const password = nodeProcess?.env.SEED_TRAINER_PASSWORD;
+  if (!password) {
+    throw new Error("SEED_TRAINER_PASSWORD is required for the seeded trainer account.");
+  }
 
-  if (students.length === 0) return;
+  const strongEnough =
+    password.length >= 12 &&
+    /[A-Z]/.test(password) &&
+    /[a-z]/.test(password) &&
+    /\d/.test(password) &&
+    /[^A-Za-z0-9]/.test(password);
 
-  const studentIds = students.map((student) => student.id);
+  if (!strongEnough) {
+    throw new Error(
+      "SEED_TRAINER_PASSWORD is too weak. Use at least 12 chars with upper/lowercase, number, and symbol."
+    );
+  }
+
+  return password;
+}
+
+async function deleteNonSeedUsersAndContent(adminEmail: string, trainerEmail: string): Promise<void> {
+  const protectedEmails = new Set([adminEmail, trainerEmail]);
 
   await prisma.chatMessage.deleteMany();
   await prisma.threadParticipant.deleteMany();
@@ -60,9 +75,19 @@ async function deleteStudentSeedData(): Promise<void> {
   await prisma.passwordResetToken.deleteMany();
   await prisma.userSettings.deleteMany();
   await prisma.studentProfile.deleteMany();
-  await prisma.user.deleteMany({ where: { id: { in: studentIds } } });
+  await prisma.plan.deleteMany();
+  await prisma.eventEntry.deleteMany();
+  await prisma.event.deleteMany();
 
-  console.log(`Removed ${studentIds.length} seeded student accounts and related data.`);
+  await prisma.user.deleteMany({
+    where: {
+      NOT: {
+        email: { in: [adminEmail, trainerEmail] },
+      },
+    },
+  });
+
+  console.log(`Removed non-seed users and related content. Protected users: ${[...protectedEmails].join(", ")}`);
 }
 
 async function main() {
@@ -78,9 +103,11 @@ async function main() {
 
   const adminEmail = parseSeedAdminEmail();
   const adminPassword = parseSeedAdminPassword();
+  const trainerPassword = parseSeedTrainerPassword();
   const adminHash = await bcrypt.hash(adminPassword, 12);
+  const trainerHash = await bcrypt.hash(trainerPassword, 12);
 
-  await deleteStudentSeedData();
+  await deleteNonSeedUsersAndContent(adminEmail, "trainer@ahg.com");
 
   // Admin
   const admin = await prisma.user.upsert({
@@ -95,10 +122,10 @@ async function main() {
     update: {
       name: "Coach Arjun",
       role: Role.TRAINER,
-      passwordHash: adminHash,
+      passwordHash: trainerHash,
     },
     create: {
-      email: "trainer@ahg.com", name: "Coach Arjun", passwordHash: adminHash, role: Role.TRAINER,
+      email: "trainer@ahg.com", name: "Coach Arjun", passwordHash: trainerHash, role: Role.TRAINER,
       avatar: "",
       trainerProfile: {
         create: {

@@ -1,7 +1,6 @@
 {
   "compilerOptions": {
-    "baseUrl": ".",
-    "ignoreDeprecations": "6.0",
+    "ignoreDeprecations": "5.0",
     "allowJs": true,
     "noImplicitAny": false,
     "noUnusedLocals": false,
