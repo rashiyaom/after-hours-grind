@@ -11,6 +11,16 @@ const authLimiter = createRateLimit({
 	key: "auth",
 	windowMs: env.AUTH_RATE_LIMIT_WINDOW_MS,
 	maxRequests: env.AUTH_RATE_LIMIT_MAX_REQUESTS,
+	keyResolver: (req) => {
+		const ip = req.ip || "unknown";
+		const path = req.path || "unknown";
+		const email =
+			typeof req.body?.email === "string"
+				? req.body.email.trim().toLowerCase()
+				: "no-email";
+		// Route-aware key avoids one noisy auth path starving others on the same IP.
+		return `${ip}:${path}:${email}`;
+	},
 });
 
 const refreshLimiter = createRateLimit({
