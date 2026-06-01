@@ -7,10 +7,12 @@ import { requireAuth } from "../../middleware/requireAuth.js";
 
 const router = Router();
 
+const effectiveAuthMax = env.NODE_ENV === "development" ? Math.max(env.AUTH_RATE_LIMIT_MAX_REQUESTS, 200) : env.AUTH_RATE_LIMIT_MAX_REQUESTS;
+
 const authLimiter = createRateLimit({
 	key: "auth",
 	windowMs: env.AUTH_RATE_LIMIT_WINDOW_MS,
-	maxRequests: env.AUTH_RATE_LIMIT_MAX_REQUESTS,
+	maxRequests: effectiveAuthMax,
 	keyResolver: (req) => {
 		const ip = req.ip || "unknown";
 		const path = req.path || "unknown";

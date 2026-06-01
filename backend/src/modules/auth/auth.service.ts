@@ -8,6 +8,7 @@ import type { SignupInput, LoginInput } from "./auth.schema.js";
 import crypto from "crypto";
 import { sendPasswordResetCodeEmail, sendPasswordResetEmail, isMailerConfigured, sendLoginAlertEmail, sendWelcomeEmail } from "../../lib/mailer.js";
 import { deleteCacheKey, getJsonCache, setJsonCache } from "../../lib/cache.js";
+import { createPlan } from "../plans/plans.service.js";
 
 const DEFAULT_REFRESH_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 const REFRESH_TOKEN_TTL_MS = parseDurationToMs(env.REFRESH_TOKEN_TTL, DEFAULT_REFRESH_TTL_MS);
@@ -100,6 +101,45 @@ export async function login(input: LoginInput) {
       data: { lastLoginAt: user.lastLoginAt ?? new Date() },
     })
     .catch(() => {});
+
+  // Auto-assign Week 1 plan for students who do not have a current plan yet.
+  try {
+    if (user.role === "STUDENT") {
+      const profile = await prisma.studentProfile.findUnique({ where: { userId: user.id } });
+      if (profile && !profile.currentPlanId) {
+        // Build a 7-day Week 1 plan based on the template we created.
+        const weekDays = [
+          { day: 1, exercises: ['Walking Lunges','Jump Squats','Reverse Lunges','Broad Jumps','Wall Sit','Calf Raises','100m Run (Finisher)','Plank','Leg Raises'] },
+          { day: 2, exercises: ['Pushups','Wide Pushups','Diamond Pushups','Pike Pushups','Burpees','Plank','Mountain Climbers','Russian Twists','Flutter Kicks'] },
+          { day: 3, exercises: ['50m Sprint','Shuttle Run','Side Shuffle Sprint','Burpees','Jump Lunges','Pushups','Plank Shoulder Taps','Squat Pulses'] },
+          { day: 4, exercises: [] },
+          { day: 5, exercises: ['Burpees','Pushups','Walking Lunges','Jump Squats','Mountain Climbers','Plank','800m Run'] },
+          { day: 6, exercises: ['Endurance Run 2-4km','Plank','Side Plank','Leg Raises','Bicycle Crunches','Hollow Hold','Jumping Jacks'] },
+          { day: 7, exercises: [] },
+        ];
+
+        const daysPayload = weekDays.map((d) => ({
+          day: d.day,
+          activity: '',
+          exercises: d.exercises.map((title) => ({ title, youtubeUrl: null })),
+          meals: [],
+        }));
+
+        // Use a system trainer id string to indicate auto-assigned
+        void createPlan('system-auto', {
+          name: 'Week 1 — Field Workout (Auto-assigned)',
+          duration: 7,
+          goalType: 'athletic_base',
+          difficulty: 'moderate',
+          studentIds: [user.id],
+          days: daysPayload,
+        }).catch(() => {});
+      }
+    }
+  } catch (err) {
+    // Non-fatal: if plan creation fails, don't block login
+    void Promise.resolve();
+  }
 
   return result;
 }

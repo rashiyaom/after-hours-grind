@@ -1286,7 +1286,7 @@ export async function assignExerciseTemplate(payload: {
     await prisma.$executeRawUnsafe(
         `
             DELETE FROM exercise_template_assignment
-            WHERE student_id = ANY($1::uuid[])
+                        WHERE student_id = ANY($1::text[])
               AND day_number = $2
               AND template_id = $3
         `,
@@ -1303,7 +1303,7 @@ export async function assignExerciseTemplate(payload: {
                 UPDATE exercise_template_assignment
                 SET sort_order = sort_order + 1,
                     updated_at = NOW()
-                WHERE student_id = ANY($1::uuid[])
+                        WHERE student_id = ANY($1::text[])
                   AND day_number = $2
                   AND sort_order >= $3
             `,
@@ -1438,9 +1438,9 @@ export async function assignExerciseTemplateBulk(payload: {
         const dayNumbers = normalizedDayPlans.map(dp => dp.dayNumber);
         await prisma.$executeRawUnsafe(
             `
-                DELETE FROM exercise_template_assignment
-                WHERE student_id = ANY($1::uuid[])
-                  AND day_number = ANY($2::int[])
+                        DELETE FROM exercise_template_assignment
+                        WHERE student_id = ANY($1::text[])
+                            AND day_number = ANY($2::int[])
             `,
             validStudentIds,
             dayNumbers,

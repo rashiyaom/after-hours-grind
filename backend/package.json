@@ -19,6 +19,7 @@
     "db:list-users": "tsx scratch/list_users.ts",
     "db:run-audit": "tsx scripts/run_db_audit.ts",
     "db:ensure-admin": "tsx scripts/ensure-admin.ts",
+    "db:create-week1-template": "tsx scripts/create-week1-template.ts",
     "auth:resync-seeded-admin": "tsx scripts/resync-seeded-admin.ts"
   },
   "prisma": {
