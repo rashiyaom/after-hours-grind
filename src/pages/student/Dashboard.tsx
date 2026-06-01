@@ -462,21 +462,21 @@ export default function StudentDashboard() {
   }
 
   return (
-    <div className="mx-auto min-h-screen max-w-7xl space-y-6 p-4 sm:p-6 lg:p-8">
+    <div className="mx-auto min-h-screen max-w-7xl space-y-4 p-3 sm:space-y-6 sm:p-6 lg:p-8">
       <motion.section
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
         transition={LUXURY_TWEEN_MEDIUM}
-        className="rounded-[32px] border border-white/10 bg-[#121212] p-4 shadow-[0_20px_60px_rgba(0,0,0,0.4)] sm:p-6"
+        className="rounded-[32px] border border-white/10 bg-[#121212] p-3 shadow-[0_20px_60px_rgba(0,0,0,0.4)] sm:p-6"
       >
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex min-w-0 flex-nowrap items-center gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             {DASHBOARD_TABS.map((tab) => (
               <button
                 key={tab}
                 type="button"
                 onClick={() => handleTabSelect(tab)}
-                className={`rounded-full px-4 py-2 text-sm font-semibold transition-colors ${
+                className={`shrink-0 rounded-full px-4 py-2 text-sm font-semibold transition-colors ${
                   activeTab === tab
                     ? "bg-[#C9F85A] text-[#0F0F0F]"
                     : "bg-[#1D1D1D] text-white/85 hover:bg-[#2A2A2A]"
@@ -550,10 +550,10 @@ export default function StudentDashboard() {
           </div>
         </div>
 
-        <div className="mt-7 grid gap-4 lg:grid-cols-12">
-          <div className="rounded-3xl border border-white/10 bg-[#171717] p-6 lg:col-span-4">
+        <div className="mt-6 grid gap-4 lg:grid-cols-12">
+          <div className="rounded-3xl border border-white/10 bg-[#171717] p-4 sm:p-6 lg:col-span-4">
             <p className="text-sm text-white/60">Welcome back,</p>
-            <h1 className="mt-2 text-4xl font-semibold leading-[1.05] tracking-tight text-white sm:text-5xl">
+            <h1 className="mt-2 text-3xl font-semibold leading-[1.05] tracking-tight text-white sm:text-5xl">
               {firstName}
             </h1>
             <div className="mt-4 inline-flex rounded-full bg-[#6F5CFF] px-3 py-1 text-xs font-semibold text-white">
@@ -590,7 +590,7 @@ export default function StudentDashboard() {
             return (
               <div
                 key={card.title}
-                className={`rounded-3xl border border-white/10 p-5 ${card.accent} ${card.spanClass}`}
+                className={`rounded-3xl border border-white/10 p-4 sm:p-5 ${card.accent} ${card.spanClass}`}
               >
                 <div className="flex items-center justify-between">
                   <div className="inline-flex rounded-full bg-black/15 p-2">
@@ -601,21 +601,21 @@ export default function StudentDashboard() {
                   </Link>
                 </div>
                 <p className="mt-5 text-xs font-medium opacity-75">{card.title}</p>
-                <p className="mt-1 text-4xl font-semibold leading-none">{card.value}</p>
+                <p className="mt-1 text-3xl font-semibold leading-none sm:text-4xl">{card.value}</p>
                 <p className="mt-3 text-xs font-medium opacity-75">{card.delta}</p>
               </div>
             );
           })}
         </div>
 
-        <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
-          <div className="flex flex-wrap items-center gap-2">
+        <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex min-w-0 flex-nowrap items-center gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             {DASHBOARD_PILLS.map((pill) => (
               <button
                 key={pill}
                 type="button"
                 onClick={() => setActivePill(pill)}
-                className={`rounded-full px-4 py-2 text-sm font-medium ${
+                className={`shrink-0 rounded-full px-4 py-2 text-sm font-medium ${
                   activePill === pill
                     ? "bg-[#C9F85A] text-[#111]"
                     : "bg-[#1E1E1E] text-white/75 hover:bg-[#292929]"
@@ -625,7 +625,7 @@ export default function StudentDashboard() {
               </button>
             ))}
           </div>
-          <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
+          <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:justify-end">
             <button
               type="button"
               onClick={() => setTimeframe((v) => (v === "Weekly" ? "Monthly" : "Weekly"))}
@@ -647,12 +647,12 @@ export default function StudentDashboard() {
         
       </motion.section>
 
-      <section className="grid gap-6 lg:grid-cols-12">
+      <section className="grid gap-4 lg:grid-cols-12">
         <motion.div
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ ...LUXURY_TWEEN_MEDIUM, delay: 0.06 }}
-          className="flex h-full flex-col rounded-3xl border border-white/10 bg-[#151515] p-5 lg:col-span-5 lg:h-[34rem]"
+          className="flex h-full flex-col rounded-3xl border border-white/10 bg-[#151515] p-4 sm:p-5 lg:col-span-5 lg:h-[34rem]"
         >
           <div className="mb-5 flex items-center justify-between">
             <div className="flex items-center gap-2">
@@ -727,7 +727,7 @@ export default function StudentDashboard() {
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ ...LUXURY_TWEEN_MEDIUM, delay: 0.12 }}
-          className="flex h-full flex-col rounded-3xl border border-white/10 bg-[#151515] p-5 lg:col-span-4 lg:h-[34rem]"
+          className="flex h-full flex-col rounded-3xl border border-white/10 bg-[#151515] p-4 sm:p-5 lg:col-span-4 lg:h-[34rem]"
         >
           {/* Header */}
           <div className="mb-5 flex items-center justify-between">
@@ -805,7 +805,7 @@ export default function StudentDashboard() {
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ ...LUXURY_TWEEN_MEDIUM, delay: 0.18 }}
-          className="flex h-full flex-col rounded-3xl border border-white/10 bg-[#151515] p-4 sm:p-5 lg:col-span-3 lg:h-[34rem] min-w-0"
+          className="flex h-full min-w-0 flex-col rounded-3xl border border-white/10 bg-[#151515] p-4 sm:p-5 lg:col-span-3 lg:h-[34rem]"
         >
           {/* Header */}
           <div className="mb-4 flex items-center justify-between gap-3">
