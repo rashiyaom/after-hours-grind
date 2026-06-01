@@ -7,7 +7,7 @@
     "build": "tsc -p .",
     "postinstall": "tsx scripts/prisma-cli.ts generate",
     "start": "npm run start:guarded",
-    "start:guarded": "npm run prisma:migrate:deploy && npm run prisma:migrate:status && node dist/server.js",
+    "start:guarded": "npm run prisma:migrate:deploy && npm run prisma:migrate:status && npm run db:ensure-admin && node dist/server.js",
     "test": "vitest run",
     "test:smoke:whatsapp": "vitest run tests/whatsapp-proof.smoke.test.ts",
     "test:watch": "vitest",
@@ -16,9 +16,9 @@
     "prisma:migrate:deploy": "tsx scripts/prisma-cli.ts migrate deploy",
     "prisma:migrate:status": "tsx scripts/prisma-cli.ts migrate status",
     "prisma:studio": "tsx scripts/prisma-cli.ts studio",
-    "db:list-users": "tsx scratch/list_users.ts"
-    ,
+    "db:list-users": "tsx scratch/list_users.ts",
     "db:run-audit": "tsx scripts/run_db_audit.ts",
+    "db:ensure-admin": "tsx scripts/ensure-admin.ts",
     "auth:resync-seeded-admin": "tsx scripts/resync-seeded-admin.ts"
   },
   "prisma": {
