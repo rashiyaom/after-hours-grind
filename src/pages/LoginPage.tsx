@@ -69,7 +69,8 @@ export default function LoginPage() {
         }
         
         if (user.role === "student") {
-          navigate("/student/dashboard");
+          const student = user as Student;
+          navigate(student.onboardingStatus === "completed" ? "/student/dashboard" : "/student/onboarding");
         } else if (user.role === "trainer") {
           navigate("/trainer/dashboard");
         } else if (user.role === "admin") {
