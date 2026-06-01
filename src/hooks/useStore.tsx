@@ -936,10 +936,9 @@ const normalizeBackendUser = (input: unknown, existingUser?: User): User | null 
           ? 'in_progress'
           : 'not_started',
       onboardingStep,
-      onboardingDraft:
-        asRecord(profile.onboardingDraft) && existingStudent?.onboardingDraft
-          ? existingStudent.onboardingDraft
-          : existingStudent?.onboardingDraft,
+      onboardingDraft: asRecord(profile.onboardingDraft)
+        ? (profile.onboardingDraft as FitnessQuestionnaire)
+        : existingStudent?.onboardingDraft,
       taskCompletions: existingStudent?.taskCompletions ?? {},
       totalPoints: asNumber(profile.totalPoints, existingStudent?.totalPoints ?? 0),
     } as Student;
