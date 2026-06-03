@@ -311,33 +311,33 @@ export default function CommunityPage() {
     : "Trainer notes, 1:1 student chats, and reel sharing in one place.";
 
   return (
-    <div className="mx-auto max-w-6xl p-4 sm:p-6 lg:p-8 pb-24">
+    <div className="mx-auto max-w-6xl p-3 sm:p-6 lg:p-8 pb-[calc(env(safe-area-inset-bottom)+5.5rem)] sm:pb-10">
       <motion.div
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={LUXURY_TWEEN_MEDIUM}
-        className="rounded-[32px] border border-white/10 bg-[#121212] p-6 shadow-[0_20px_60px_rgba(0,0,0,0.45)] relative overflow-hidden"
+        className="rounded-[24px] sm:rounded-[32px] border border-white/10 bg-[#121212] p-4 sm:p-6 shadow-[0_20px_60px_rgba(0,0,0,0.45)] relative overflow-hidden"
       >
         <div className="absolute -top-10 -right-10 h-56 w-56 rounded-full bg-[#4DD2FF]/10 blur-3xl pointer-events-none" />
         <div className="absolute -bottom-16 -left-10 h-56 w-56 rounded-full bg-[#C9F85A]/8 blur-3xl pointer-events-none" />
 
-        <div className="relative mb-6 flex items-center justify-between gap-4">
-          <div>
+        <div className="relative mb-4 sm:mb-6 flex items-center justify-between gap-3">
+          <div className="min-w-0">
             <div className="inline-flex items-center gap-2 rounded-full border border-[#C9F85A]/25 bg-[#C9F85A]/10 px-3 py-1.5">
               <MessageCircle className="h-3.5 w-3.5 text-[#C9F85A]" />
               <span className="text-[11px] font-bold uppercase tracking-wider text-[#C9F85A]">{roleHeader}</span>
             </div>
-            <h1 className="mt-3 text-3xl font-semibold tracking-tight text-white">Messages</h1>
-            <p className="mt-1 text-sm text-white/45">{roleSubheader}</p>
+            <h1 className="mt-2 sm:mt-3 text-2xl sm:text-3xl font-semibold tracking-tight text-white">Messages</h1>
+            <p className="mt-1 text-xs sm:text-sm text-white/45 line-clamp-2">{roleSubheader}</p>
           </div>
-          <div className="rounded-2xl border border-white/10 bg-[#1A1A1A] px-4 py-3 text-right">
-            <p className="text-[10px] uppercase tracking-wider text-white/30">Private Threads</p>
-            <p className="text-xl font-semibold text-white">{myThreads.length}</p>
+          <div className="rounded-2xl border border-white/10 bg-[#1A1A1A] px-3 py-2.5 sm:px-4 sm:py-3 text-right flex-shrink-0">
+            <p className="text-[10px] uppercase tracking-wider text-white/30">Threads</p>
+            <p className="text-lg sm:text-xl font-semibold text-white">{myThreads.length}</p>
           </div>
         </div>
 
-        <div className="grid gap-4 lg:grid-cols-[320px_minmax(0,1fr)]">
-          <div className="rounded-3xl border border-white/10 bg-[#0E0E0E] p-4">
+        <div className="grid gap-4 lg:grid-cols-[300px_minmax(0,1fr)]">
+          <div className="rounded-2xl sm:rounded-3xl border border-white/10 bg-[#0E0E0E] p-3 sm:p-4">
             <div className="relative mb-3">
               <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/30" />
               <input
@@ -348,7 +348,7 @@ export default function CommunityPage() {
               />
             </div>
 
-            <div className="space-y-2 max-h-[540px] overflow-y-auto pr-1">
+            <div className="space-y-2 max-h-[40vh] lg:max-h-[480px] overflow-y-auto pr-1">
               {contacts.map((contact) => {
                 const thread = myThreads.find((item) => item.participantIds.includes(contact.id));
                 const lastMessage = thread?.messages[thread.messages.length - 1];
@@ -385,7 +385,7 @@ export default function CommunityPage() {
             </div>
           </div>
 
-          <div className="rounded-3xl border border-white/10 bg-[#0F0F0F] flex flex-col min-h-[640px]">
+          <div className="rounded-2xl sm:rounded-3xl border border-white/10 bg-[#0F0F0F] flex flex-col min-h-[400px] lg:min-h-[580px]">
             <div className="border-b border-white/8 p-4 sm:p-5 flex items-center gap-3">
               {activeContact ? (
                 <>

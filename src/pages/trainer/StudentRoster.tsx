@@ -46,7 +46,7 @@ export default function StudentRoster() {
     : 0;
 
   return (
-    <div className="mx-auto max-w-5xl space-y-6 p-4 sm:p-6 lg:p-8">
+    <div className="mx-auto max-w-5xl space-y-6 p-3 sm:p-6 lg:p-8 pb-[calc(env(safe-area-inset-bottom)+5.5rem)] sm:pb-10 overflow-x-hidden">
 
       {/* Header */}
       <motion.section

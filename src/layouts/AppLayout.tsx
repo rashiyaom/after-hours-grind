@@ -525,25 +525,25 @@ export default function AppLayout() {
       </aside>
 
       {/* Mobile Header */}
-      <div className="lg:hidden fixed top-0 left-0 right-0 h-16 bg-[#0D0D0D]/90 backdrop-blur-2xl border-b border-white/5 z-40 flex items-center justify-between px-6">
-            <Link to="/#home" className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-[#C9F85A]/15 flex items-center justify-center border border-[#C9F85A]/25 overflow-hidden">
+      <div className="lg:hidden fixed top-0 left-0 right-0 h-16 bg-[#0D0D0D]/90 backdrop-blur-2xl border-b border-white/5 z-40 flex items-center justify-between px-4">
+        <Link to="/#home" className="flex items-center gap-2.5 min-w-0">
+          <div className="w-8 h-8 flex-shrink-0 rounded-lg bg-[#C9F85A]/15 flex items-center justify-center border border-[#C9F85A]/25 overflow-hidden">
              <img src="/logo.jpg" alt="Logo" className="w-full h-full object-cover" />
           </div>
-          <span className="font-bold text-xs tracking-widest text-white uppercase">THE afterhour socials</span>
+          <span className="font-bold text-[10px] tracking-widest text-white uppercase truncate">THE afterhour socials</span>
         </Link>
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-1 flex-shrink-0">
           {!isTrainer && (
-            <Link to={isTrainer ? "/trainer/dashboard" : "/student/notifications"} className="relative text-white/50 hover:text-[#C9F85A] transition-all active:scale-90">
+            <Link to="/student/notifications" className="relative flex items-center justify-center w-11 h-11 text-white/50 active:text-[#C9F85A] transition-all active:scale-90">
               <Bell className="h-5 w-5" />
-              {!isTrainer && unreadCount > 0 && (
-                <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-[#C9F85A] text-[9px] font-bold text-black flex items-center justify-center">
+              {unreadCount > 0 && (
+                <span className="absolute top-1.5 right-1.5 w-4 h-4 rounded-full bg-[#C9F85A] text-[9px] font-bold text-black flex items-center justify-center">
                   {unreadCount}
                 </span>
               )}
             </Link>
           )}
-          <button type="button" onClick={() => setMobileOpen(true)} className="text-foreground active:scale-90 transition-all">
+          <button type="button" onClick={() => setMobileOpen(true)} className="flex items-center justify-center w-11 h-11 text-foreground active:scale-90 transition-all">
             <Menu className="h-6 w-6" />
           </button>
         </div>
@@ -652,23 +652,23 @@ export default function AppLayout() {
       {/* Mobile Bottom Navigation (Immersive Instagram Style) */}
       {!isAdmin && (
         <div
-          className="lg:hidden fixed inset-x-0 bottom-0 z-40 flex items-center justify-center px-3 pb-[calc(env(safe-area-inset-bottom)+0.75rem)]"
+          className="lg:hidden fixed inset-x-0 bottom-0 z-40 flex items-center justify-center px-3 pb-[calc(env(safe-area-inset-bottom)+0.5rem)]"
           style={{ transform: "translateZ(0)" }}
         >
-          <div className="h-16 w-full max-w-[calc(100vw-1.5rem)] bg-[linear-gradient(180deg,rgba(255,255,255,0.07),rgba(255,255,255,0.03))] backdrop-blur-3xl border border-white/10 rounded-[1.75rem] flex items-center justify-around px-1 shadow-[0_16px_36px_rgba(0,0,0,0.45),inset_0_1px_0_rgba(255,255,255,0.06)]">
+          <div className="h-[60px] w-full max-w-[calc(100vw-1.5rem)] bg-[linear-gradient(180deg,rgba(255,255,255,0.07),rgba(255,255,255,0.03))] backdrop-blur-3xl border border-white/10 rounded-[1.75rem] flex items-center justify-around px-1 shadow-[0_16px_36px_rgba(0,0,0,0.45),inset_0_1px_0_rgba(255,255,255,0.06)]">
           {mobileBottomNav.map((item) => {
             const active = location.pathname === item.path;
             return (
-              <Link key={item.path} to={item.path} className="relative flex flex-col items-center justify-center w-full h-full group">
+              <Link key={item.path} to={item.path} className="relative flex flex-col items-center justify-center w-full h-full min-h-[44px] group">
                 {item.isAction ? (
-                  <div className="absolute -top-5 w-12 h-12 rounded-full bg-[radial-gradient(circle_at_top,#f1ff94_0%,#c9f85a_55%,#98c53f_100%)] flex items-center justify-center shadow-[0_8px_24px_rgba(201,248,90,0.36)] border-4 border-[#0D0D0D] hover:scale-105 active:scale-95 transition-transform">
+                  <div className="absolute -top-5 w-12 h-12 rounded-full bg-[radial-gradient(circle_at_top,#f1ff94_0%,#c9f85a_55%,#98c53f_100%)] flex items-center justify-center shadow-[0_8px_24px_rgba(201,248,90,0.36)] border-4 border-[#0D0D0D] active:scale-95 transition-transform">
                     <item.icon className="h-5 w-5 text-black" />
                   </div>
                 ) : (
-                  <div className={`flex flex-col items-center gap-1.5 transition-all relative ${active ? "scale-110" : "scale-90 opacity-45 hover:opacity-100"}`}>
+                  <div className={`flex flex-col items-center gap-1 transition-all relative ${active ? "scale-110" : "scale-90 opacity-45"}`}>
                     <item.icon className={`h-5 w-5 ${active ? "text-[#C9F85A]" : "text-white/60"}`} />
                     {active && (
-                       <motion.div layoutId="bottom-glow" className="w-1 h-1 rounded-full bg-[#C9F85A] shadow-[0_0_10px_rgba(201,248,90,0.75)] mt-0.5" />
+                       <motion.div layoutId="bottom-glow" className="w-1 h-1 rounded-full bg-[#C9F85A] shadow-[0_0_10px_rgba(201,248,90,0.75)]" />
                     )}
                   </div>
                 )}
@@ -680,18 +680,18 @@ export default function AppLayout() {
       )}
 
       {/* Main content */}
-      <main className={`flex-1 transition-all duration-300 ${collapsed ? "lg:ml-[80px]" : "lg:ml-64"} pt-16 lg:pt-0 pb-[calc(env(safe-area-inset-bottom)+6rem)] lg:pb-0 relative`}>
+      <main className={`flex-1 transition-all duration-300 ${collapsed ? "lg:ml-[80px]" : "lg:ml-64"} pt-16 lg:pt-0 pb-[calc(env(safe-area-inset-bottom)+5.5rem)] lg:pb-0 relative overflow-x-hidden`}>
         {/* Cinematic background glow */}
         <div className="fixed inset-0 bg-[radial-gradient(circle_at_top_right,rgba(201,248,90,0.025),transparent_40%),radial-gradient(circle_at_bottom_left,rgba(77,210,255,0.015),transparent_40%)] pointer-events-none" />
         
-        <div className="relative z-10 min-h-screen">
+        <div className="relative z-10 min-h-screen overflow-x-hidden">
            <MotionConfig transition={LUXURY_TWEEN_MEDIUM}>
              <AnimatePresence mode="wait">
                <motion.div
                  key={location.pathname}
-                 initial={{ opacity: 0, x: 20 }}
-                 animate={{ opacity: 1, x: 0 }}
-                 exit={{ opacity: 0, x: -20 }}
+                 initial={{ opacity: 0, y: 8 }}
+                 animate={{ opacity: 1, y: 0 }}
+                 exit={{ opacity: 0, y: -8 }}
                  transition={LUXURY_TWEEN_MEDIUM}
                  className="min-h-screen"
                >

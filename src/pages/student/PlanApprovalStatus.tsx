@@ -10,7 +10,7 @@ export default function PlanApprovalStatusPage() {
 
   if (!currentStudentPlan || !status) {
     return (
-      <div className="min-h-screen bg-background p-6 sm:p-10">
+      <div className="min-h-screen bg-background p-4 sm:p-10 pb-[calc(env(safe-area-inset-bottom)+5.5rem)] sm:pb-10">
         <div className="mx-auto max-w-3xl rounded-3xl border border-white/10 bg-card p-7 shadow-xl sm:p-10">
           <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">Plan Review Status</p>
           <h1 className="mt-2 font-display text-3xl font-semibold tracking-tight text-foreground">No generated plan found</h1>
@@ -29,7 +29,7 @@ export default function PlanApprovalStatusPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background p-6 sm:p-10">
+    <div className="min-h-screen bg-background p-4 sm:p-10 pb-[calc(env(safe-area-inset-bottom)+5.5rem)] sm:pb-10">
       <div className="mx-auto max-w-3xl rounded-3xl border border-white/10 bg-card p-7 shadow-xl sm:p-10">
         <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">Plan Review Status</p>
         <h1 className="mt-2 font-display text-3xl font-semibold tracking-tight text-foreground">Smart Plan Delivery</h1>

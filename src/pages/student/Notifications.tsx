@@ -16,7 +16,7 @@ export default function NotificationsPage() {
   const markRead = (id: string) => markNotificationRead(id);
 
   return (
-    <div className="p-4 sm:p-6 lg:p-8 max-w-2xl mx-auto space-y-6">
+    <div className="p-3 sm:p-6 lg:p-8 max-w-2xl mx-auto space-y-6 pb-[calc(env(safe-area-inset-bottom)+5.5rem)] sm:pb-10">
       <motion.div
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}

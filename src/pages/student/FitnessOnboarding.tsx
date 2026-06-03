@@ -259,7 +259,7 @@ export default function FitnessOnboardingPage() {
   const stepLabels = ["Metrics", "Status + Goal", "Time + Setup", "Lifestyle", "Safety", "Generate"];
 
   return (
-    <div className="relative min-h-screen overflow-hidden bg-zinc-950 px-4 py-10 text-zinc-100 sm:px-8">
+    <div className="relative min-h-screen overflow-hidden bg-zinc-950 px-4 py-10 pb-[calc(env(safe-area-inset-bottom)+5.5rem)] sm:pb-10 text-zinc-100 sm:px-8">
       <div className="pointer-events-none absolute inset-0">
         <div className="absolute left-0 top-0 h-72 w-72 rounded-full bg-emerald-500/20 blur-3xl" />
         <div className="absolute right-10 top-10 h-64 w-64 rounded-full bg-amber-500/20 blur-3xl" />

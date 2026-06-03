@@ -114,8 +114,8 @@ const ContentModeration = () => {
   };
 
   return (
-    <div className="p-4 md:p-8">
-      <h1 className="text-3xl font-bold mb-6">Content Moderation</h1>
+    <div className="p-3 sm:p-6 lg:p-8 max-w-7xl mx-auto overflow-x-hidden">
+      <h1 className="text-2xl sm:text-3xl font-bold mb-6">Content Moderation</h1>
       <Card className="mb-6">
         <CardHeader>
           <CardTitle>Pending Task Proof Approvals ({pendingProofSubmissions.length})</CardTitle>
