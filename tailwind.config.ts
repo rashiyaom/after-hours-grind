@@ -99,6 +99,9 @@ export default {
         "accordion-up": "accordion-up 0.2s ease-out",
         "pulse-glow": "pulse-glow 2s ease-in-out infinite",
       },
+      gridTemplateColumns: {
+        "14": "repeat(14, minmax(0, 1fr))",
+      },
     },
   },
   plugins: [tailwindAnimate],

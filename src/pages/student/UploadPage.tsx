@@ -128,7 +128,7 @@ export default function UploadPage() {
   };
 
   return (
-    <div className="p-4 sm:p-6 lg:p-8 max-w-2xl mx-auto space-y-10 pb-28 relative">
+    <div className="p-3 sm:p-6 lg:p-8 max-w-2xl mx-auto space-y-10 pb-[calc(env(safe-area-inset-bottom)+5.5rem)] sm:pb-10 relative overflow-x-hidden">
       <div className="absolute top-0 right-0 w-64 h-64 bg-primary/5 blur-3xl pointer-events-none" />
       
       {/* Hidden file input */}

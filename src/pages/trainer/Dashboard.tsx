@@ -184,7 +184,7 @@ export default function TrainerDashboard() {
 
   if (isLoading) {
     return (
-      <div className="mx-auto max-w-7xl space-y-6 p-4 sm:p-6 lg:p-8">
+      <div className="mx-auto max-w-7xl space-y-6 p-3 sm:p-6 lg:p-8 pb-[calc(env(safe-area-inset-bottom)+5.5rem)] sm:pb-10">
         <div className="rounded-[32px] border border-white/10 bg-[#121212] p-6">
           <Skeleton className="h-10 w-72 rounded-full" />
           <div className="mt-6 grid grid-cols-2 gap-4 md:grid-cols-4">
@@ -207,7 +207,7 @@ export default function TrainerDashboard() {
   ];
 
   return (
-    <div className="mx-auto max-w-7xl space-y-6 p-4 sm:p-6 lg:p-8">
+    <div className="mx-auto max-w-7xl space-y-6 p-3 sm:p-6 lg:p-8 pb-[calc(env(safe-area-inset-bottom)+5.5rem)] sm:pb-10 overflow-x-hidden">
 
       {/* Top Header + Stats */}
       <motion.section

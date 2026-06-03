@@ -70,7 +70,7 @@ export default function PointsManagerPage() {
   };
 
   return (
-    <div className="mx-auto max-w-6xl p-6">
+    <div className="mx-auto max-w-6xl p-3 sm:p-6 overflow-x-hidden">
       <h1 className="text-2xl font-semibold text-white mb-4">Points Manager</h1>
       <div className="grid gap-6 lg:grid-cols-[320px_minmax(0,1fr)]">
         <div className="rounded-2xl border border-white/10 bg-[#0E0E0E] p-4">

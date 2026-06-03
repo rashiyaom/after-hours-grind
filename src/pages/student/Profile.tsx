@@ -245,7 +245,7 @@ export default function ProfilePage() {
   const levelNum = Math.floor(s.completionPercentage / 20) + 1;
 
   return (
-    <div className="min-h-screen bg-[#080808] pb-[calc(env(safe-area-inset-bottom)+7rem)] sm:pb-10">
+    <div className="min-h-screen bg-[#080808] pb-[calc(env(safe-area-inset-bottom)+5.5rem)] sm:pb-10 overflow-x-hidden">
 
       {/* ── Hero Banner ─── */}
       <div className="relative overflow-hidden">

@@ -81,7 +81,7 @@ export default function AutoPlansQueuePage() {
   };
 
   return (
-    <div className="relative overflow-hidden p-6 sm:p-8 lg:p-10">
+    <div className="relative overflow-hidden p-3 sm:p-6 lg:p-8 pb-[calc(env(safe-area-inset-bottom)+5.5rem)] sm:pb-10 overflow-x-hidden">
       <div className="pointer-events-none absolute inset-0">
         <div className="absolute left-0 top-0 h-56 w-56 rounded-full bg-primary/10 blur-3xl" />
         <div className="absolute bottom-0 right-0 h-56 w-56 rounded-full bg-emerald-500/10 blur-3xl" />

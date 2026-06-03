@@ -197,7 +197,7 @@ export default function StudentDetail() {
   };
 
   return (
-    <div className="mx-auto max-w-5xl space-y-6 p-4 sm:p-6 lg:p-8 pb-24">
+    <div className="mx-auto max-w-5xl space-y-6 p-3 sm:p-6 lg:p-8 pb-[calc(env(safe-area-inset-bottom)+5.5rem)] sm:pb-10 overflow-x-hidden">
       {/* Back button */}
       <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }}>
         <button

@@ -243,14 +243,14 @@ export default function FeedPage() {
 
   if (loading) {
     return (
-      <div className="mx-auto max-w-2xl p-4 sm:p-6 lg:p-8">
+      <div className="mx-auto max-w-2xl p-3 sm:p-6 lg:p-8 pb-[calc(env(safe-area-inset-bottom)+5.5rem)] sm:pb-10">
         <FeedGridSkeleton count={2} />
       </div>
     );
   }
 
   return (
-    <div className="mx-auto max-w-2xl space-y-6 p-4 sm:p-6 lg:p-8">
+    <div className="mx-auto max-w-2xl space-y-6 p-3 sm:p-6 lg:p-8 pb-[calc(env(safe-area-inset-bottom)+5.5rem)] sm:pb-10">
 
       {/* ── Post detail modal ────────────────────────────── */}
       <AnimatePresence>
@@ -268,7 +268,7 @@ export default function FeedPage() {
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 32 }}
               transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
-              className="fixed left-1/2 top-1/2 z-[101] w-[calc(100vw-1.25rem)] max-w-[1120px] h-[min(90vh,900px)] -translate-x-1/2 -translate-y-1/2 rounded-[32px] overflow-hidden flex flex-col md:flex-row border border-white/10 bg-[#0D0D0D] shadow-[0_0_120px_rgba(0,0,0,0.9)]"
+              className="fixed left-1/2 top-1/2 z-[101] w-[calc(100vw-1rem)] max-w-[1120px] h-[min(92dvh,900px)] -translate-x-1/2 -translate-y-1/2 rounded-[20px] sm:rounded-[32px] overflow-hidden flex flex-col md:flex-row border border-white/10 bg-[#0D0D0D] shadow-[0_0_120px_rgba(0,0,0,0.9)]"
             >
               {/* ─ Left: media ─────────────────────────── */}
               <div className="flex-1 relative flex items-center justify-center bg-[#080808] min-h-[320px] md:min-h-0 border-b md:border-b-0 md:border-r border-white/5 overflow-hidden group">

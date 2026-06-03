@@ -42,7 +42,7 @@ export default function ProgressPage() {
 
   return (
     <div
-      className="mx-auto max-w-7xl space-y-6 overflow-x-hidden p-4 sm:p-6 lg:p-8 pb-28 sm:pb-10 touch-manipulation"
+      className="mx-auto max-w-7xl space-y-6 overflow-x-hidden p-3 sm:p-6 lg:p-8 pb-[calc(env(safe-area-inset-bottom)+5.5rem)] sm:pb-10 touch-manipulation"
       style={{ touchAction: "manipulation", WebkitTextSizeAdjust: "100%" }}
     >
 

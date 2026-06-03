@@ -441,7 +441,7 @@ export default function StudentDashboard() {
 
   if (loading || progressLoading || planLoading) {
     return (
-      <div className="mx-auto max-w-7xl space-y-6 p-4 sm:p-6 lg:p-8">
+      <div className="mx-auto max-w-7xl space-y-6 p-3 sm:p-6 lg:p-8 pb-[calc(env(safe-area-inset-bottom)+5.5rem)] sm:pb-10">
         <div className="grid grid-cols-2 gap-4 md:grid-cols-6">
           {[1, 2, 3, 4, 5, 6].map((i) => (
             <Skeleton key={i} className="h-12 rounded-full" />
@@ -462,7 +462,7 @@ export default function StudentDashboard() {
   }
 
   return (
-    <div className="mx-auto min-h-screen max-w-7xl space-y-4 p-3 sm:space-y-6 sm:p-6 lg:p-8">
+    <div className="mx-auto min-h-screen max-w-7xl space-y-4 p-3 sm:space-y-6 sm:p-6 lg:p-8 pb-[calc(env(safe-area-inset-bottom)+5.5rem)] sm:pb-10 overflow-x-hidden">
       <motion.section
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
@@ -513,7 +513,7 @@ export default function StudentDashboard() {
             </button>
 
             {showNotifications && (
-              <div className="absolute right-0 top-12 z-20 w-72 rounded-2xl border border-white/10 bg-[#1A1A1A] p-3 shadow-2xl">
+              <div className="absolute right-0 top-12 z-20 w-[min(18rem,calc(100vw-2rem))] rounded-2xl border border-white/10 bg-[#1A1A1A] p-3 shadow-2xl">
                 <p className="text-xs font-semibold uppercase tracking-wide text-white/60">Live Alerts</p>
                 <div className="mt-2 space-y-2 text-xs text-white/80">
                   {recentNotifications.length === 0 ? (

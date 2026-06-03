@@ -365,7 +365,7 @@ export default function AdminTemplatesPage() {
   };
 
   return (
-    <div className="p-4 md:p-8 space-y-6">
+    <div className="p-3 sm:p-6 lg:p-8 max-w-7xl mx-auto space-y-6 overflow-x-hidden">
       <div className="flex items-center gap-3">
         <div className="h-10 w-10 rounded-xl bg-[#C9F85A]/15 border border-[#C9F85A]/30 grid place-items-center">
           <Dumbbell className="h-5 w-5 text-[#C9F85A]" />

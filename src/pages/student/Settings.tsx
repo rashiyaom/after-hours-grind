@@ -180,7 +180,7 @@ export default function SettingsPage() {
     .toUpperCase();
 
   return (
-    <div className="min-h-screen bg-[#080808] pb-[calc(env(safe-area-inset-bottom)+7rem)] sm:pb-10 relative overflow-hidden">
+    <div className="min-h-screen bg-[#080808] pb-[calc(env(safe-area-inset-bottom)+5.5rem)] sm:pb-10 relative overflow-hidden">
       {/* Background orbs */}
       <div className="fixed top-0 right-0 w-72 h-72 rounded-full bg-[#4DD2FF]/5 blur-3xl pointer-events-none" />
       <div className="fixed bottom-1/3 left-0 w-56 h-56 rounded-full bg-[#C9F85A]/4 blur-3xl pointer-events-none" />

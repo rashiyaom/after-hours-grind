@@ -175,7 +175,7 @@ export default function AdminEventsManager() {
   };
 
   return (
-    <div style={{ padding: "clamp(1rem,4vw,2.5rem)", minHeight: "100vh", background: "radial-gradient(800px 420px at 20% 0%, rgba(201,248,90,0.14) 0%, transparent 60%), linear-gradient(180deg, #050804 0%, #040603 45%, #030502 100%)", color: "#EFEFEF", fontFamily: "'Outfit',system-ui,sans-serif" }}>
+    <div style={{ padding: "clamp(0.75rem,4vw,2.5rem)", minHeight: "100vh", background: "radial-gradient(800px 420px at 20% 0%, rgba(201,248,90,0.14) 0%, transparent 60%), linear-gradient(180deg, #050804 0%, #040603 45%, #030502 100%)", color: "#EFEFEF", fontFamily: "'Outfit',system-ui,sans-serif", overflowX: "hidden" }}>
       {/* Header */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "1.4rem", flexWrap: "wrap", gap: "1rem" }}>
         <div>

@@ -366,7 +366,7 @@ export default function DailyPlanPage() {
 
   if (!canStartCurrentPlan) {
     return (
-      <div className="mx-auto max-w-3xl space-y-6 p-4 sm:p-6 lg:p-8">
+      <div className="mx-auto max-w-3xl space-y-6 p-3 sm:p-6 lg:p-8 pb-[calc(env(safe-area-inset-bottom)+5.5rem)] sm:pb-10">
         <div className="rounded-[32px] border border-white/10 bg-[#121212] p-8 space-y-5 shadow-[0_20px_60px_rgba(0,0,0,0.4)]">
           <div className="inline-flex items-center gap-2 rounded-full bg-[#6F5CFF]/20 px-3 py-1.5 border border-[#6F5CFF]/30">
             <Clock className="h-3.5 w-3.5 text-[#6F5CFF]" />
@@ -391,14 +391,14 @@ export default function DailyPlanPage() {
 
   if (loading || planLoading) {
     return (
-      <div className="mx-auto max-w-7xl space-y-6 p-4 sm:p-6 lg:p-8">
+      <div className="mx-auto max-w-7xl space-y-6 p-3 sm:p-6 lg:p-8 pb-[calc(env(safe-area-inset-bottom)+5.5rem)] sm:pb-10">
         <DailyPlanWeekSkeleton />
       </div>
     );
   }
 
   return (
-    <div className="mx-auto max-w-7xl space-y-6 p-4 sm:p-6 lg:p-8">
+    <div className="mx-auto max-w-7xl space-y-6 p-3 sm:p-6 lg:p-8 pb-[calc(env(safe-area-inset-bottom)+5.5rem)] sm:pb-10 overflow-x-hidden">
 
       {/* ── Exercise Detail Modal ─────────────────────────── */}
       <AnimatePresence>
@@ -416,7 +416,7 @@ export default function DailyPlanPage() {
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.94, y: 24 }}
               transition={{ duration: 0.32, ease: [0.16, 1, 0.3, 1] }}
-              className="w-full max-w-lg relative z-10 rounded-[32px] overflow-hidden max-h-[90vh] flex flex-col border border-white/10 bg-[#111111] shadow-[0_40px_120px_rgba(0,0,0,0.7)]"
+              className="w-full max-w-lg relative z-10 rounded-[20px] sm:rounded-[32px] overflow-hidden max-h-[92dvh] flex flex-col border border-white/10 bg-[#111111] shadow-[0_40px_120px_rgba(0,0,0,0.7)]"
             >
               {/* video */}
               <div className="aspect-video relative flex items-center justify-center bg-[#080808] flex-shrink-0 overflow-hidden">
@@ -533,7 +533,7 @@ export default function DailyPlanPage() {
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.96, y: 18 }}
               transition={LUXURY_TWEEN_MEDIUM}
-              className="relative z-10 w-full max-w-lg rounded-[28px] border border-white/10 bg-[#111111] p-6 shadow-[0_40px_120px_rgba(0,0,0,0.7)]"
+              className="relative z-10 w-full max-w-lg rounded-[20px] sm:rounded-[28px] border border-white/10 bg-[#111111] p-5 sm:p-6 shadow-[0_40px_120px_rgba(0,0,0,0.7)] max-h-[92dvh] overflow-y-auto"
             >
               <div className="flex items-start justify-between gap-3">
                 <div>
@@ -786,9 +786,9 @@ export default function DailyPlanPage() {
         {activeTab === "workout" && (
           <motion.section
             key="workout"
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -20 }}
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
             transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
             className="space-y-3"
           >
@@ -910,9 +910,9 @@ export default function DailyPlanPage() {
         {activeTab === "diet" && (
           <motion.section
             key="diet"
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: 20 }}
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
             transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
             className="space-y-3"
           >
