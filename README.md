@@ -7,6 +7,16 @@ THE afterhour socials is a full-stack fitness accountability platform built for 
 
 The project now includes an Express + Prisma backend connected to PostgreSQL, with API flows for authentication, feed, plans/submissions, events, chat, notifications, and admin controls.
 
+## App Screens
+
+![Afterhour socials landing page](screenshots/after-hours-home.png)
+
+*Public landing page for the training and accountability platform.*
+
+![Afterhour socials sign-in](screenshots/login.png)
+
+*Sign-in screen for student and trainer access.*
+
 ## Product Flow Overview
 
 The app has three major stages:
